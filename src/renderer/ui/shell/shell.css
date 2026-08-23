@@ -562,3 +562,35 @@
 .cents-toggle:hover {
   color: var(--text);
 }
+
+.toast[data-state='failed'] {
+  border-color: #5a2320;
+}
+.toast__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.toast__link {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.toast__link:hover {
+  color: var(--text);
+}
+.job-log {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  max-height: 320px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}

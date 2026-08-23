@@ -4,7 +4,8 @@ import { useConfig } from './state/config'
 import { useSong } from './state/song'
 import { useTransport } from './state/transport'
 import { useView } from './state/view'
-import { HeaderBar, ScrubBar } from './ui/shell'
+import { useJobs } from './state/jobs'
+import { HeaderBar, ScrubBar, ToastStack } from './ui/shell'
 import { LibraryView } from './ui/views/LibraryView'
 import { PlayerView } from './ui/views/PlayerView'
 import { SetupView } from './ui/views/SetupView'
@@ -14,6 +15,7 @@ export function App() {
   const error = useSong((state) => state.error)
 
   useBoot()
+  useEffect(() => useJobs.getState().watch(), [])
   useGlobalSpaceBar()
   useSaveBeforeUnload()
 
@@ -25,6 +27,7 @@ export function App() {
       {view === 'library' ? <LibraryView /> : null}
       {view === 'player' ? <PlayerView /> : null}
       {view === 'setup' ? <SetupView /> : null}
+      <ToastStack />
     </div>
   )
 }

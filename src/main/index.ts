@@ -4,6 +4,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { readConfig } from './config'
 import { captureAndExit, requestedCapturePath } from './devCapture'
 import { guardClose } from './closeGuard'
+import { jobs } from './jobs'
 import { registerIpcHandlers } from './ipc'
 
 /**
@@ -72,3 +73,6 @@ void app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+/* Nothing external should outlive the app that started it. */
+app.on('will-quit', () => jobs.cancelAll())

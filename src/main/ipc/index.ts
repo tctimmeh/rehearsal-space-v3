@@ -4,6 +4,8 @@ import { migrateSong } from '@core/song/migrate'
 import { UI_SCALE_MAX, UI_SCALE_MIN } from '../../shared/config'
 import { IPC_CHANNELS } from '../../shared/ipc'
 import { readConfig, updateConfig } from '../config'
+import { jobs } from '../jobs'
+import { toolStatus } from '../tools'
 import { createSong, deleteSong, listSongs, readSong, writeSong } from '../library'
 
 /** Applies a new zoom to every open window, so a scale change is immediate. */
@@ -66,4 +68,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.libraryRememberLastSong, async (_event, id: string | null) => {
     await updateConfig({ lastSongId: id })
   })
+
+  ipcMain.handle(IPC_CHANNELS.jobsList, () => jobs.list())
+  ipcMain.handle(IPC_CHANNELS.jobsLog, (_event, id: string) => jobs.log(id))
+  ipcMain.handle(IPC_CHANNELS.jobsCancel, (_event, id: string) => jobs.cancel(id))
+  ipcMain.handle(IPC_CHANNELS.jobsDismiss, (_event, id: string) => jobs.dismiss(id))
+
+  ipcMain.handle(IPC_CHANNELS.toolsStatus, (_event, refresh: unknown) =>
+    toolStatus({ refresh: refresh === true })
+  )
 }

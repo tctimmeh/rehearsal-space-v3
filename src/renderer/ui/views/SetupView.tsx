@@ -2,6 +2,7 @@ import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import { useSong } from '@renderer/state/song'
 import { SubjectIcon } from '../icons/subjectIcons'
 import { Button } from '../primitives'
+import { ToolStatusSection } from './ToolStatusSection'
 
 export function SetupView() {
   const { song, update } = useSong()
@@ -10,6 +11,7 @@ export function SetupView() {
     return (
       <div className="setup">
         <p className="tool-placeholder">No song loaded.</p>
+        <ToolStatusSection />
       </div>
     )
   }
@@ -67,6 +69,8 @@ export function SetupView() {
           </div>
         ))
       )}
+
+      <ToolStatusSection />
     </div>
   )
 }

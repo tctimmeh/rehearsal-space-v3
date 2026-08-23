@@ -26,7 +26,8 @@ If `ELECTRON_RUN_AS_NODE` is set in your shell, Electron starts as plain Node an
 ### Looking at the UI without a screen
 
 Setting `RS_CAPTURE=/path/shot.png` renders the window offscreen to a PNG and
-exits. Useful on Wayland, over SSH, or in CI.
+exits. Useful on Wayland, over SSH, or in CI. `RS_CAPTURE_DELAY` (milliseconds)
+waits longer before the shot when something slow is still loading.
 
 ```sh
 npm run build
@@ -38,7 +39,7 @@ env -u ELECTRON_RUN_AS_NODE ELECTRON_DISABLE_SANDBOX=1 \
 
 ```
 src/
-  main/      Electron main: windows, IPC, and (later) the job queue and library
+  main/      Electron main: windows, IPC, the job queue, external tools, library
   preload/   the one contextBridge surface
   shared/    the IPC contract, imported by both sides
   core/      pure TypeScript — no Electron, no DOM. This is where the tests are,
@@ -49,6 +50,16 @@ src/
     ui/views        Library, Player, Setup
     ui/tools        the tool registry and each tool's panel
 ```
+
+## External tools
+
+`ffmpeg`, `ffprobe`, `yt-dlp` and `demucs` are not bundled. They are looked for
+in the app's own `resources/bin` first, then on `PATH`, and Setup reports what
+was found. Anything that runs them goes through the job queue, so the UI never
+blocks: work reports as a toast with progress, keeps its console log for
+diagnosis, and cancelling kills the whole process tree rather than orphaning
+workers. Successful jobs take themselves off the queue; failures stay until
+dismissed.
 
 ## Where things are stored
 

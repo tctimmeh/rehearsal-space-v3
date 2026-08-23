@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
 import { IPC_CHANNELS, type RehearsalApi } from '../shared/ipc'
+import type { Job } from '../shared/jobs'
 
 const api: RehearsalApi = {
   app: {
@@ -29,6 +30,22 @@ const api: RehearsalApi = {
     save: (song) => ipcRenderer.invoke(IPC_CHANNELS.librarySave, song),
     remove: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryRemove, id),
     rememberLastSong: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryRememberLastSong, id)
+  },
+  jobs: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.jobsList),
+    log: (id) => ipcRenderer.invoke(IPC_CHANNELS.jobsLog, id),
+    cancel: (id) => ipcRenderer.invoke(IPC_CHANNELS.jobsCancel, id),
+    dismiss: (id) => ipcRenderer.invoke(IPC_CHANNELS.jobsDismiss, id),
+    onChanged: (handler) => {
+      const listener = (_event: IpcRendererEvent, jobs: Job[]): void => handler(jobs)
+      ipcRenderer.on(IPC_CHANNELS.jobsChanged, listener)
+      return () => {
+        ipcRenderer.off(IPC_CHANNELS.jobsChanged, listener)
+      }
+    }
+  },
+  tools: {
+    status: (refresh) => ipcRenderer.invoke(IPC_CHANNELS.toolsStatus, refresh === true)
   }
 }
 

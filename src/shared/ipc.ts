@@ -1,5 +1,7 @@
 import type { Song, SongSummary } from '@core/song/song'
 import type { AppConfig } from './config'
+import type { Job } from './jobs'
+import type { ToolStatus } from './tools'
 
 /**
  * The single source of truth for what the renderer may ask the main process to
@@ -30,6 +32,18 @@ export interface RehearsalApi {
     remove(id: string): Promise<void>
     rememberLastSong(id: string | null): Promise<void>
   }
+  jobs: {
+    list(): Promise<Job[]>
+    log(id: string): Promise<string[]>
+    cancel(id: string): Promise<void>
+    dismiss(id: string): Promise<void>
+    /** The queue is pushed from main whenever it changes. Returns an unsubscribe. */
+    onChanged(handler: (jobs: Job[]) => void): () => void
+  }
+  tools: {
+    /** Cached for the session; pass true after installing something. */
+    status(refresh?: boolean): Promise<ToolStatus[]>
+  }
 }
 
 export const IPC_CHANNELS = {
@@ -46,5 +60,11 @@ export const IPC_CHANNELS = {
   libraryLoad: 'library:load',
   librarySave: 'library:save',
   libraryRemove: 'library:remove',
-  libraryRememberLastSong: 'library:remember-last-song'
+  libraryRememberLastSong: 'library:remember-last-song',
+  jobsList: 'jobs:list',
+  jobsLog: 'jobs:log',
+  jobsCancel: 'jobs:cancel',
+  jobsDismiss: 'jobs:dismiss',
+  jobsChanged: 'jobs:changed',
+  toolsStatus: 'tools:status'
 } as const
