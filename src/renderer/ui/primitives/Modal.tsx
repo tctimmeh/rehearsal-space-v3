@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom'
 interface ModalProps {
   title: string
   subtitle?: string
+  /** 'wide' suits settings and logs; the default suits a question. */
+  size?: 'default' | 'wide'
   onDismiss: () => void
   footer?: ReactNode
   children: ReactNode
@@ -13,7 +15,14 @@ interface ModalProps {
  * Rendered through a portal so a modal covers the window rather than whatever
  * positioned ancestor it happens to be declared inside.
  */
-export function Modal({ title, subtitle, onDismiss, footer, children }: ModalProps) {
+export function Modal({
+  title,
+  subtitle,
+  size = 'default',
+  onDismiss,
+  footer,
+  children
+}: ModalProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onDismiss()
@@ -25,7 +34,7 @@ export function Modal({ title, subtitle, onDismiss, footer, children }: ModalPro
   return createPortal(
     <div className="scrim" onPointerDown={onDismiss}>
       <div
-        className="modal"
+        className={size === 'wide' ? 'modal modal--wide' : 'modal'}
         role="dialog"
         aria-modal="true"
         aria-label={title}

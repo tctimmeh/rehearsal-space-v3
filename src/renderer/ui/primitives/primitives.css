@@ -193,6 +193,9 @@
     0 26px 50px -14px rgba(0, 0, 0, 0.9),
     inset 0 1px 0 var(--edge-hi);
 }
+.modal--wide {
+  width: 560px;
+}
 .modal__head {
   padding: 13px 15px;
   border-bottom: 1px solid var(--hairline);
@@ -225,32 +228,4 @@
   font-size: 12.5px;
   color: var(--text-dim);
   line-height: 1.6;
-}
-
-/* ---------- settings ---------- */
-.setting-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.setting-block {
-  margin-top: 16px;
-}
-.setting-path {
-  border-radius: var(--radius);
-  padding: 7px 10px;
-  margin-bottom: 8px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  direction: rtl;
-  text-align: left;
-}
-.setting-note {
-  font-size: 11px;
-  color: var(--text-faint);
-  margin-left: auto;
 }
