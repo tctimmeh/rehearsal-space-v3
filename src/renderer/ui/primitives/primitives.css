@@ -194,7 +194,7 @@
     inset 0 1px 0 var(--edge-hi);
 }
 .modal--wide {
-  width: 560px;
+  width: 640px;
 }
 .modal__head {
   padding: 13px 15px;

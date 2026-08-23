@@ -1,7 +1,7 @@
 import type { Song, SongSummary } from '@core/song/song'
 import type { AppConfig } from './config'
 import type { Job } from './jobs'
-import type { ToolStatus } from './tools'
+import type { ExternalTool, ToolStatus } from './tools'
 
 /**
  * The single source of truth for what the renderer may ask the main process to
@@ -43,6 +43,10 @@ export interface RehearsalApi {
   tools: {
     /** Cached for the session; pass true after installing something. */
     status(refresh?: boolean): Promise<ToolStatus[]>
+    /** Opens a file picker for the tool's binary. Null when cancelled. */
+    choose(tool: ExternalTool): Promise<ToolStatus[] | null>
+    /** Goes back to searching for the tool rather than using a set path. */
+    clear(tool: ExternalTool): Promise<ToolStatus[]>
   }
 }
 
@@ -66,5 +70,7 @@ export const IPC_CHANNELS = {
   jobsCancel: 'jobs:cancel',
   jobsDismiss: 'jobs:dismiss',
   jobsChanged: 'jobs:changed',
-  toolsStatus: 'tools:status'
+  toolsStatus: 'tools:status',
+  toolsChoose: 'tools:choose',
+  toolsClear: 'tools:clear'
 } as const

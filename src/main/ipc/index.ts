@@ -3,9 +3,10 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } fr
 import { migrateSong } from '@core/song/migrate'
 import { UI_SCALE_MAX, UI_SCALE_MIN } from '../../shared/config'
 import { IPC_CHANNELS } from '../../shared/ipc'
+import { isExternalTool } from '../../shared/tools'
 import { readConfig, updateConfig } from '../config'
 import { jobs } from '../jobs'
-import { toolStatus } from '../tools'
+import { setToolPath, toolStatus } from '../tools'
 import { createSong, deleteSong, listSongs, readSong, writeSong } from '../library'
 
 /** Applies a new zoom to every open window, so a scale change is immediate. */
@@ -77,4 +78,27 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.toolsStatus, (_event, refresh: unknown) =>
     toolStatus({ refresh: refresh === true })
   )
+
+  ipcMain.handle(IPC_CHANNELS.toolsChoose, async (event, tool: unknown) => {
+    if (!isExternalTool(tool)) throw new Error(`Unknown tool: ${String(tool)}`)
+
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options: OpenDialogOptions = {
+      title: `Choose the ${tool} executable`,
+      properties: ['openFile'],
+      defaultPath: (await readConfig()).toolPaths[tool] ?? '/usr/bin'
+    }
+    const result = await (window === null
+      ? dialog.showOpenDialog(options)
+      : dialog.showOpenDialog(window, options))
+
+    const chosen = result.filePaths[0]
+    if (result.canceled || chosen === undefined) return null
+    return setToolPath(tool, chosen)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.toolsClear, (_event, tool: unknown) => {
+    if (!isExternalTool(tool)) throw new Error(`Unknown tool: ${String(tool)}`)
+    return setToolPath(tool, null)
+  })
 }

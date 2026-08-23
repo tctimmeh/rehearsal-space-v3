@@ -1,3 +1,5 @@
+import type { ExternalTool } from './tools'
+
 export interface AppConfig {
   /** Directory holding one sub-directory per song. */
   libraryPath: string
@@ -7,6 +9,8 @@ export interface AppConfig {
   /** Reveals the cents knob beside the pitch knob. Off by default: most
       practice is in whole semitones. */
   showCents: boolean
+  /** Explicit locations for external tools, overriding the search. */
+  toolPaths: Partial<Record<ExternalTool, string>>
 }
 
 export const UI_SCALE_MIN = 0.8

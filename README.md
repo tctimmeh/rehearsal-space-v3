@@ -53,9 +53,11 @@ src/
 
 ## External tools
 
-`ffmpeg`, `ffprobe`, `yt-dlp` and `demucs` are not bundled. They are looked for
-in the app's own `resources/bin` first, then on `PATH`, and Settings reports
-what was found. Anything that runs them goes through the job queue, so the UI never
+`ffmpeg`, `ffprobe`, `yt-dlp` and `demucs` are not bundled. They are
+looked for in this order: a path you set in Settings, then the app's own
+`resources/bin`, then `PATH`. Settings reports what was found and lets you
+point any of them at a specific binary — useful for a local build that is not
+installed system-wide. Anything that runs them goes through the job queue, so the UI never
 blocks: work reports as a toast with progress, keeps its console log for
 diagnosis, and cancelling kills the whole process tree rather than orphaning
 workers. Successful jobs take themselves off the queue; failures stay until

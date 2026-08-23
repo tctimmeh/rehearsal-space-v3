@@ -45,7 +45,9 @@ const api: RehearsalApi = {
     }
   },
   tools: {
-    status: (refresh) => ipcRenderer.invoke(IPC_CHANNELS.toolsStatus, refresh === true)
+    status: (refresh) => ipcRenderer.invoke(IPC_CHANNELS.toolsStatus, refresh === true),
+    choose: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsChoose, tool),
+    clear: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsClear, tool)
   }
 }
 
