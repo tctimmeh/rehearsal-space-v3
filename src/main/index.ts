@@ -1,0 +1,62 @@
+import { join } from 'node:path'
+import { app, BrowserWindow, shell } from 'electron'
+
+import { registerIpcHandlers } from './ipc'
+import { captureAndExit, requestedCapturePath } from './devCapture'
+
+const MIN_WIDTH = 1024
+const MIN_HEIGHT = 680
+
+function createWindow(): BrowserWindow {
+  const window = new BrowserWindow({
+    width: 1360,
+    height: 900,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
+    show: false,
+    autoHideMenuBar: true,
+    backgroundColor: '#0e0e11',
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  })
+
+  window.once('ready-to-show', () => {
+    const capturePath = requestedCapturePath()
+    if (capturePath === null) {
+      window.show()
+    } else {
+      void captureAndExit(window, capturePath)
+    }
+  })
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
+  const devServerUrl = process.env['ELECTRON_RENDERER_URL']
+  if (devServerUrl) {
+    void window.loadURL(devServerUrl)
+  } else {
+    void window.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+
+  return window
+}
+
+void app.whenReady().then(() => {
+  registerIpcHandlers()
+  createWindow()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})

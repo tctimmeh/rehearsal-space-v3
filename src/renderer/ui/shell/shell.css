@@ -1,0 +1,528 @@
+/* ---------- overall frame ---------- */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* ---------- header ---------- */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 11px;
+  flex: none;
+  background: linear-gradient(180deg, #202227, #16171a);
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.bar__sep {
+  width: 1px;
+  height: 24px;
+  background: var(--hairline);
+  box-shadow: 1px 0 0 var(--edge-hi);
+  flex: none;
+}
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+}
+.knobs {
+  display: flex;
+  gap: 13px;
+  flex: none;
+}
+.song-id {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+.song-id__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-id__artist {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 1px;
+}
+
+.menu-wrap {
+  position: relative;
+  flex: none;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  width: 190px;
+  background: var(--panel-2);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 4px;
+  box-shadow:
+    0 18px 34px -12px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 var(--edge-hi);
+  z-index: 20;
+}
+.menu__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 3px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.menu__item:hover {
+  background: var(--raise-hi);
+  color: var(--text);
+}
+.menu__item kbd {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+.menu__sep {
+  height: 1px;
+  background: var(--hairline);
+  box-shadow: 0 1px 0 var(--edge-hi);
+  margin: 5px 2px;
+}
+
+/* ---------- scrub ---------- */
+.scrub {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 12px;
+  flex: none;
+  background: var(--panel);
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.scrub__time {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  width: 52px;
+  flex: none;
+}
+.scrub__time--end {
+  text-align: right;
+}
+.scrub__track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  position: relative;
+  background: var(--well);
+  border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+  touch-action: none;
+}
+.scrub__fill {
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  bottom: 1px;
+  border-radius: 2px;
+  background: #565a61;
+}
+/* The count-in: song time before 00:00, hatched so it reads as pre-roll. */
+.scrub__countin {
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  bottom: 1px;
+  border-radius: 2px 0 0 2px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.3) 0 2px,
+    transparent 2px 5px
+  );
+}
+.scrub__handle {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 16px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, #6d727a, #33373d);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------- body: rail + column ---------- */
+.body {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+.rail {
+  width: 46px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 6px;
+  background: var(--panel);
+  border-right: 1px solid var(--hairline);
+  box-shadow: 1px 0 0 var(--edge-hi);
+}
+.rail__btn {
+  width: 34px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--text-dim);
+}
+.rail__btn:hover {
+  color: var(--text);
+}
+.rail__gap {
+  height: 5px;
+  flex: none;
+}
+.column {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- gadget strip (small tools, sized to content) ---------- */
+.gadgets {
+  display: flex;
+  flex: none;
+  background: var(--panel);
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.gadget {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 15px;
+  border-right: 1px solid var(--hairline);
+  box-shadow: 1px 0 0 var(--edge-hi);
+}
+.gadget__name {
+  font-size: 9.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  flex: none;
+}
+.gadget__spacer {
+  flex: 1;
+  border-right: 0;
+  box-shadow: none;
+}
+
+/* ---------- workspace: stage + drawer ---------- */
+.workspace {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stage__cap,
+.drawer__cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  flex: none;
+}
+.stage__cap {
+  border-bottom: 1px solid var(--line-soft);
+}
+.drawer__cap {
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: 0 1px 0 var(--edge-hi);
+  padding: 9px 12px;
+}
+.stage__name,
+.drawer__name {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.stage__meta {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-left: auto;
+}
+.stage__body {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 20px;
+  overflow: auto;
+}
+.close-x {
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.close-x:hover {
+  color: var(--text);
+}
+
+/* Reference panel overlaps rather than pushes: a line you were reading must
+   not move because you asked for a rhyme. */
+.drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 296px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-2);
+  border-left: 1px solid var(--hairline);
+  box-shadow:
+    -18px 0 34px -16px rgba(0, 0, 0, 0.9),
+    inset 1px 0 0 var(--edge-hi);
+  z-index: 15;
+}
+.drawer__body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.stage-empty {
+  margin: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  text-align: center;
+  line-height: 1.7;
+}
+
+/* ---------- mixer dock ---------- */
+.dock {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  border-top: 1px solid var(--hairline);
+  background: linear-gradient(180deg, #1b1d21, #131417);
+  box-shadow: inset 0 1px 0 var(--edge-hi);
+}
+.dock__label {
+  width: 52px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-right: 1px solid var(--hairline);
+  box-shadow: 1px 0 0 var(--edge-hi);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+.strips {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+.strip {
+  width: 104px;
+  flex: none;
+  padding: 9px 9px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  border-right: 1px solid var(--hairline);
+  box-shadow: 1px 0 0 var(--edge-hi);
+}
+.strip:last-child {
+  border-right: 0;
+  box-shadow: none;
+}
+.strip__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.strip__name span {
+  font-size: 11px;
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strip__buttons {
+  display: flex;
+  gap: 5px;
+}
+.ms-btn {
+  width: 26px;
+  height: 20px;
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.ms-btn--mute[data-engaged='true'] {
+  background: linear-gradient(180deg, var(--mute), var(--mute-lo));
+  border-color: #6d1a16;
+  color: #fff3f2;
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.ms-btn--solo[data-engaged='true'] {
+  background: linear-gradient(180deg, var(--solo), var(--solo-lo));
+  border-color: #1a5c34;
+  color: #f0fff5;
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.ms-btn:disabled {
+  opacity: 0.32;
+}
+
+/* Buses sit behind a heavier divider on a different ground, so they read as a
+   different class of thing. No mute or solo — those are per-part decisions. */
+.buses {
+  display: flex;
+  flex: none;
+  background: linear-gradient(180deg, #22252a, #141619);
+  border-left: 2px solid var(--hairline);
+  box-shadow: inset 2px 0 0 var(--edge-hi);
+}
+.bus {
+  width: 92px;
+  flex: none;
+  padding: 9px 9px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  border-left: 1px solid var(--hairline);
+  box-shadow: inset 1px 0 0 var(--edge-hi);
+}
+.bus:first-child {
+  border-left: 0;
+  box-shadow: none;
+}
+.bus__name {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.bus__db {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+/* ---------- job toasts ---------- */
+.toasts {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 226px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  z-index: 40;
+}
+.toast {
+  background: var(--panel-2);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 9px 11px 10px;
+  box-shadow:
+    0 12px 24px -8px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 var(--edge-hi);
+}
+.toast__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toast__lamp {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.toast__name {
+  flex: 1;
+  font-size: 11.5px;
+  font-weight: 550;
+}
+.toast__pct {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+.toast__sub {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toast__bar {
+  height: 3px;
+  margin-top: 8px;
+  background: var(--well);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.toast__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}

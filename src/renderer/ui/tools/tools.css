@@ -1,0 +1,151 @@
+/* ---------- gadget internals ---------- */
+.gadget__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gadget__btn {
+  padding: 3px 9px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.gadget__btn:hover {
+  color: var(--text);
+}
+.gadget__btn--go {
+  color: var(--go-text);
+  background: linear-gradient(180deg, var(--go), var(--go-lo));
+  border-color: var(--go-edge);
+}
+.gadget__btn--go:hover {
+  color: var(--go-text);
+}
+
+/* tuner cents meter */
+.cents {
+  width: 132px;
+  height: 10px;
+  position: relative;
+  border-radius: 3px;
+}
+.cents__center {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: #4c5057;
+}
+.cents__needle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+.cents__scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+/* metronome beat row */
+.beats {
+  display: flex;
+  gap: 4px;
+}
+.beat {
+  width: 9px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--well);
+  border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.beat[data-current='true'] {
+  background: var(--text-dim);
+}
+.beat[data-accent='true'][data-current='true'] {
+  background: var(--go);
+}
+
+/* ---------- lyrics editor ---------- */
+.editor {
+  height: 100%;
+  display: flex;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.editor__gutter {
+  width: 34px;
+  flex: none;
+  padding: 10px 0;
+  background: var(--well);
+  border-right: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: #44464c;
+  text-align: right;
+}
+.editor__gutter div {
+  padding-right: 8px;
+  line-height: 1.85;
+}
+.editor__text {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--well);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--text-dim);
+  white-space: pre;
+  overflow: auto;
+  user-select: text;
+}
+.editor__section {
+  color: var(--section-color, var(--text));
+}
+.editor__chords {
+  color: var(--chord-color, var(--text-dim));
+}
+
+/* ---------- rhymes drawer ---------- */
+.rhyme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 12px;
+}
+.rhyme {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.rhyme b {
+  font-weight: 500;
+  color: var(--text);
+}
+.rhyme span {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.rhyme-group {
+  font-size: 9.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.tool-placeholder {
+  color: var(--text-faint);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
