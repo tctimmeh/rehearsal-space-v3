@@ -57,10 +57,23 @@ export interface Song {
   updatedAt: string
   channels: Channel[]
   buses: { music: number; click: number }
-  playback: { speed: number; pitch: number }
+  playback: { speed: number; pitch: PitchOffset }
   /** Song-scoped tools reopen where you left them. */
   openTools: ToolId[]
 }
+
+/**
+ * Pitch is kept as a whole semitone plus a cent offset rather than one
+ * fractional number, so the two controls stay independent: nudging cents can
+ * never renumber the semitone the user set.
+ */
+export interface PitchOffset {
+  semitones: number
+  cents: number
+}
+
+/** What the audio engine shifts by: semitones, cents folded in. */
+export const totalSemitones = (pitch: PitchOffset): number => pitch.semitones + pitch.cents / 100
 
 export interface SongSummary {
   id: string
@@ -83,7 +96,7 @@ export function newSong(id: string, now = new Date()): Song {
     updatedAt: timestamp,
     channels: [],
     buses: { music: 0.84, click: 0.5 },
-    playback: { speed: 1, pitch: 0 },
+    playback: { speed: 1, pitch: { semitones: 0, cents: 0 } },
     openTools: []
   }
 }

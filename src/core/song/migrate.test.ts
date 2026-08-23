@@ -36,7 +36,7 @@ describe('migrateSong', () => {
   it('clamps values that would break playback', () => {
     const song = migrateSong({ playback: { speed: 99, pitch: -400 } }, 'x')
     expect(song.playback.speed).toBe(1.5)
-    expect(song.playback.pitch).toBe(-12)
+    expect(song.playback.pitch).toEqual({ semitones: -12, cents: 0 })
   })
 
   it('drops audio channels with no file, since they can never play', () => {
@@ -85,5 +85,35 @@ describe('migrateSong', () => {
   it('ignores tools it does not recognise', () => {
     const song = migrateSong({ openTools: ['lyrics', 'karaoke', 7] }, 'x')
     expect(song.openTools).toEqual(['lyrics'])
+  })
+})
+
+describe('pitch', () => {
+  it('splits the old single fractional semitone value into semitones and cents', () => {
+    expect(migrateSong({ playback: { pitch: -2.25 } }, 'x').playback.pitch).toEqual({
+      semitones: -2,
+      cents: -25
+    })
+    expect(migrateSong({ playback: { pitch: 3 } }, 'x').playback.pitch).toEqual({
+      semitones: 3,
+      cents: 0
+    })
+  })
+
+  it('reads the split form', () => {
+    expect(migrateSong({ playback: { pitch: { semitones: 1, cents: 40 } } }, 'x').playback.pitch)
+      .toEqual({ semitones: 1, cents: 40 })
+  })
+
+  it('clamps each part to its own range and keeps semitones whole', () => {
+    expect(migrateSong({ playback: { pitch: { semitones: 99.6, cents: -400 } } }, 'x').playback.pitch)
+      .toEqual({ semitones: 12, cents: -50 })
+  })
+
+  it('falls back rather than inventing a pitch from nonsense', () => {
+    expect(migrateSong({ playback: { pitch: 'high' } }, 'x').playback.pitch).toEqual({
+      semitones: 0,
+      cents: 0
+    })
   })
 })

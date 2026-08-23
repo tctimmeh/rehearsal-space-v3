@@ -6,6 +6,7 @@ interface ConfigState {
   config: AppConfig | null
   load: () => Promise<AppConfig>
   setUiScale: (scale: number) => Promise<void>
+  setShowCents: (show: boolean) => Promise<void>
   chooseLibraryFolder: () => Promise<AppConfig | null>
   revealLibraryFolder: () => Promise<void>
 }
@@ -21,6 +22,10 @@ export const useConfig = create<ConfigState>((set, get) => ({
 
   setUiScale: async (scale) => {
     set({ config: await window.rehearsal.config.setUiScale(scale) })
+  },
+
+  setShowCents: async (show) => {
+    set({ config: await window.rehearsal.config.setShowCents(show) })
   },
 
   /** Returns the new config only when the folder actually changed. */

@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import {
-  PITCH_MAX,
-  PITCH_MIN,
+  CENTS_MAX,
+  CENTS_MIN,
+  SEMITONES_MAX,
+  SEMITONES_MIN,
   SPEED_MAX,
   SPEED_MIN,
   useTransport
@@ -16,30 +18,38 @@ import { SettingsModal } from './SettingsModal'
 
 const formatSpeed = (speed: number) => `${Math.round(speed * 100)}%`
 
-const formatPitch = (semitones: number) => {
-  if (semitones === 0) return '0 st'
-  const sign = semitones > 0 ? '+' : '−'
-  const magnitude = Math.abs(semitones)
-  const whole = Math.trunc(magnitude)
-  const cents = Math.round((magnitude - whole) * 100)
-  return cents === 0 ? `${sign}${whole} st` : `${sign}${whole}.${String(cents).padStart(2, '0')} st`
-}
+const signed = (value: number, unit: string) =>
+  `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)} ${unit}`
+
+const formatSemitones = (semitones: number) => signed(semitones, 'st')
+const formatCents = (cents: number) => signed(cents, '¢')
 
 export function HeaderBar() {
   const { view, setView } = useView()
   const song = useSong((state) => state.song)
   const update = useSong((state) => state.update)
-  const { playing, speed, pitch, toggle, stop, setSpeed, setPitch } = useTransport()
+  const { playing, speed, semitones, cents, toggle, stop, setSpeed, setSemitones, setCents } =
+    useTransport()
+  const showCentsPreference = useConfig((state) => state.config?.showCents ?? false)
 
   /* Tempo and pitch are part of the song, so they come back on next load. */
   const changeSpeed = (next: number) => {
     setSpeed(next)
-    update({ playback: { speed: next, pitch } })
+    update({ playback: { speed: next, pitch: { semitones, cents } } })
   }
-  const changePitch = (next: number) => {
-    setPitch(next)
-    update({ playback: { speed, pitch: next } })
+  const changeSemitones = (next: number) => {
+    setSemitones(next)
+    update({ playback: { speed, pitch: { semitones: next, cents } } })
   }
+  const changeCents = (next: number) => {
+    setCents(next)
+    update({ playback: { speed, pitch: { semitones, cents: next } } })
+  }
+
+  /* The toggle reveals the fine control, but a cent offset already in use is
+     never hidden — that would leave the song detuned with nothing on screen
+     saying so. Zero it (double-click the knob) and it puts itself away. */
+  const showCents = showCentsPreference || cents !== 0
 
   return (
     <header className="bar">
@@ -73,14 +83,28 @@ export function HeaderBar() {
         />
         <Knob
           label="Pitch"
-          value={pitch}
-          min={PITCH_MIN}
-          max={PITCH_MAX}
-          step={0.5}
+          value={semitones}
+          min={SEMITONES_MIN}
+          max={SEMITONES_MAX}
+          step={1}
           defaultValue={0}
-          onChange={changePitch}
-          format={formatPitch}
+          onChange={changeSemitones}
+          format={formatSemitones}
+          travel={264}
         />
+        <CentsToggle on={showCentsPreference} inUse={cents !== 0} />
+        {showCents ? (
+          <Knob
+            label="Cents"
+            value={cents}
+            min={CENTS_MIN}
+            max={CENTS_MAX}
+            step={1}
+            defaultValue={0}
+            onChange={changeCents}
+            format={formatCents}
+          />
+        ) : null}
       </div>
 
       <div className="song-id">
@@ -90,6 +114,25 @@ export function HeaderBar() {
 
       <AppMenu />
     </header>
+  )
+}
+
+function CentsToggle({ on, inUse }: { on: boolean; inUse: boolean }) {
+  const setShowCents = useConfig((state) => state.setShowCents)
+  const label = inUse && !on ? 'Cents in use' : on ? 'Hide cents' : 'Fine tune in cents'
+
+  return (
+    <button
+      type="button"
+      className="raised cents-toggle"
+      data-engaged={on}
+      title={label}
+      aria-label={label}
+      aria-pressed={on}
+      onClick={() => void setShowCents(!on)}
+    >
+      ¢
+    </button>
   )
 }
 

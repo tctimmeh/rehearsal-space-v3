@@ -13,7 +13,8 @@ const configPath = (): string => join(app.getPath('userData'), 'config.json')
 export const defaultConfig = (): AppConfig => ({
   libraryPath: join(app.getPath('music'), 'Rehearsal Space'),
   lastSongId: null,
-  uiScale: 1.2
+  uiScale: 1.2,
+  showCents: false
 })
 
 let cached: AppConfig | null = null
@@ -34,7 +35,9 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
     uiScale:
       typeof record['uiScale'] === 'number' && Number.isFinite(record['uiScale'])
         ? clamp(record['uiScale'], UI_SCALE_MIN, UI_SCALE_MAX)
-        : defaults.uiScale
+        : defaults.uiScale,
+    showCents:
+      typeof record['showCents'] === 'boolean' ? record['showCents'] : defaults.showCents
   }
 }
 

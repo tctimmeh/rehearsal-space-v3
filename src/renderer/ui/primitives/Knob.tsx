@@ -13,10 +13,29 @@ interface KnobProps {
   format: (value: number) => string
   /** Value the knob snaps back to on double-click. */
   defaultValue?: number
+  /** Pixels of drag that sweep the whole range. Longer means finer. */
+  travel?: number
 }
 
-export function Knob({ label, value, min, max, step, onChange, format, defaultValue }: KnobProps) {
-  const { handlers } = useDragValue({ value, min, max, step, onChange })
+export function Knob({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  format,
+  defaultValue,
+  travel
+}: KnobProps) {
+  const { handlers } = useDragValue({
+    value,
+    min,
+    max,
+    step,
+    onChange,
+    ...(travel === undefined ? {} : { travel })
+  })
   const fraction = max === min ? 0 : (value - min) / (max - min)
   const rotation = (fraction - 0.5) * SWEEP_DEGREES
 

@@ -129,7 +129,8 @@ function cancelPendingSave(): void {
 function applySongState(song: Song): void {
   const transport = useTransport.getState()
   transport.setSpeed(song.playback.speed)
-  transport.setPitch(song.playback.pitch)
+  transport.setSemitones(song.playback.pitch.semitones)
+  transport.setCents(song.playback.pitch.cents)
   transport.setBounds(...songBounds(song))
 
   const songScoped = (id: ToolId) => TOOL_META[id].scope === 'song'

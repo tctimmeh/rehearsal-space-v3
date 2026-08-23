@@ -26,6 +26,10 @@ export function registerIpcHandlers(): void {
     return config
   })
 
+  ipcMain.handle(IPC_CHANNELS.configSetShowCents, (_event, show: unknown) =>
+    updateConfig({ showCents: show === true })
+  )
+
   ipcMain.handle(IPC_CHANNELS.configChooseLibraryFolder, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const options: OpenDialogOptions = {

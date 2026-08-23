@@ -7,6 +7,7 @@ import {
   type ChannelOrigin,
   type MetronomeDuration,
   type MetronomeSample,
+  type PitchOffset,
   type Song
 } from './song'
 
@@ -31,6 +32,26 @@ const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
 
 const METRONOME_SAMPLES: readonly MetronomeSample[] = ['tick', 'chirp', 'cymbal', 'rim', 'kit']
+
+const SEMITONE_LIMIT = 12
+const CENT_LIMIT = 50
+
+/**
+ * Earlier songs stored pitch as one possibly-fractional semitone count. Split
+ * it, so a song saved before the cents control existed still opens correctly.
+ */
+function parsePitch(raw: unknown): PitchOffset {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    const total = Math.min(SEMITONE_LIMIT, Math.max(-SEMITONE_LIMIT, raw))
+    const semitones = Math.trunc(total)
+    return { semitones, cents: Math.round((total - semitones) * 100) }
+  }
+  if (!isRecord(raw)) return { semitones: 0, cents: 0 }
+  return {
+    semitones: Math.round(clamped(raw['semitones'], 0, -SEMITONE_LIMIT, SEMITONE_LIMIT)),
+    cents: Math.round(clamped(raw['cents'], 0, -CENT_LIMIT, CENT_LIMIT))
+  }
+}
 
 function parseOrigin(raw: unknown): ChannelOrigin {
   if (!isRecord(raw)) return { type: 'import', sourcePath: '' }
@@ -142,7 +163,7 @@ export function migrateSong(raw: unknown, id: string): Song {
     },
     playback: {
       speed: clamped(playback['speed'], 1, 0.5, 1.5),
-      pitch: clamped(playback['pitch'], 0, -12, 12)
+      pitch: parsePitch(playback['pitch'])
     },
     openTools: openTools.filter((tool): tool is ToolId => isToolId(tool))
   }

@@ -18,6 +18,7 @@ const api: RehearsalApi = {
   config: {
     get: () => ipcRenderer.invoke(IPC_CHANNELS.configGet),
     setUiScale: (scale) => ipcRenderer.invoke(IPC_CHANNELS.configSetUiScale, scale),
+    setShowCents: (show) => ipcRenderer.invoke(IPC_CHANNELS.configSetShowCents, show),
     chooseLibraryFolder: () => ipcRenderer.invoke(IPC_CHANNELS.configChooseLibraryFolder),
     revealLibraryFolder: () => ipcRenderer.invoke(IPC_CHANNELS.configRevealLibraryFolder)
   },

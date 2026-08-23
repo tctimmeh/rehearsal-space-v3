@@ -17,6 +17,7 @@ export interface RehearsalApi {
   config: {
     get(): Promise<AppConfig>
     setUiScale(scale: number): Promise<AppConfig>
+    setShowCents(show: boolean): Promise<AppConfig>
     /** Opens a folder picker; returns the config unchanged if cancelled. */
     chooseLibraryFolder(): Promise<AppConfig>
     revealLibraryFolder(): Promise<void>
@@ -37,6 +38,7 @@ export const IPC_CHANNELS = {
   appFlushDone: 'app:flush-done',
   configGet: 'config:get',
   configSetUiScale: 'config:set-ui-scale',
+  configSetShowCents: 'config:set-show-cents',
   configChooseLibraryFolder: 'config:choose-library-folder',
   configRevealLibraryFolder: 'config:reveal-library-folder',
   libraryList: 'library:list',

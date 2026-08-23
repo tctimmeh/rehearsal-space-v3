@@ -33,7 +33,7 @@ export function useDragValue({
   max,
   step,
   onChange,
-  travel = 160,
+  travel = 200,
   axis = 'y'
 }: DragValueOptions) {
   const [dragging, setDragging] = useState(false)
