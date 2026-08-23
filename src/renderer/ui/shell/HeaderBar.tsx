@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { useTransport } from '@renderer/state/transport'
-import { PITCH_MAX, PITCH_MIN, SPEED_MAX, SPEED_MIN } from '@renderer/state/transport'
+import { useConfig } from '@renderer/state/config'
+import { useSong } from '@renderer/state/song'
+import {
+  PITCH_MAX,
+  PITCH_MIN,
+  SPEED_MAX,
+  SPEED_MIN,
+  useTransport
+} from '@renderer/state/transport'
 import { useView, VIEWS } from '@renderer/state/view'
 import { KebabIcon, PauseIcon, PlayIcon, StopIcon } from '../icons/uiIcons'
 import { IconButton, Knob, Tabs } from '../primitives'
+import { SettingsModal } from './SettingsModal'
 
 const formatSpeed = (speed: number) => `${Math.round(speed * 100)}%`
 
@@ -17,9 +25,21 @@ const formatPitch = (semitones: number) => {
   return cents === 0 ? `${sign}${whole} st` : `${sign}${whole}.${String(cents).padStart(2, '0')} st`
 }
 
-export function HeaderBar({ title, artist }: { title: string; artist: string }) {
+export function HeaderBar() {
   const { view, setView } = useView()
+  const song = useSong((state) => state.song)
+  const update = useSong((state) => state.update)
   const { playing, speed, pitch, toggle, stop, setSpeed, setPitch } = useTransport()
+
+  /* Tempo and pitch are part of the song, so they come back on next load. */
+  const changeSpeed = (next: number) => {
+    setSpeed(next)
+    update({ playback: { speed: next, pitch } })
+  }
+  const changePitch = (next: number) => {
+    setPitch(next)
+    update({ playback: { speed, pitch: next } })
+  }
 
   return (
     <header className="bar">
@@ -27,10 +47,15 @@ export function HeaderBar({ title, artist }: { title: string; artist: string }) 
       <span className="bar__sep" />
 
       <div className="transport">
-        <IconButton label="Stop" onClick={stop}>
+        <IconButton label="Stop" onClick={stop} disabled={song === null}>
           <StopIcon />
         </IconButton>
-        <IconButton label={playing ? 'Pause' : 'Play'} variant="go" onClick={toggle}>
+        <IconButton
+          label={playing ? 'Pause' : 'Play'}
+          variant="go"
+          onClick={toggle}
+          disabled={song === null}
+        >
           {playing ? <PauseIcon /> : <PlayIcon />}
         </IconButton>
       </div>
@@ -43,7 +68,7 @@ export function HeaderBar({ title, artist }: { title: string; artist: string }) 
           max={SPEED_MAX}
           step={0.01}
           defaultValue={1}
-          onChange={setSpeed}
+          onChange={changeSpeed}
           format={formatSpeed}
         />
         <Knob
@@ -53,14 +78,14 @@ export function HeaderBar({ title, artist }: { title: string; artist: string }) 
           max={PITCH_MAX}
           step={0.5}
           defaultValue={0}
-          onChange={setPitch}
+          onChange={changePitch}
           format={formatPitch}
         />
       </div>
 
       <div className="song-id">
-        <div className="song-id__title">{title}</div>
-        <div className="song-id__artist">{artist || 'No artist'}</div>
+        <div className="song-id__title">{song?.title ?? 'No song loaded'}</div>
+        <div className="song-id__artist">{song === null ? '' : song.artist || 'No artist'}</div>
       </div>
 
       <AppMenu />
@@ -70,6 +95,8 @@ export function HeaderBar({ title, artist }: { title: string; artist: string }) 
 
 function AppMenu() {
   const [open, setOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const revealLibraryFolder = useConfig((state) => state.revealLibraryFolder)
   const wrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -88,26 +115,31 @@ function AppMenu() {
     }
   }, [open])
 
+  const choose = (action: () => void) => () => {
+    setOpen(false)
+    action()
+  }
+
   return (
     <div className="menu-wrap" ref={wrap}>
       <IconButton
         label="Menu"
         engaged={open}
-        className="menu-btn"
         onClick={() => setOpen((wasOpen) => !wasOpen)}
       >
         <KebabIcon />
       </IconButton>
+
       {open ? (
         <div className="menu" role="menu">
-          <MenuItem label="Settings" shortcut="Ctrl+," />
-          <MenuItem label="Library folder" />
-          <MenuItem label="Help" shortcut="F1" />
-          <MenuItem label="About" />
+          <MenuItem label="Settings" shortcut="Ctrl+," onClick={choose(() => setSettingsOpen(true))} />
+          <MenuItem label="Library folder" onClick={choose(() => void revealLibraryFolder())} />
           <div className="menu__sep" />
-          <MenuItem label="Quit" shortcut="Ctrl+Q" onClick={() => window.close()} />
+          <MenuItem label="Quit" shortcut="Ctrl+Q" onClick={choose(() => window.close())} />
         </div>
       ) : null}
+
+      {settingsOpen ? <SettingsModal onDismiss={() => setSettingsOpen(false)} /> : null}
     </div>
   )
 }
@@ -119,7 +151,7 @@ function MenuItem({
 }: {
   label: string
   shortcut?: string
-  onClick?: () => void
+  onClick: () => void
 }) {
   return (
     <button type="button" role="menuitem" className="menu__item" onClick={onClick}>

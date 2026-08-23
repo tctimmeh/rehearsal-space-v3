@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 
+import type { ToolId } from '@core/tools'
 import { useTools } from '@renderer/state/tools'
-import { TOOLS, toolsOfSize, type ToolId } from '../tools/registry'
+import { toolsOfSize } from '../tools/registry'
 
 /**
  * Small tools sit in a strip only as tall as they need, and the strip is not
@@ -16,7 +17,7 @@ export function GadgetStrip({ render }: { render: (id: ToolId) => ReactNode }) {
     <div className="gadgets">
       {showing.map((tool) => (
         <div key={tool.id} className="gadget">
-          <span className="gadget__name">{TOOLS[tool.id].shortLabel}</span>
+          <span className="gadget__name">{tool.shortLabel}</span>
           {render(tool.id)}
         </div>
       ))}

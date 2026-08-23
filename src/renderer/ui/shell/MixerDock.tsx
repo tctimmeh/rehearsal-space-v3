@@ -1,52 +1,50 @@
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
-import type { PlaceholderChannel } from '@renderer/state/placeholder'
+import type { Channel, Song } from '@core/song/song'
+import { useSong, type MixerPatch } from '@renderer/state/song'
 import { SubjectIcon } from '../icons/subjectIcons'
 import { Fader } from '../primitives'
 
-export interface BusState {
-  id: 'music' | 'click'
-  label: string
-  gain: number
-  color: string
-}
-
-interface MixerDockProps {
-  channels: PlaceholderChannel[]
-  buses: BusState[]
-  onChannelChange: (id: string, patch: Partial<PlaceholderChannel>) => void
-  onBusChange: (id: BusState['id'], gain: number) => void
-}
+const BUSES = [
+  { id: 'music', label: 'Music', color: CHANNEL_SUBJECT_COLOR.music },
+  { id: 'click', label: 'Click', color: CHANNEL_SUBJECT_COLOR.metronome }
+] as const
 
 const gainToDb = (gain: number): string =>
   gain <= 0.0001 ? '−∞ dB' : `${(20 * Math.log10(gain)).toFixed(1).replace('-', '−')} dB`
 
-export function MixerDock({ channels, buses, onChannelChange, onBusChange }: MixerDockProps) {
+export function MixerDock({ song }: { song: Song }) {
+  const { updateChannel, updateBus } = useSong()
+
   return (
     <div className="dock">
       <span className="dock__label">Mix</span>
 
       <div className="strips">
-        {channels.map((channel) => (
-          <ChannelStrip
-            key={channel.id}
-            channel={channel}
-            onChange={(patch) => onChannelChange(channel.id, patch)}
-          />
-        ))}
+        {song.channels.length === 0 ? (
+          <p className="dock__empty">No channels yet. Add one from Setup.</p>
+        ) : (
+          song.channels.map((channel) => (
+            <ChannelStrip
+              key={channel.id}
+              channel={channel}
+              onChange={(patch) => updateChannel(channel.id, patch)}
+            />
+          ))
+        )}
       </div>
 
       <div className="buses">
-        {buses.map((bus) => (
+        {BUSES.map((bus) => (
           <div key={bus.id} className="bus">
             <span className="bus__name">{bus.label}</span>
             <Fader
               label={`${bus.label} level`}
-              value={bus.gain}
-              onChange={(gain) => onBusChange(bus.id, gain)}
+              value={song.buses[bus.id]}
+              onChange={(gain) => updateBus(bus.id, gain)}
               capColor={bus.color}
               height={62}
             />
-            <span className="bus__db">{gainToDb(bus.gain)}</span>
+            <span className="bus__db">{gainToDb(song.buses[bus.id])}</span>
           </div>
         ))}
       </div>
@@ -58,10 +56,11 @@ function ChannelStrip({
   channel,
   onChange
 }: {
-  channel: PlaceholderChannel
-  onChange: (patch: Partial<PlaceholderChannel>) => void
+  channel: Channel
+  onChange: (patch: MixerPatch) => void
 }) {
   const color = CHANNEL_SUBJECT_COLOR[channel.subject]
+  /* Solo is a per-part decision; there is nothing to solo a click against. */
   const soloable = channel.kind !== 'metronome'
 
   return (

@@ -1,36 +1,39 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, shell } from 'electron'
 
-import { registerIpcHandlers } from './ipc'
+import { readConfig } from './config'
 import { captureAndExit, requestedCapturePath } from './devCapture'
+import { guardClose } from './closeGuard'
+import { registerIpcHandlers } from './ipc'
 
 /**
- * Everything is drawn larger than the mockup's natural size. This is a tool you
+ * The window is scaled by the user's UI scale (default 1.2): this is a tool you
  * read from a music stand with an instrument in your hands, not from a desk.
  */
-const UI_SCALE = 1.2
 
 /** Minimums in CSS pixels — the point below which the mixer dock stops fitting. */
 const MIN_CONTENT_WIDTH = 1024
 const MIN_CONTENT_HEIGHT = 680
 
-function createWindow(): BrowserWindow {
+function createWindow(uiScale: number): BrowserWindow {
   const window = new BrowserWindow({
     width: 1360,
     height: 900,
-    minWidth: Math.round(MIN_CONTENT_WIDTH * UI_SCALE),
-    minHeight: Math.round(MIN_CONTENT_HEIGHT * UI_SCALE),
+    minWidth: Math.round(MIN_CONTENT_WIDTH * uiScale),
+    minHeight: Math.round(MIN_CONTENT_HEIGHT * uiScale),
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#0e0e11',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      zoomFactor: UI_SCALE,
+      zoomFactor: uiScale,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
     }
   })
+
+  guardClose(window)
 
   window.once('ready-to-show', () => {
     const capturePath = requestedCapturePath()
@@ -56,12 +59,13 @@ function createWindow(): BrowserWindow {
   return window
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   registerIpcHandlers()
-  createWindow()
+  const { uiScale } = await readConfig()
+  createWindow(uiScale)
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  app.on('activate', async () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow((await readConfig()).uiScale)
   })
 })
 

@@ -8,7 +8,6 @@
     "src/core/**/*"
   ],
   "compilerOptions": {
-    "composite": true,
     "noEmit": true,
     "types": ["node", "vitest/globals"],
     "lib": ["ES2022"],

@@ -1,18 +1,10 @@
-import { useState } from 'react'
-
-import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
-import { PLACEHOLDER_CHANNELS, type PlaceholderChannel } from '@renderer/state/placeholder'
-import { openDrawerTool, openStageTool, useTools } from '@renderer/state/tools'
-import {
-  Drawer,
-  GadgetStrip,
-  MixerDock,
-  Stage,
-  StageEmpty,
-  ToolRail,
-  type BusState
-} from '../shell'
-import { TOOLS, type ToolId } from '../tools/registry'
+import { TOOL_META, type ToolId } from '@core/tools'
+import { useSong } from '@renderer/state/song'
+import { closeTool } from '@renderer/state/toolActions'
+import { openToolOfSize, useTools } from '@renderer/state/tools'
+import { useView } from '@renderer/state/view'
+import { Drawer, GadgetStrip, MixerDock, Stage, StageEmpty, ToolRail } from '../shell'
+import { Button } from '../primitives'
 import { MetronomeGadget } from '../tools/MetronomeGadget'
 import { TunerGadget } from '../tools/TunerGadget'
 import {
@@ -47,15 +39,11 @@ const renderStage = (id: ToolId) => {
 }
 
 export function PlayerView() {
-  const { open, close } = useTools()
-  const [channels, setChannels] = useState<PlaceholderChannel[]>(PLACEHOLDER_CHANNELS)
-  const [buses, setBuses] = useState<BusState[]>([
-    { id: 'music', label: 'Music', gain: 0.84, color: CHANNEL_SUBJECT_COLOR.music },
-    { id: 'click', label: 'Click', gain: 0.5, color: CHANNEL_SUBJECT_COLOR.metronome }
-  ])
+  const open = useTools((state) => state.open)
+  const song = useSong((state) => state.song)
 
-  const stageTool = openStageTool(open)
-  const drawerTool = openDrawerTool(open)
+  const stageTool = openToolOfSize(open, 'stage')
+  const drawerTool = openToolOfSize(open, 'drawer')
 
   return (
     <>
@@ -64,15 +52,17 @@ export function PlayerView() {
         <div className="column">
           <GadgetStrip render={renderGadget} />
           <div className="workspace">
-            {stageTool === null ? (
-              <StageEmpty />
-            ) : (
-              <Stage title={TOOLS[stageTool].label} onClose={() => close(stageTool)}>
+            {stageTool !== null ? (
+              <Stage title={TOOL_META[stageTool].label} onClose={() => closeTool(stageTool)}>
                 {renderStage(stageTool)}
               </Stage>
+            ) : song === null ? (
+              <NoSongLoaded />
+            ) : (
+              <StageEmpty />
             )}
             {drawerTool === null ? null : (
-              <Drawer title={TOOLS[drawerTool].label} onClose={() => close(drawerTool)}>
+              <Drawer title={TOOL_META[drawerTool].label} onClose={() => closeTool(drawerTool)}>
                 <RhymesPlaceholder />
               </Drawer>
             )}
@@ -80,18 +70,30 @@ export function PlayerView() {
         </div>
       </div>
 
-      <MixerDock
-        channels={channels}
-        buses={buses}
-        onChannelChange={(id, patch) =>
-          setChannels((current) =>
-            current.map((channel) => (channel.id === id ? { ...channel, ...patch } : channel))
-          )
-        }
-        onBusChange={(id, gain) =>
-          setBuses((current) => current.map((bus) => (bus.id === id ? { ...bus, gain } : bus)))
-        }
-      />
+      {song === null ? null : <MixerDock song={song} />}
     </>
+  )
+}
+
+function NoSongLoaded() {
+  const setView = useView((state) => state.setView)
+  const create = useSong((state) => state.create)
+
+  return (
+    <section className="stage">
+      <div className="stage__body">
+        <div className="stage-empty">
+          <div>
+            No song loaded.
+            <div className="stage-empty__actions">
+              <Button onClick={() => setView('library')}>Open the library</Button>
+              <Button variant="primary" onClick={() => void create()}>
+                New song
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }

@@ -1,5 +1,7 @@
+import { TOOL_META } from '@core/tools'
+import { toggleTool } from '@renderer/state/toolActions'
 import { useTools } from '@renderer/state/tools'
-import { RAIL_ORDER, TOOLS } from '../tools/registry'
+import { RAIL_ORDER, TOOL_ICONS } from '../tools/registry'
 
 /**
  * Every tool, always on screen, one click, no menu. Icons only — labels made
@@ -7,24 +9,24 @@ import { RAIL_ORDER, TOOLS } from '../tools/registry'
  * learned by position.
  */
 export function ToolRail() {
-  const { open, toggle } = useTools()
+  const open = useTools((state) => state.open)
 
   return (
     <nav className="rail" aria-label="Tools">
       {RAIL_ORDER.map((entry, index) => {
         if (entry === 'gap') return <span key={`gap-${index}`} className="rail__gap" />
-        const tool = TOOLS[entry]
-        const Glyph = tool.icon
+        const { label } = TOOL_META[entry]
+        const Glyph = TOOL_ICONS[entry]
         return (
           <button
-            key={tool.id}
+            key={entry}
             type="button"
             className="raised rail__btn"
-            data-engaged={open[tool.id]}
-            title={tool.label}
-            aria-label={tool.label}
-            aria-pressed={open[tool.id]}
-            onClick={() => toggle(tool.id)}
+            data-engaged={open[entry]}
+            title={label}
+            aria-label={label}
+            aria-pressed={open[entry]}
+            onClick={() => toggleTool(entry)}
           >
             <Glyph />
           </button>

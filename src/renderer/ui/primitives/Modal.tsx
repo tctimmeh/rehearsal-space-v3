@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ModalProps {
   title: string
@@ -8,6 +9,10 @@ interface ModalProps {
   children: ReactNode
 }
 
+/**
+ * Rendered through a portal so a modal covers the window rather than whatever
+ * positioned ancestor it happens to be declared inside.
+ */
 export function Modal({ title, subtitle, onDismiss, footer, children }: ModalProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -17,9 +22,15 @@ export function Modal({ title, subtitle, onDismiss, footer, children }: ModalPro
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onDismiss])
 
-  return (
+  return createPortal(
     <div className="scrim" onPointerDown={onDismiss}>
-      <div className="modal" role="dialog" aria-modal="true" onPointerDown={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
         <div className="modal__head">
           <h4>{title}</h4>
           {subtitle === undefined ? null : <p>{subtitle}</p>}
@@ -27,6 +38,7 @@ export function Modal({ title, subtitle, onDismiss, footer, children }: ModalPro
         <div className="modal__body">{children}</div>
         {footer === undefined ? null : <div className="modal__foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

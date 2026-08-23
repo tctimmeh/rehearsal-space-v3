@@ -49,3 +49,21 @@ src/
     ui/views        Library, Player, Setup
     ui/tools        the tool registry and each tool's panel
 ```
+
+## Where things are stored
+
+Settings live in `config.json` under Electron's userData directory
+(`~/.config/rehearsal-space` on Linux): the library folder, the last song that
+was open, and the interface scale.
+
+The library is one directory per song, and the directory name follows the
+song's title — rename a song and the folder is renamed with it, so the library
+stays browsable outside the app.
+
+```
+<library>/comeback-season/
+  song.json     versioned; parsed with fallbacks, so a hand-edit cannot brick it
+  audio/        one file per audio channel        (M3)
+  peaks/        precomputed waveform peaks        (M3)
+  lyrics.txt    plain text, copy-pasteable        (M9)
+```

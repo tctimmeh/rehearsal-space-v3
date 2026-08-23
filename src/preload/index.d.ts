@@ -1,4 +1,4 @@
-import type { RehearsalApi } from '../shared/ipc.js'
+import type { RehearsalApi } from '../shared/ipc'
 
 declare global {
   interface Window {

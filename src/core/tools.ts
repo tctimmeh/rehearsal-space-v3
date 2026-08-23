@@ -1,0 +1,60 @@
+/**
+ * Where a tool lands is the app's problem, not the user's — the tool declares
+ * a size and the shell places it. None of this vocabulary appears on screen.
+ *
+ *   gadget  top strip, sized to content, several at once
+ *   stage   fills the open space, one at a time
+ *   drawer  slides over the right edge, overlaps rather than reflows
+ */
+export type ToolSize = 'gadget' | 'stage' | 'drawer'
+
+/** `app` tools survive a song change; `song` tools are saved with the song. */
+export type ToolScope = 'app' | 'song'
+
+export const TOOL_IDS = ['metronome', 'tuner', 'lyrics', 'chords', 'align', 'rhymes'] as const
+export type ToolId = (typeof TOOL_IDS)[number]
+
+export interface ToolMeta {
+  id: ToolId
+  label: string
+  /** Shown on the gadget strip, where the label runs vertically. */
+  shortLabel: string
+  size: ToolSize
+  scope: ToolScope
+}
+
+export const TOOL_META: Record<ToolId, ToolMeta> = {
+  metronome: {
+    id: 'metronome',
+    label: 'Metronome',
+    shortLabel: 'Metro',
+    size: 'gadget',
+    scope: 'app'
+  },
+  tuner: { id: 'tuner', label: 'Tuner', shortLabel: 'Tuner', size: 'gadget', scope: 'app' },
+  lyrics: {
+    id: 'lyrics',
+    label: 'Lyrics editor',
+    shortLabel: 'Lyrics',
+    size: 'stage',
+    scope: 'song'
+  },
+  chords: {
+    id: 'chords',
+    label: 'Chord chart',
+    shortLabel: 'Chords',
+    size: 'stage',
+    scope: 'song'
+  },
+  align: {
+    id: 'align',
+    label: 'Align click track',
+    shortLabel: 'Align',
+    size: 'stage',
+    scope: 'song'
+  },
+  rhymes: { id: 'rhymes', label: 'Rhymes', shortLabel: 'Rhymes', size: 'drawer', scope: 'song' }
+}
+
+export const isToolId = (value: unknown): value is ToolId =>
+  typeof value === 'string' && (TOOL_IDS as readonly string[]).includes(value)
