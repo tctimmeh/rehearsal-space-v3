@@ -19,7 +19,7 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
     if (changed === null) return
     await refresh()
     /* The loaded song may not exist in the new folder. */
-    if (song !== null && !useSong.getState().songs.some((entry) => entry.id === song.id)) unload()
+    if (song !== null && !useSong.getState().songs.some((entry) => entry.id === song.id)) await unload()
   }
 
   return (

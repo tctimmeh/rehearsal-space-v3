@@ -14,7 +14,7 @@ interface SongState {
   refresh: () => Promise<void>
   create: () => Promise<void>
   load: (id: string) => Promise<void>
-  unload: () => void
+  unload: () => Promise<void>
   remove: (id: string) => Promise<void>
   /** Applies a change immediately and saves it shortly after. */
   update: (patch: Partial<Song>) => void
@@ -35,7 +35,18 @@ const message = (error: unknown): string =>
  * writes files, so edits are coalesced rather than written as they arrive.
  */
 const SAVE_DELAY_MS = 400
-let pendingSave: ReturnType<typeof setTimeout> | null = null
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let unsaved = false
+let saving: Promise<void> | null = null
+/** Bumped whenever a different song becomes the loaded one. */
+let generation = 0
+
+function cancelPendingSave(): void {
+  if (saveTimer !== null) clearTimeout(saveTimer)
+  saveTimer = null
+  unsaved = false
+}
 
 export const useSong = create<SongState>((set, get) => ({
   songs: [],
@@ -56,6 +67,7 @@ export const useSong = create<SongState>((set, get) => ({
   load: async (id) => {
     /* Loading a song unloads the current one, stopping playback if necessary. */
     await get().flush()
+    generation += 1
     useTransport.getState().stop()
     try {
       const song = await window.rehearsal.library.load(id)
@@ -67,17 +79,25 @@ export const useSong = create<SongState>((set, get) => ({
     }
   },
 
-  unload: () => {
-    void get().flush()
+  unload: async () => {
+    await get().flush()
+    generation += 1
     useTransport.getState().stop()
     set({ song: null })
-    void window.rehearsal.library.rememberLastSong(null)
+    await window.rehearsal.library.rememberLastSong(null)
   },
 
   remove: async (id) => {
-    if (get().song?.id === id) cancelPendingSave()
+    const wasLoaded = get().song?.id === id
+    /* Writing a song we are about to delete would recreate its directory. */
+    if (wasLoaded) cancelPendingSave()
     await window.rehearsal.library.remove(id)
-    if (get().song?.id === id) get().unload()
+    if (wasLoaded) {
+      generation += 1
+      useTransport.getState().stop()
+      set({ song: null })
+      await window.rehearsal.library.rememberLastSong(null)
+    }
     await get().refresh()
   },
 
@@ -85,8 +105,12 @@ export const useSong = create<SongState>((set, get) => ({
     const current = get().song
     if (current === null) return
     set({ song: { ...current, ...patch } })
-    if (pendingSave !== null) clearTimeout(pendingSave)
-    pendingSave = setTimeout(() => void get().flush(), SAVE_DELAY_MS)
+    unsaved = true
+    if (saveTimer !== null) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveTimer = null
+      void get().flush()
+    }, SAVE_DELAY_MS)
   },
 
   updateChannel: (id, patch) => {
@@ -106,23 +130,59 @@ export const useSong = create<SongState>((set, get) => ({
   },
 
   flush: async () => {
-    if (pendingSave === null) return
-    cancelPendingSave()
-    const song = get().song
-    if (song === null) return
-
-    const saved = await window.rehearsal.library.save(song)
-    /* Adopt the saved copy, but not if the user has moved on in the meantime. */
-    if (get().song?.id !== song.id) return
-    set({ song: saved })
-    if (saved.id !== song.id) await get().refresh()
+    if (saveTimer !== null) clearTimeout(saveTimer)
+    saveTimer = null
+    /* Loop because an edit made while a write was in flight leaves more to do. */
+    while (unsaved || saving !== null) {
+      saving ??= writeUntilQuiet(get, set).finally(() => {
+        saving = null
+      })
+      await saving
+    }
   }
 }))
 
-function cancelPendingSave(): void {
-  if (pendingSave === null) return
-  clearTimeout(pendingSave)
-  pendingSave = null
+/**
+ * Writes the loaded song, then writes it again if it changed while we were
+ * waiting. Only one write is ever in flight: a second one built from
+ * pre-rename state would ask the main process to rename a directory that no
+ * longer exists.
+ */
+async function writeUntilQuiet(
+  get: () => SongState,
+  set: (partial: Partial<SongState>) => void
+): Promise<void> {
+  while (unsaved) {
+    const song = get().song
+    if (song === null) {
+      unsaved = false
+      return
+    }
+
+    unsaved = false
+    const wrote = generation
+
+    let saved: Song
+    try {
+      saved = await window.rehearsal.library.save(song)
+    } catch (error) {
+      /* Say so rather than dropping the edit silently. Retrying immediately
+         would spin against whatever is wrong on disk. */
+      set({ error: message(error) })
+      return
+    }
+    if (wrote !== generation) return
+
+    /*
+     * Take only what the main process decides — the directory name it settled
+     * on, and the timestamp. Everything else belongs to the user, who may have
+     * typed another character while this was in flight.
+     */
+    const current = get().song
+    if (current === null) return
+    set({ song: { ...current, id: saved.id, updatedAt: saved.updatedAt }, error: null })
+    if (saved.id !== song.id) await get().refresh()
+  }
 }
 
 /** Song-scoped state that lives outside the song store: transport and tools. */
