@@ -259,9 +259,9 @@ async function writeUntilQuiet(
 /** Song-scoped state that lives outside the song store: transport and tools. */
 function applySongState(song: Song): void {
   const transport = useTransport.getState()
-  transport.setSpeed(song.playback.speed)
   transport.setSemitones(song.playback.pitch.semitones)
   transport.setCents(song.playback.pitch.cents)
+  transport.setSpeed(song.playback.speed)
   applyBounds(song)
 
   const songScoped = (id: ToolId) => TOOL_META[id].scope === 'song'

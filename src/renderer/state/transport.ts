@@ -62,9 +62,18 @@ export const useTransport = create<TransportState>((set, get) => ({
     audioEngine.seek(clamped)
     set({ position: clamped })
   },
-  setSpeed: (speed) => set({ speed }),
-  setSemitones: (semitones) => set({ semitones }),
-  setCents: (cents) => set({ cents }),
+  setSpeed: (speed) => {
+    audioEngine.setSpeed(speed)
+    set({ speed })
+  },
+  setSemitones: (semitones) => {
+    audioEngine.setPitch({ semitones, cents: get().cents })
+    set({ semitones })
+  },
+  setCents: (cents) => {
+    audioEngine.setPitch({ semitones: get().semitones, cents })
+    set({ cents })
+  },
   setBounds: (start, end) => {
     audioEngine.setBounds(start, end)
     set({ start, end })

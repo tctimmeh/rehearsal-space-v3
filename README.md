@@ -112,9 +112,11 @@ interrupting playback.
 Tempo and pitch are independent by construction: `playbackRate` resamples for
 tempo, and one pitch shifter on the Music bus corrects the pitch that causes,
 set to `semitones - 12 * log2(speed)`. That is one phase vocoder for the whole
-song no matter how many channels there are. The shifter is bypassed entirely at
-1x and 0 semitones. (Measured, in `plans/`: 0.8x with correction comes back at
-exactly the original pitch.)
+song no matter how many channels there are, and it is bypassed entirely at 1x
+and 0 semitones so ordinary playback never goes through a phase vocoder at all.
+
+The shifter costs 120 ms of latency, which the click bus is delayed by to match
+— otherwise a count-in would run ahead of the music it is counting in.
 
 ## Where things are stored
 

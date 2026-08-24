@@ -1,11 +1,17 @@
+import SignalsmithStretch, { type StretchNode } from 'signalsmith-stretch'
+
 import { audibleGain } from '@core/mix/audible'
-import type { AudioChannel, Song } from '@core/song/song'
+import { isShiftNeutral, shifterSemitones } from '@core/mix/pitch'
+import type { AudioChannel, PitchOffset, Song } from '@core/song/song'
 
 /** Ramp length for gain changes: long enough not to click, short enough to feel instant. */
 const GAIN_RAMP_S = 0.015
 
 /** A moment past the end, so the last of the audio is never clipped short. */
 const END_GRACE_S = 0.05
+
+/** Room for the shifter's own delay, which the click has to be held back by. */
+const MAX_CLICK_DELAY_S = 1
 
 interface LoadedChannel {
   channel: AudioChannel
@@ -31,6 +37,15 @@ export class AudioEngine {
   private clickBus: GainNode | null = null
   private channels = new Map<string, LoadedChannel>()
 
+  /** The pitch shifter, made on first use — it costs a WASM module to load. */
+  private stretch: StretchNode | null = null
+  private stretchLoading: Promise<StretchNode | null> | null = null
+  private clickDelay: DelayNode | null = null
+  private stretchLatency: number | null = null
+  /** Rising counter so a slow chain rebuild cannot land after a newer one. */
+  private chainVersion = 0
+  private pitch: PitchOffset = { semitones: 0, cents: 0 }
+
   private playing = false
   /** Song time at the moment the clock was last anchored. */
   private anchorSong = 0
@@ -48,8 +63,12 @@ export class AudioEngine {
       this.master = context.createGain()
       this.musicBus = context.createGain()
       this.clickBus = context.createGain()
+      this.clickDelay = context.createDelay(MAX_CLICK_DELAY_S)
       this.musicBus.connect(this.master)
-      this.clickBus.connect(this.master)
+      /* The click passes through a delay that is zero until the shifter is in
+         the path, at which point it matches the shifter's own latency. */
+      this.clickBus.connect(this.clickDelay)
+      this.clickDelay.connect(this.master)
       this.master.connect(context.destination)
       this.context = context
     }
@@ -70,6 +89,98 @@ export class AudioEngine {
   /** True once the song has run past its last channel. */
   get finished(): boolean {
     return this.playing && this.position >= this.end
+  }
+
+  /**
+   * Tempo. Sources already playing simply change speed; ones still waiting to
+   * begin have to be re-timed, because how long their wait is depends on it.
+   */
+  setSpeed(speed: number): void {
+    if (speed === this.rate || speed <= 0) return
+    const context = this.context
+    const position = this.position
+
+    this.rate = speed
+    this.anchorSong = position
+    if (context !== null) this.anchorContext = context.currentTime
+
+    for (const loaded of this.channels.values()) {
+      if (loaded.source === null) continue
+      if (position <= loaded.channel.startTime) {
+        this.startChannel(loaded, position)
+      } else if (context !== null) {
+        loaded.source.playbackRate.setValueAtTime(speed, context.currentTime)
+      }
+    }
+
+    if (this.playing) this.scheduleEnd()
+    void this.rebuildPitchChain()
+  }
+
+  setPitch(pitch: PitchOffset): void {
+    if (pitch.semitones === this.pitch.semitones && pitch.cents === this.pitch.cents) return
+    this.pitch = pitch
+    void this.rebuildPitchChain()
+  }
+
+  /**
+   * Puts the shifter in the path, or takes it out. Out is the point: at normal
+   * speed and pitch the audio reaches the output untouched, rather than through
+   * a phase vocoder set to do nothing.
+   */
+  private async rebuildPitchChain(): Promise<void> {
+    const { context, musicBus, master } = this
+    if (context === null || musicBus === null || master === null) return
+
+    const version = (this.chainVersion += 1)
+    const neutral = isShiftNeutral(this.rate, this.pitch)
+
+    if (neutral) {
+      musicBus.disconnect()
+      musicBus.connect(master)
+      this.stretch?.disconnect()
+      this.setClickDelay(0)
+      return
+    }
+
+    const stretch = await this.loadStretch()
+    /* A newer setting arrived while the module was loading. */
+    if (stretch === null || version !== this.chainVersion) return
+
+    stretch.schedule({ semitones: shifterSemitones(this.rate, this.pitch) }, true)
+    musicBus.disconnect()
+    musicBus.connect(stretch)
+    stretch.disconnect()
+    stretch.connect(master)
+
+    /* Asking costs a round trip to the worklet, so it is only asked once. */
+    this.stretchLatency ??= await stretch.latency()
+    if (version === this.chainVersion) this.setClickDelay(this.stretchLatency)
+  }
+
+  private async loadStretch(): Promise<StretchNode | null> {
+    if (this.stretch !== null) return this.stretch
+    const context = this.context
+    if (context === null) return null
+
+    this.stretchLoading ??= SignalsmithStretch(context)
+      .then((node) => {
+        node.schedule({ active: true }, true)
+        node.start()
+        this.stretch = node
+        return node
+      })
+      .catch(() => null)
+
+    return this.stretchLoading
+  }
+
+  /** Holds the click back so it stays level with the shifted music. */
+  private setClickDelay(seconds: number): void {
+    const context = this.context
+    if (this.clickDelay === null || context === null) return
+    const safe = Number.isFinite(seconds) ? Math.min(MAX_CLICK_DELAY_S, Math.max(0, seconds)) : 0
+    this.clickDelay.delayTime.setTargetAtTime(safe, context.currentTime, 0.02)
   }
 
   setBounds(start: number, end: number): void {
@@ -241,20 +352,41 @@ export class AudioEngine {
       const endsAt = channel.startTime + channel.duration
       if (songTime >= endsAt) continue
 
-      const source = context.createBufferSource()
-      source.buffer = loaded.buffer
-      source.playbackRate.value = this.rate
-      source.connect(loaded.gain)
-
-      if (songTime <= channel.startTime) {
-        /* Still to come: wait out the gap in wall-clock terms. */
-        const wait = (channel.startTime - songTime) / this.rate
-        source.start(context.currentTime + wait, 0)
-      } else {
-        source.start(context.currentTime, songTime - channel.startTime)
-      }
-      loaded.source = source
+      this.startChannel(loaded, songTime)
     }
+  }
+
+  /** Starts one channel's source for a given song time, replacing any current one. */
+  private startChannel(loaded: LoadedChannel, songTime: number): void {
+    const context = this.context
+    if (context === null) return
+
+    if (loaded.source !== null) {
+      try {
+        loaded.source.stop()
+      } catch {
+        /* Already stopped. */
+      }
+      loaded.source.disconnect()
+      loaded.source = null
+    }
+
+    const { channel } = loaded
+    if (songTime >= channel.startTime + channel.duration) return
+
+    const source = context.createBufferSource()
+    source.buffer = loaded.buffer
+    source.playbackRate.value = this.rate
+    source.connect(loaded.gain)
+
+    if (songTime <= channel.startTime) {
+      /* Still to come: wait out the gap in wall-clock terms. */
+      const wait = (channel.startTime - songTime) / this.rate
+      source.start(context.currentTime + wait, 0)
+    } else {
+      source.start(context.currentTime, songTime - channel.startTime)
+    }
+    loaded.source = source
   }
 }
 
