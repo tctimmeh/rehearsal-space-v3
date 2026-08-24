@@ -23,20 +23,24 @@ If `ELECTRON_RUN_AS_NODE` is set in your shell, Electron starts as plain Node an
 `require('electron')` returns the npm helper instead of the real module. Unset it
 (`env -u ELECTRON_RUN_AS_NODE ...`).
 
-### Running against throwaway settings
+### Running against throwaway everything
 
-Anything that launches the app for testing must pass `--user-data-dir`,
-otherwise it reads and writes the real `config.json` — the library folder, the
-interface scale, the external tool paths — and a test that tidies up after
-itself will take those with it.
+Anything that launches the app for testing must point `HOME` at a scratch
+directory:
 
 ```sh
-npx electron . --user-data-dir=/tmp/rs-test
+env HOME=/tmp/rs-test XDG_CONFIG_HOME=/tmp/rs-test/.config npx electron .
 ```
 
-The library folder is separate from that and is set inside the app, so point it
-at a scratch directory too rather than filling your own library with test
-songs.
+`--user-data-dir` alone is not enough, and the way it fails is quiet. It moves
+`config.json` somewhere harmless, but the *library folder* is a setting inside
+that file — so a run with no config falls back to the default library, which
+lives in the real home directory. The test then reads and writes real songs
+while looking perfectly isolated. Overriding `HOME` moves the default itself,
+so a run that seeds no settings at all still cannot reach anything real.
+
+Seed a library path explicitly as well if the test needs songs in it. Both
+together, not either one.
 
 ### Looking at the UI without a screen
 
@@ -47,7 +51,8 @@ waits longer before the shot when something slow is still loading.
 ```sh
 npm run build
 env -u ELECTRON_RUN_AS_NODE ELECTRON_DISABLE_SANDBOX=1 \
-  RS_CAPTURE=/tmp/shot.png npx electron . --user-data-dir=/tmp/rs-test
+  HOME=/tmp/rs-test XDG_CONFIG_HOME=/tmp/rs-test/.config \
+  RS_CAPTURE=/tmp/shot.png npx electron .
 ```
 
 ## Layout
