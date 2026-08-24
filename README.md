@@ -160,6 +160,26 @@ Three ways in, all through the job queue so none of them blocks the UI:
   anything runs and the whole thing reports as a single piece of work. The
   original is kept and, by default, muted.
 
+## Metronome channels
+
+A metronome channel is anchored at its **end** — the point where the music
+picks the beat back up — and its start is derived. That is what makes a
+count-in useful: you set where the band comes in and the clicks arrive before
+it, at negative song time if need be. The last beat *finishes* on the end time
+rather than starting there.
+
+Its length is set one of two ways:
+
+- **By measures** — a tempo and a number of bars, counted back from the end.
+- **By start time** — both ends pinned by ear, with the tempo nudged to whatever
+  divides the span evenly. The approximate tempo only decides how many beats
+  fit. A click that drifts off the music it was lined up against is worse than
+  one a fraction of a BPM from what was typed.
+
+Clicks are scheduled ahead of time against the audio clock, never fired by a
+timer — timers are far too coarse to land on a beat. They ride the Click bus,
+which is delayed to match the pitch shifter, so click and music stay level.
+
 ## Where things are stored
 
 Settings live in `config.json` under Electron's userData directory

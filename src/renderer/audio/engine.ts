@@ -1,8 +1,16 @@
 import SignalsmithStretch, { type StretchNode } from 'signalsmith-stretch'
 
 import { audibleGain } from '@core/mix/audible'
+import { beatsBetween, solveMetronome, type MetronomeTiming } from '@core/metronome/solve'
 import { shifterSemitones } from '@core/mix/pitch'
-import type { AudioChannel, PitchOffset, Song } from '@core/song/song'
+import type {
+  AudioChannel,
+  MetronomeChannel,
+  MetronomeSample,
+  PitchOffset,
+  Song
+} from '@core/song/song'
+import { loadClickSamples } from './clickSamples'
 
 /** Ramp length for gain changes: long enough not to click, short enough to feel instant. */
 const GAIN_RAMP_S = 0.015
@@ -12,6 +20,14 @@ const END_GRACE_S = 0.05
 
 /** Room for the shifter's own delay, which the other paths are held back by. */
 const MAX_ALIGN_DELAY_S = 1
+
+/** How often the click scheduler tops itself up, and how far ahead it works. */
+const CLICK_TICK_MS = 25
+const CLICK_HORIZON_S = 0.2
+
+/** An accented click is a little louder and a little brighter than the rest. */
+const ACCENT_GAIN = 1.6
+const ACCENT_RATE = 1.12
 
 interface LoadedChannel {
   channel: AudioChannel
@@ -36,6 +52,15 @@ export class AudioEngine {
   private musicBus: GainNode | null = null
   private clickBus: GainNode | null = null
   private channels = new Map<string, LoadedChannel>()
+  private clicks = new Map<MetronomeSample, AudioBuffer>()
+  private clicksLoading: Promise<unknown> | null = null
+  /** One entry per metronome channel, with its beats already worked out. */
+  private metronomes: { channel: MetronomeChannel; timing: MetronomeTiming }[] = []
+  private clickTimer: ReturnType<typeof setInterval> | null = null
+  /** Clicks handed over but not yet sounded, so pausing can take them back. */
+  private pendingClicks: AudioBufferSourceNode[] = []
+  /** Song time up to which clicks have already been handed to the audio thread. */
+  private clicksScheduledTo = 0
 
   /** The pitch shifter, made on first use — it costs a WASM module to load. */
   private stretch: StretchNode | null = null
@@ -88,8 +113,13 @@ export class AudioEngine {
       this.master.connect(context.destination)
       this.context = context
 
-      /* Load it now, so the first touch of a knob is not the thing that waits. */
+      /* Load these now, so the first touch of a knob is not the thing that waits. */
       void this.loadStretch()
+      this.clicksLoading ??= loadClickSamples(context)
+        .then((samples) => {
+          this.clicks = samples
+        })
+        .catch(() => undefined)
     }
     return this.context
   }
@@ -309,6 +339,15 @@ export class AudioEngine {
 
     rampTo(this.musicBus as GainNode, song.buses.music, context)
     rampTo(this.clickBus as GainNode, song.buses.click, context)
+
+    /* Solved here rather than per beat: the arithmetic does not change between
+       one click and the next, only which of them is due. */
+    this.metronomes = song.channels
+      .filter((channel): channel is MetronomeChannel => channel.kind === 'metronome')
+      .map((channel) => ({
+        channel: { ...channel, gain: audibleGain(channel, song.channels) },
+        timing: solveMetronome(channel)
+      }))
   }
 
   /**
@@ -347,6 +386,7 @@ export class AudioEngine {
     const attempt = (this.playAttempt += 1)
 
     await this.loadStretch()
+    await this.clicksLoading
     /* Whatever song is arriving has to arrive before there is anything to play. */
     await this.awaited?.promise
     await this.loading
@@ -402,6 +442,7 @@ export class AudioEngine {
 
   private stopSources(): void {
     for (const loaded of this.channels.values()) this.stopChannel(loaded)
+    this.stopClicks()
   }
 
   private stopChannel(loaded: LoadedChannel): void {
@@ -443,7 +484,78 @@ export class AudioEngine {
     for (const loaded of this.channels.values()) {
       this.startChannel(loaded, this.anchorSong)
     }
+    this.restartClicks(this.anchorSong)
     if (this.playing) this.scheduleEnd()
+  }
+
+  /** Clicks already handed over cannot be recalled, so the watermark moves too. */
+  private restartClicks(from: number): void {
+    this.clicksScheduledTo = from
+    if (this.clickTimer !== null) return
+    this.clickTimer = setInterval(() => this.scheduleClicks(), CLICK_TICK_MS)
+  }
+
+  private stopClicks(): void {
+    if (this.clickTimer !== null) {
+      clearInterval(this.clickTimer)
+      this.clickTimer = null
+    }
+    /* A click scheduled for a moment that has not arrived would still sound
+       after pausing, so it is taken back rather than merely not renewed. */
+    for (const source of this.pendingClicks) {
+      source.onended = null
+      try {
+        source.stop()
+      } catch {
+        /* Already sounded. */
+      }
+      source.disconnect()
+    }
+    this.pendingClicks = []
+  }
+
+  /**
+   * Hands the audio thread every click falling in the next fraction of a
+   * second. Timers are far too coarse to fire a click on the beat, so nothing
+   * is played *at* the right moment — it is scheduled for it, ahead of time,
+   * and the audio clock keeps it.
+   */
+  private scheduleClicks(): void {
+    const context = this.context
+    if (context === null || !this.playing || this.starting) return
+
+    const until = Math.min(this.end, this.position + CLICK_HORIZON_S)
+    const from = this.clicksScheduledTo
+    if (until <= from) return
+    this.clicksScheduledTo = until
+
+    for (const { channel, timing } of this.metronomes) {
+      if (channel.gain <= 0) continue
+      const sample = this.clicks.get(channel.sample)
+      if (sample === undefined) continue
+
+      for (const beat of beatsBetween(timing, from, until)) {
+        const accent = channel.accentFirstBeat && beat.accent
+        const source = context.createBufferSource()
+        source.buffer = sample
+        source.playbackRate.value = accent ? ACCENT_RATE : 1
+
+        const gain = context.createGain()
+        gain.gain.value = channel.gain * (accent ? ACCENT_GAIN : 1)
+        source.connect(gain)
+        gain.connect(this.clickBus as GainNode)
+
+        /* Song time to audio time, at whatever rate we are playing. */
+        const when =
+          this.anchorContext + (beat.time - this.anchorSong) / this.rate
+        source.start(Math.max(context.currentTime, when))
+        this.pendingClicks.push(source)
+        source.onended = () => {
+          gain.disconnect()
+          this.pendingClicks = this.pendingClicks.filter((entry) => entry !== source)
+        }
+      }
+    }
   }
 
   /**
@@ -458,6 +570,10 @@ export class AudioEngine {
       if (loaded.source !== null) continue
       this.startChannel(loaded, at)
     }
+    /* A metronome may have arrived too. Only start the scheduler if it is not
+       already running: rewinding its watermark would sound the same clicks
+       twice. */
+    if (this.clickTimer === null) this.restartClicks(at)
     this.scheduleEnd()
   }
 

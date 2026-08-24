@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { summarise } from '@core/song/song'
+import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
@@ -27,6 +27,7 @@ interface SongState {
   importAudio: (paths?: string[]) => Promise<void>
   removeChannel: (channelId: string) => Promise<void>
   downloadAudio: (url: string) => Promise<void>
+  addMetronome: () => void
   separate: (request: SeparateRequest) => Promise<void>
   /** True while any of importing, downloading or separating is under way. */
   importing: boolean
@@ -165,6 +166,16 @@ export const useSong = create<SongState>((set, get) => ({
         ? window.rehearsal.library.chooseAudio(song.id)
         : window.rehearsal.library.importAudio(song.id, paths)
     )
+  },
+
+  addMetronome: () => {
+    const song = get().song
+    if (song === null) return
+    const taken = new Set(song.channels.map((channel) => channel.id))
+    let id = 'click'
+    for (let n = 2; taken.has(id); n += 1) id = `click-${n}`
+    /* Ends where the music starts, which is where a count-in belongs. */
+    get().update({ channels: [...song.channels, newMetronomeChannel(id, 0)] })
   },
 
   downloadAudio: async (url) => {

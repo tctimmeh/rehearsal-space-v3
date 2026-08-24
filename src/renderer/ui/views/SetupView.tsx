@@ -5,18 +5,28 @@ import {
   CHANNEL_SUBJECT_LABEL,
   INSTRUMENT_SUBJECTS
 } from '@core/song/channelSubject'
-import type { AudioChannel, Channel } from '@core/song/song'
+import type { AudioChannel, Channel, MetronomeChannel } from '@core/song/song'
 import type { DemucsModel } from '@shared/stems'
+import { solveMetronome } from '@core/metronome/solve'
 import { formatClock } from '@core/time'
 import { useSong } from '@renderer/state/song'
 import { SubjectIcon } from '../icons/subjectIcons'
 import { Button, Modal } from '../primitives'
 import { DownloadDialog } from './DownloadDialog'
+import { MetronomeEditor } from './MetronomeEditor'
 import { StemsDialog } from './StemsDialog'
 
 export function SetupView() {
-  const { song, update, importAudio, downloadAudio, separate, removeChannel, importing } =
-    useSong()
+  const {
+    song,
+    update,
+    importAudio,
+    downloadAudio,
+    separate,
+    removeChannel,
+    addMetronome,
+    importing
+  } = useSong()
   /*
    * Ids, not channels. Holding a copy of the channel would freeze the editor
    * against a song that keeps changing underneath it — its own edits included,
@@ -70,6 +80,9 @@ export function SetupView() {
       <div className="section-head">
         <h4>Channels</h4>
         <span className="section-head__actions">
+          <Button disabled={importing} onClick={addMetronome}>
+            Add metronome
+          </Button>
           <Button disabled={importing} onClick={() => setDownloading(true)}>
             Download…
           </Button>
@@ -92,7 +105,7 @@ export function SetupView() {
             <span className="channel-row__name">
               {channel.name}
               <span className="channel-row__file">
-                {channel.kind === 'audio' ? formatClock(channel.duration) : 'Metronome'}
+                {channel.kind === 'audio' ? formatClock(channel.duration) : metronomeSummary(channel)}
               </span>
             </span>
             <span className="channel-row__actions">
@@ -176,13 +189,20 @@ export function SetupView() {
 }
 
 /** Name and subject are the two things a wrong guess gets wrong. */
+function metronomeSummary(channel: MetronomeChannel): string {
+  const timing = solveMetronome(channel)
+  return `${timing.beatCount} beats · ${timing.bpm.toFixed(0)} bpm · ends ${formatClock(
+    channel.endTime
+  )}`
+}
+
 function ChannelEditor({
   channel,
   onChange,
   onDone
 }: {
   channel: Channel
-  onChange: (patch: { name?: string; subject?: Channel['subject'] }) => void
+  onChange: (patch: Partial<Channel>) => void
   onDone: () => void
 }) {
   return (
@@ -202,26 +222,33 @@ function ChannelEditor({
         />
       </div>
 
-      {channel.kind === 'metronome' ? null : (
-      <div className="field field--spaced">
-        <label>Instrument</label>
-        <div className="subject-grid">
-          {INSTRUMENT_SUBJECTS.map((subject) => (
-            <button
-              key={subject}
-              type="button"
-              className="raised subject-choice"
-              data-engaged={channel.subject === subject}
-              title={CHANNEL_SUBJECT_LABEL[subject]}
-              onClick={() => onChange({ subject })}
-            >
-              <span style={{ color: CHANNEL_SUBJECT_COLOR[subject] }}>
-                <SubjectIcon subject={subject} size={20} />
-              </span>
-            </button>
-          ))}
+      {channel.kind === 'metronome' ? (
+        <div className="field--spaced">
+          <MetronomeEditor
+            channel={channel}
+            onChange={(patch) => onChange(patch as Partial<Channel>)}
+          />
         </div>
-      </div>
+      ) : (
+        <div className="field field--spaced">
+          <label>Instrument</label>
+          <div className="subject-grid">
+            {INSTRUMENT_SUBJECTS.map((subject) => (
+              <button
+                key={subject}
+                type="button"
+                className="raised subject-choice"
+                data-engaged={channel.subject === subject}
+                title={CHANNEL_SUBJECT_LABEL[subject]}
+                onClick={() => onChange({ subject })}
+              >
+                <span style={{ color: CHANNEL_SUBJECT_COLOR[subject] }}>
+                  <SubjectIcon subject={subject} size={20} />
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </Modal>
   )

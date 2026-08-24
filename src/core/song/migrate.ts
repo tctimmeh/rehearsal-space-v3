@@ -83,8 +83,7 @@ function parseDuration(raw: unknown): MetronomeDuration {
   return {
     mode: 'measures',
     bpm: num(record['bpm'], 120),
-    measures: Math.max(1, Math.round(num(record['measures'], 1))),
-    beatsPerMeasure: Math.max(1, Math.round(num(record['beatsPerMeasure'], 4)))
+    measures: Math.max(1, Math.round(num(record['measures'], 1)))
   }
 }
 
@@ -106,6 +105,18 @@ function parseChannel(raw: unknown, index: number): Channel | null {
       kind: 'metronome',
       sample: oneOf(raw['sample'], METRONOME_SAMPLES, 'tick'),
       endTime: num(raw['endTime'], 0),
+      /* Older songs kept this inside the measures mode, where it did not
+         belong: how many beats to a measure is a property of the music, not of
+         how the channel's length happens to be worked out. */
+      beatsPerMeasure: Math.max(
+        1,
+        Math.round(
+          num(
+            raw['beatsPerMeasure'],
+            num(isRecord(raw['duration']) ? raw['duration']['beatsPerMeasure'] : undefined, 4)
+          )
+        )
+      ),
       accentFirstBeat: bool(raw['accentFirstBeat'], true),
       duration: parseDuration(raw['duration'])
     }

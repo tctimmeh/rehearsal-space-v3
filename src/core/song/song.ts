@@ -37,13 +37,17 @@ export type MetronomeSample = 'tick' | 'chirp' | 'cymbal' | 'rim' | 'kit'
  * music picks the beat back up — and its start is derived.
  */
 export type MetronomeDuration =
-  | { mode: 'measures'; bpm: number; measures: number; beatsPerMeasure: number }
+  /** Count the measures back from the end. Most useful for a count-in. */
+  | { mode: 'measures'; bpm: number; measures: number }
+  /** Pin both ends by ear and let the tempo be nudged to fit between them. */
   | { mode: 'startTime'; approxBpm: number; startTime: number }
 
 export interface MetronomeChannel extends ChannelBase {
   kind: 'metronome'
   sample: MetronomeSample
+  /** Where the music picks the beat back up: the last beat finishes here. */
   endTime: number
+  beatsPerMeasure: number
   accentFirstBeat: boolean
   duration: MetronomeDuration
 }
@@ -87,6 +91,35 @@ export interface SongSummary {
 }
 
 export const DEFAULT_SONG_TITLE = 'New Song'
+
+export const METRONOME_SAMPLE_LABEL: Record<MetronomeSample, string> = {
+  tick: 'Tick',
+  chirp: 'Chirp',
+  cymbal: 'Cymbal',
+  rim: 'Rim',
+  kit: 'Thud'
+}
+
+/**
+ * A count-in: one bar of four, finishing where the music starts. Anchored at
+ * the end, so it sits before 00:00 and the band comes in on the downbeat.
+ */
+export function newMetronomeChannel(id: string, endTime = 0): MetronomeChannel {
+  return {
+    kind: 'metronome',
+    id,
+    name: 'Count-in',
+    subject: 'metronome',
+    gain: 1,
+    muted: false,
+    soloed: false,
+    sample: 'tick',
+    endTime,
+    beatsPerMeasure: 4,
+    accentFirstBeat: true,
+    duration: { mode: 'measures', bpm: 120, measures: 1 }
+  }
+}
 
 export function newSong(id: string, now = new Date()): Song {
   const timestamp = now.toISOString()
