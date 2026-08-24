@@ -21,7 +21,7 @@ describe('the fader taper', () => {
        would put half-way at -6 dB and squeeze the rest into the bottom half. */
     const steps = [1, 0.75, 0.5, 0.25].map((position) => db(faderToGain(position)))
     const drops = steps.slice(1).map((value, index) => (steps[index] as number) - value)
-    for (const drop of drops) expect(drop).toBeCloseTo(6, 5)
+    for (const drop of drops) expect(drop).toBeCloseTo(5, 5)
   })
 
   it('keeps the range short enough to balance a mix with', () => {
@@ -32,7 +32,7 @@ describe('the fader taper', () => {
   })
 
   it('round-trips a gain back to the same place on the fader', () => {
-    for (const gain of [0, 0.1, 0.25, 0.5, 0.8, 1]) {
+    for (const gain of [0, 0.15, 0.25, 0.5, 0.8, 1]) {
       expect(faderToGain(gainToFader(gain))).toBeCloseTo(gain, 6)
     }
   })

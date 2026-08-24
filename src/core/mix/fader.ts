@@ -10,7 +10,7 @@
  *
  * Top of travel is unity — faders attenuate, they do not boost.
  */
-const MIN_DB = -24
+const MIN_DB = -20
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value))
 
