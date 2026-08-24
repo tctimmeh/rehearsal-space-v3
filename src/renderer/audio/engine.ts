@@ -275,7 +275,7 @@ export class AudioEngine {
     )
 
     this.applyMix(song)
-    if (this.playing) this.restartSources()
+    if (this.playing) this.startAddedChannels()
   }
 
   /** Faders, mute and solo, and the two bus levels. */
@@ -315,9 +315,8 @@ export class AudioEngine {
     if (!this.playing || attempt !== this.playAttempt) return
 
     /* Starting at the very end would play nothing; go back to the beginning. */
-    if (this.anchorSong >= this.end) this.anchorSong = this.start
-    this.restartSources()
-    this.scheduleEnd()
+    const from = this.anchorSong >= this.end ? this.start : this.anchorSong
+    this.restartSources(from)
   }
 
   pause(): void {
@@ -339,11 +338,10 @@ export class AudioEngine {
 
   /** Scrubbing must not interrupt playback: the sources restart at the new spot. */
   seek(songTime: number): void {
-    this.anchorSong = Math.min(this.end, Math.max(this.start, songTime))
     if (this.playing) {
-      this.restartSources()
-      this.scheduleEnd()
+      this.restartSources(songTime)
     } else {
+      this.anchorSong = Math.min(this.end, Math.max(this.start, songTime))
       this.stopSources()
     }
   }
@@ -381,25 +379,42 @@ export class AudioEngine {
   }
 
   /**
-   * Rebuilds every source for the current position. A source node is
-   * single-use, so seeking and resuming both come through here.
+   * Rebuilds every source at a given song time. A source node is single-use,
+   * so seeking and resuming both come through here.
+   *
+   * The time is a parameter rather than read from the clock, because the two
+   * callers mean different things by it: resuming means "from where we paused"
+   * while seeking means "from there". Inferring it got that wrong — restarting
+   * while playing re-anchored to where playback had *begun*, so adding a
+   * channel mid-song threw the playhead back to wherever play was pressed.
    */
-  private restartSources(): void {
+  private restartSources(atSongTime: number): void {
     const context = this.context
     if (context === null) return
 
     this.stopSources()
-    const songTime = this.anchorSong
+    this.anchorSong = Math.min(this.end, Math.max(this.start, atSongTime))
     this.anchorContext = context.currentTime
-    this.anchorSong = songTime
 
     for (const loaded of this.channels.values()) {
-      const { channel } = loaded
-      const endsAt = channel.startTime + channel.duration
-      if (songTime >= endsAt) continue
-
-      this.startChannel(loaded, songTime)
+      this.startChannel(loaded, this.anchorSong)
     }
+    if (this.playing) this.scheduleEnd()
+  }
+
+  /**
+   * Brings channels that have just appeared into a performance already under
+   * way, leaving the ones already sounding alone. Separating a track adds
+   * several at once, and restarting everything to accommodate them would put a
+   * hole in the middle of the song.
+   */
+  private startAddedChannels(): void {
+    const at = this.position
+    for (const loaded of this.channels.values()) {
+      if (loaded.source !== null) continue
+      this.startChannel(loaded, at)
+    }
+    this.scheduleEnd()
   }
 
   /** Starts one channel's source for a given song time, replacing any current one. */
