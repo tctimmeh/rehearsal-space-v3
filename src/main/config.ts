@@ -31,6 +31,7 @@ export const defaultConfig = (): AppConfig => ({
      by using it. */
   panSpeed: 0.1,
   zoomSpeed: 0.15,
+  inputDeviceId: '',
   toolPaths: {}
 })
 
@@ -57,6 +58,8 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
       typeof record['showCents'] === 'boolean' ? record['showCents'] : defaults.showCents,
     panSpeed: number(record['panSpeed'], defaults.panSpeed, PAN_SPEED_MIN, PAN_SPEED_MAX),
     zoomSpeed: number(record['zoomSpeed'], defaults.zoomSpeed, ZOOM_SPEED_MIN, ZOOM_SPEED_MAX),
+    inputDeviceId:
+      typeof record['inputDeviceId'] === 'string' ? record['inputDeviceId'] : '',
     toolPaths: parseToolPaths(record['toolPaths'])
   }
 }

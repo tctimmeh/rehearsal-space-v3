@@ -13,6 +13,8 @@ export interface AppConfig {
   panSpeed: number
   /** Fraction of a doubling a wheel notch zooms by. Every notch moves. */
   zoomSpeed: number
+  /** Which input to record from. Empty means whatever the system offers. */
+  inputDeviceId: string
   /** Explicit locations for external tools, overriding the search. */
   toolPaths: Partial<Record<ExternalTool, string>>
 }
@@ -30,4 +32,7 @@ export const ZOOM_SPEED_MAX = 1
 export const ZOOM_SPEED_STEP = 0.05
 
 /** Settings the user can simply set, as against those with their own flow. */
-export type Preferences = Pick<AppConfig, 'uiScale' | 'showCents' | 'panSpeed' | 'zoomSpeed'>
+export type Preferences = Pick<
+  AppConfig,
+  'uiScale' | 'showCents' | 'panSpeed' | 'zoomSpeed' | 'inputDeviceId'
+>

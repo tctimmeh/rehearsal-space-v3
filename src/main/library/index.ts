@@ -1,5 +1,6 @@
 import { isAbsolute, join, normalize, relative } from 'node:path'
-import { readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 
 import type { AudioChannel, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '../../shared/stems'
@@ -134,4 +135,38 @@ export async function separateChannel(
 /** The precomputed waveform for a channel, for the alignment tool to draw. */
 export async function readChannelPeaks(songId: string, channelId: string): Promise<Buffer> {
   return readChannelAudio(songId, join('peaks', `${channelId}.peaks`))
+}
+
+
+/** Adds a take: the bytes are written out and imported like any other file. */
+export async function addRecording(
+  songId: string,
+  wav: Uint8Array,
+  startTime: number,
+  name: string
+): Promise<Song> {
+  const directory = await songDirectory(songId)
+  const existing = await readSong(songId)
+  const workspace = await mkdtemp(join(tmpdir(), 'rehearsal-take-'))
+  const source = join(workspace, `${name}.wav`)
+
+  try {
+    await writeFile(source, wav)
+    const channel = await importAudio({
+      songDirectory: directory,
+      sourcePath: source,
+      takenIds: existing.channels.map((entry) => entry.id),
+      origin: { type: 'record' },
+      name,
+      /* Whatever was played into it, it is certainly not the full mix — which
+         is what an unrecognised name would otherwise be taken for. */
+      subject: 'other',
+      startTime
+    })
+
+    const song = await readSong(songId)
+    return writeSong({ ...song, channels: [...song.channels, channel] })
+  } finally {
+    await rm(workspace, { recursive: true, force: true })
+  }
 }

@@ -731,3 +731,10 @@
 .setting-row--tight {
   margin-top: 8px;
 }
+
+.setting-select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 12.5px;
+}

@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, session, shell } from 'electron'
 
 import { readConfig } from './config'
 import { captureAndExit, requestedCapturePath } from './devCapture'
@@ -68,6 +68,15 @@ function createWindow(uiScale: number): BrowserWindow {
 }
 
 void app.whenReady().then(async () => {
+  /*
+   * The app records from an input the user chose in its own settings. There is
+   * no remote content here to ask on anyone's behalf, so the only request that
+   * can arrive is the one the record button just made.
+   */
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, grant) => {
+    grant(permission === 'media')
+  })
+
   registerIpcHandlers()
   const { uiScale } = await readConfig()
   createWindow(uiScale)

@@ -10,6 +10,7 @@ import { jobs } from '../jobs'
 import { AUDIO_EXTENSIONS } from '../import/importAudio'
 import { setToolPath, toolStatus } from '../tools'
 import {
+  addRecording,
   createSong,
   deleteSong,
   downloadChannel,
@@ -132,6 +133,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.librarySeparate, (_event, songId: string, request: SeparateRequest) =>
     separateChannel(songId, request)
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.libraryAddRecording,
+    (_event, songId: string, wav: Uint8Array, startTime: number, name: string) =>
+      addRecording(songId, wav, startTime, name)
   )
 
   ipcMain.handle(IPC_CHANNELS.jobsList, () => jobs.list())

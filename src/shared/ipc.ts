@@ -45,6 +45,7 @@ export interface RehearsalApi {
     readPeaks(songId: string, channelId: string): Promise<Uint8Array>
     downloadAudio(songId: string, url: string): Promise<Song>
     separate(songId: string, request: SeparateRequest): Promise<Song>
+    addRecording(songId: string, wav: Uint8Array, startTime: number, name: string): Promise<Song>
   }
   jobs: {
     list(): Promise<Job[]>
@@ -85,6 +86,7 @@ export const IPC_CHANNELS = {
   libraryReadPeaks: 'library:read-peaks',
   libraryDownloadAudio: 'library:download-audio',
   librarySeparate: 'library:separate',
+  libraryAddRecording: 'library:add-recording',
   jobsList: 'jobs:list',
   jobsLog: 'jobs:log',
   jobsCancel: 'jobs:cancel',

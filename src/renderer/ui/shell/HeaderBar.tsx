@@ -12,7 +12,7 @@ import {
   useTransport
 } from '@renderer/state/transport'
 import { useView, VIEWS } from '@renderer/state/view'
-import { KebabIcon, PauseIcon, PlayIcon, StopIcon } from '../icons/uiIcons'
+import { KebabIcon, PauseIcon, PlayIcon, RecordIcon, StopIcon } from '../icons/uiIcons'
 import { IconButton, Knob, Tabs } from '../primitives'
 import { SettingsModal } from './SettingsModal'
 
@@ -28,6 +28,7 @@ export function HeaderBar() {
   const { view, setView } = useView()
   const song = useSong((state) => state.song)
   const loading = useSong((state) => state.loading)
+  const recording = useSong((state) => state.recording)
   const update = useSong((state) => state.update)
   const { playing, speed, semitones, cents, toggle, stop, setSpeed, setSemitones, setCents } =
     useTransport()
@@ -68,6 +69,18 @@ export function HeaderBar() {
           disabled={song === null || loading !== null}
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
+        </IconButton>
+        <IconButton
+          label={recording ? 'Stop recording' : 'Record'}
+          className={recording ? 'icon-btn--recording' : ''}
+          engaged={recording}
+          disabled={song === null || loading !== null}
+          onClick={() => {
+            const store = useSong.getState()
+            void (recording ? store.stopRecording() : store.startRecording())
+          }}
+        >
+          <RecordIcon />
         </IconButton>
       </div>
 

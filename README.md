@@ -161,6 +161,13 @@ Three ways in, all through the job queue so none of them blocks the UI:
   are two things: a download that depends on somebody else's server, and a
   conversion that does not. The file is named after the title, so the channel
   and the song folder are too.
+- **Record** from an input device. Everything the browser offers to help a phone
+  call — echo cancellation, noise suppression, automatic gain — is refused;
+  they exist to make speech intelligible by altering it. A take recorded while
+  the song plays is placed where the player *was*, which is a little behind the
+  playhead: what they were following is what they could hear, and that is the
+  output's own latency late. The compensation is an estimate from the graph and
+  the driver, not a measured round trip.
 - **Separate** a channel into stems with `demucs`. One job, not seven —
   `demucs` writes to a predictable place, so every conversion is planned before
   anything runs and the whole thing reports as a single piece of work. The

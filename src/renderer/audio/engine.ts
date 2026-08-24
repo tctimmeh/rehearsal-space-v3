@@ -137,6 +137,21 @@ export class AudioEngine {
     return this.playing
   }
 
+  /**
+   * How far behind the playhead the sound actually is. A player follows what
+   * they hear, so a take lines up with this much earlier in the song than the
+   * clock said when it was captured.
+   */
+  get audibleDelay(): number {
+    const output = this.context?.outputLatency || this.context?.baseLatency || 0
+    return this.stretchLatency + output
+  }
+
+  /** The graph's own context, for capture to share. */
+  get audioContext(): AudioContext {
+    return this.ensureContext()
+  }
+
   /** True once the song has run past its last channel. */
   get finished(): boolean {
     return this.playing && this.position >= this.end

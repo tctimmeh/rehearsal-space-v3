@@ -68,3 +68,9 @@ export const RhymesIcon = ({ size = 18 }: { size?: number }) => (
     <path d="M3 4.5h18M3 9.5h13M3 14.5h16M3 19.5h9" />
   </Icon>
 )
+
+export const RecordIcon = ({ size = 18 }: { size?: number }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+    <circle cx="12" cy="12" r="6" />
+  </svg>
+)

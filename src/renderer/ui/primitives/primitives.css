@@ -229,3 +229,22 @@
   color: var(--text-dim);
   line-height: 1.6;
 }
+
+/* Recording is the one thing in the app that keeps announcing itself. */
+.icon-btn--recording,
+.icon-btn--recording[data-engaged='true'] {
+  color: #fff1f0;
+  background: linear-gradient(180deg, var(--mute), var(--mute-lo));
+  border-color: #6d1a16;
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    0 0 8px rgba(226, 86, 79, 0.5);
+  animation: recording-pulse 1.6s ease-in-out infinite;
+}
+@keyframes recording-pulse {
+  50% {
+    box-shadow:
+      inset 0 1px 0 var(--edge-hi),
+      0 0 14px rgba(226, 86, 79, 0.85);
+  }
+}

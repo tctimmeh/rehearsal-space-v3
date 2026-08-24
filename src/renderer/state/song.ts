@@ -5,7 +5,10 @@ import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
+import { encodeWav } from '@core/audio/wav'
 import { audioEngine } from '@renderer/audio/engine'
+import { useConfig } from './config'
+import { Recorder } from '@renderer/audio/recorder'
 import { useTools } from './tools'
 import { useTransport } from './transport'
 
@@ -29,6 +32,10 @@ interface SongState {
   removeChannel: (channelId: string) => Promise<void>
   downloadAudio: (url: string) => Promise<void>
   addMetronome: () => void
+  /** True from pressing record until the take has been converted. */
+  recording: boolean
+  startRecording: () => Promise<void>
+  stopRecording: () => Promise<void>
   separate: (request: SeparateRequest) => Promise<void>
   /** True while any of importing, downloading or separating is under way. */
   importing: boolean
@@ -51,6 +58,15 @@ const message = (error: unknown): string =>
  */
 const SAVE_DELAY_MS = 400
 
+const recorder = new Recorder()
+/** Song time the current take belongs at, fixed when recording begins. */
+let takeStartedAt = 0
+
+const takeName = (song: Song): string => {
+  const takes = song.channels.filter((channel) => channel.name.startsWith('Take ')).length
+  return `Take ${takes + 1}`
+}
+
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let unsaved = false
 let saving: Promise<void> | null = null
@@ -68,6 +84,7 @@ export const useSong = create<SongState>((set, get) => ({
   song: null,
   error: null,
   importing: false,
+  recording: false,
   loading: null,
 
   dismissError: () => set({ error: null }),
@@ -177,6 +194,43 @@ export const useSong = create<SongState>((set, get) => ({
     for (let n = 2; taken.has(id); n += 1) id = `click-${n}`
     /* Ends where the music starts, which is where a count-in belongs. */
     get().update({ channels: [...song.channels, newMetronomeChannel(id, 0)] })
+  },
+
+  startRecording: async () => {
+    const song = get().song
+    if (song === null || get().recording) return
+    try {
+      /* The song time this take belongs at is decided now, before any of the
+         waiting: what the player is responding to is what they can hear, which
+         is already behind the playhead. */
+      takeStartedAt = Math.max(
+        useTransport.getState().start,
+        useTransport.getState().playing ? audioEngine.position - audioEngine.audibleDelay : 0
+      )
+      await recorder.start(audioEngine.audioContext, useConfig.getState().config?.inputDeviceId)
+      set({ recording: true, error: null })
+    } catch (error) {
+      set({ error: `Could not start recording: ${message(error)}` })
+    }
+  },
+
+  stopRecording: async () => {
+    if (!get().recording) return
+    const take = recorder.stop()
+    set({ recording: false })
+    if (take === null) {
+      set({ error: 'The recording captured nothing.' })
+      return
+    }
+
+    const startTime = Math.max(
+      useTransport.getState().start,
+      takeStartedAt - take.inputLatency
+    )
+    const wav = encodeWav(take.channels, take.sampleRate)
+    await runAdding(set, get, (song) =>
+      window.rehearsal.library.addRecording(song.id, wav, startTime, takeName(song))
+    )
   },
 
   downloadAudio: async (url) => {

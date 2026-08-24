@@ -29,6 +29,8 @@ export interface ImportRequest {
   /** Overrides the name and subject taken from the file name. */
   name?: string
   subject?: InstrumentSubject
+  /** Where the audio sits on the song timeline. Recordings are not at zero. */
+  startTime?: number
 }
 
 /**
@@ -162,7 +164,8 @@ export async function importAudio({
   takenIds = [],
   origin,
   name,
-  subject
+  subject,
+  startTime
 }: ImportRequest): Promise<AudioChannel> {
   const ffmpeg = await requireTool('ffmpeg')
   const ffprobe = await requireTool('ffprobe')
@@ -191,5 +194,5 @@ export async function importAudio({
     steps: plan.steps
   })
   await plan.finish()
-  return plan.channel
+  return startTime === undefined ? plan.channel : { ...plan.channel, startTime }
 }
