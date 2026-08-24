@@ -45,6 +45,10 @@ export class AudioEngine {
   private pitch: PitchOffset = { semitones: 0, cents: 0 }
 
   private playing = false
+  /** Rising per attempt, so a stale start cannot resurrect itself. */
+  private playAttempt = 0
+  /** Loads run one at a time; two at once would overwrite each other. */
+  private loading: Promise<unknown> = Promise.resolve()
   /** Song time at the moment the clock was last anchored. */
   private anchorSong = 0
   private anchorContext = 0
@@ -213,7 +217,22 @@ export class AudioEngine {
    * Brings the graph in line with the song: decodes anything new, drops
    * anything gone, and leaves untouched channels playing.
    */
-  async load(
+  /**
+   * Decoding takes long enough for a second call to arrive mid-flight, and two
+   * running together would each build a node for the same channel and the
+   * loser's would be left connected with nothing able to stop it — audible for
+   * ever, including after stop. So they queue.
+   */
+  load(song: Song, readAudio: (file: string) => Promise<Uint8Array>): Promise<void> {
+    const next = this.loading.then(
+      () => this.loadNow(song, readAudio),
+      () => this.loadNow(song, readAudio)
+    )
+    this.loading = next.catch(() => undefined)
+    return next
+  }
+
+  private async loadNow(
     song: Song,
     readAudio: (file: string) => Promise<Uint8Array>
   ): Promise<void> {
@@ -226,8 +245,7 @@ export class AudioEngine {
 
     for (const [id, loaded] of this.channels) {
       if (wanted.has(id)) continue
-      loaded.source?.stop()
-      loaded.gain.disconnect()
+      this.dropChannel(loaded)
       this.channels.delete(id)
     }
 
@@ -245,6 +263,13 @@ export class AudioEngine {
         )
         const gain = context.createGain()
         gain.connect(this.musicBus as GainNode)
+
+        /* Nothing should have appeared while decoding, but if it somehow did,
+           the new node is thrown away rather than left dangling. */
+        if (this.channels.has(channel.id)) {
+          gain.disconnect()
+          return
+        }
         this.channels.set(channel.id, { channel, buffer, gain, source: null })
       })
     )
@@ -270,20 +295,34 @@ export class AudioEngine {
   }
 
   async play(): Promise<void> {
+    if (this.playing) return
     const context = this.ensureContext()
-    /* Settle the routing before any sound comes out of it. */
+
+    /*
+     * Claim playback before waiting for anything. Getting ready means loading
+     * a WASM module and resuming the context, and a stop arriving during that
+     * has to win — otherwise it is acted on while nothing is playing yet, and
+     * then playback starts anyway with the transport certain it is stopped.
+     */
+    this.playing = true
+    this.anchorContext = context.currentTime
+    const attempt = (this.playAttempt += 1)
+
     await this.loadStretch()
     if (context.state === 'suspended') await context.resume()
-    if (this.playing) return
+
+    /* Stopped, paused, or asked to start again while we were getting ready. */
+    if (!this.playing || attempt !== this.playAttempt) return
+
     /* Starting at the very end would play nothing; go back to the beginning. */
     if (this.anchorSong >= this.end) this.anchorSong = this.start
-    this.playing = true
     this.restartSources()
     this.scheduleEnd()
   }
 
   pause(): void {
     if (!this.playing) return
+    this.playAttempt += 1
     this.anchorSong = this.position
     this.playing = false
     this.clearEndTimer()
@@ -292,6 +331,7 @@ export class AudioEngine {
 
   stop(): void {
     this.playing = false
+    this.playAttempt += 1
     this.clearEndTimer()
     this.stopSources()
     this.anchorSong = this.start
@@ -310,25 +350,34 @@ export class AudioEngine {
 
   dispose(): void {
     this.clearEndTimer()
-    this.stopSources()
-    for (const loaded of this.channels.values()) loaded.gain.disconnect()
+    this.playAttempt += 1
+    this.playing = false
+    for (const loaded of this.channels.values()) this.dropChannel(loaded)
     this.channels.clear()
     void this.context?.close()
     this.context = null
   }
 
   private stopSources(): void {
-    for (const loaded of this.channels.values()) {
-      if (loaded.source === null) continue
-      loaded.source.onended = null
-      try {
-        loaded.source.stop()
-      } catch {
-        /* Already stopped. */
-      }
-      loaded.source.disconnect()
-      loaded.source = null
+    for (const loaded of this.channels.values()) this.stopChannel(loaded)
+  }
+
+  private stopChannel(loaded: LoadedChannel): void {
+    if (loaded.source === null) return
+    loaded.source.onended = null
+    try {
+      loaded.source.stop()
+    } catch {
+      /* Already stopped. */
     }
+    loaded.source.disconnect()
+    loaded.source = null
+  }
+
+  /** Takes a channel out of the graph entirely, leaving nothing connected. */
+  private dropChannel(loaded: LoadedChannel): void {
+    this.stopChannel(loaded)
+    loaded.gain.disconnect()
   }
 
   /**
@@ -358,15 +407,7 @@ export class AudioEngine {
     const context = this.context
     if (context === null) return
 
-    if (loaded.source !== null) {
-      try {
-        loaded.source.stop()
-      } catch {
-        /* Already stopped. */
-      }
-      loaded.source.disconnect()
-      loaded.source = null
-    }
+    this.stopChannel(loaded)
 
     const { channel } = loaded
     if (songTime >= channel.startTime + channel.duration) return
