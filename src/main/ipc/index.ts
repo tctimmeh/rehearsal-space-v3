@@ -17,6 +17,7 @@ import {
   listSongs,
   readSong,
   readChannelAudio,
+  readChannelPeaks,
   removeChannel,
   separateChannel,
   writeSong
@@ -124,6 +125,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.libraryReadAudio, (_event, songId: string, file: string) =>
     readChannelAudio(songId, file)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.libraryReadPeaks, (_event, songId: string, channelId: string) =>
+    readChannelPeaks(songId, channelId)
   )
 
   ipcMain.handle(IPC_CHANNELS.libraryDownloadAudio, (_event, songId: string, url: string) =>

@@ -288,6 +288,9 @@
   padding: 16px 20px;
   overflow: auto;
 }
+.stage__body:has(.align) {
+  overflow: hidden;
+}
 .close-x {
   color: var(--text-faint);
   font-size: 14px;

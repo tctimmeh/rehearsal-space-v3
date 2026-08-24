@@ -43,16 +43,6 @@ export function ChordChartPlaceholder() {
   return <p className="tool-placeholder">Chord and scale charts arrive in M9.</p>
 }
 
-export function AlignPlaceholder() {
-  return (
-    <p className="tool-placeholder">
-      Waveform alignment arrives in M7, once metronome channels exist.
-      <br />
-      It opens here, full width, with a zoom control.
-    </p>
-  )
-}
-
 const DEMO_RHYMES = {
   perfect: [
     ['alone', 2],

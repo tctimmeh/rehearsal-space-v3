@@ -41,6 +41,8 @@ export interface RehearsalApi {
     removeChannel(songId: string, channelId: string): Promise<Song>
     /** Raw bytes of a channel's audio file, for decoding. */
     readAudio(songId: string, file: string): Promise<Uint8Array>
+    /** The channel's precomputed waveform. */
+    readPeaks(songId: string, channelId: string): Promise<Uint8Array>
     downloadAudio(songId: string, url: string): Promise<Song>
     separate(songId: string, request: SeparateRequest): Promise<Song>
   }
@@ -81,6 +83,7 @@ export const IPC_CHANNELS = {
   libraryImportAudio: 'library:import-audio',
   libraryRemoveChannel: 'library:remove-channel',
   libraryReadAudio: 'library:read-audio',
+  libraryReadPeaks: 'library:read-peaks',
   libraryDownloadAudio: 'library:download-audio',
   librarySeparate: 'library:separate',
   jobsList: 'jobs:list',

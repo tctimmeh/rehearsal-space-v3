@@ -180,6 +180,13 @@ Clicks are scheduled ahead of time against the audio clock, never fired by a
 timer — timers are far too coarse to land on a beat. They ride the Click bus,
 which is delayed to match the pitch shifter, so click and music stay level.
 
+Both ends are set in the alignment tool rather than typed: it draws the
+precomputed waveform of whichever channel you are lining up against, down to a
+quarter of a second across the window, with the beat grid over it and the two
+ends as handles. Which zoom level of the pyramid to read, and which peaks fall
+in which pixel, are worked out in core where they are tested; the canvas only
+draws.
+
 ## Where things are stored
 
 Settings live in `config.json` under Electron's userData directory

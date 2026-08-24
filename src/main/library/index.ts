@@ -129,3 +129,9 @@ export async function separateChannel(
     ]
   })
 }
+
+
+/** The precomputed waveform for a channel, for the alignment tool to draw. */
+export async function readChannelPeaks(songId: string, channelId: string): Promise<Buffer> {
+  return readChannelAudio(songId, join('peaks', `${channelId}.peaks`))
+}
