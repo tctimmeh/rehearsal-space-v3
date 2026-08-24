@@ -42,6 +42,22 @@ so a run that seeds no settings at all still cannot reach anything real.
 Seed a library path explicitly as well if the test needs songs in it. Both
 together, not either one.
 
+### Verifying UI behaviour
+
+Driving the app to check something usually means adding a temporary harness to
+the renderer and building it. **Do that in a separate worktree, never in the
+working copy**, because `out/` is the same directory a running app loads from —
+so a harness built here is picked up by whatever the user has open, and does
+whatever it was written to do to their songs. Moving `HOME` does not help: it
+isolates the run, not the build the user's own app is reading.
+
+```sh
+git worktree add -f --detach /tmp/rs-verify HEAD
+ln -s "$PWD/node_modules" /tmp/rs-verify/node_modules
+# patch, build and run entirely inside /tmp/rs-verify
+git -C /tmp/rs-verify checkout -- src/   # reset between runs
+```
+
 ### Looking at the UI without a screen
 
 Setting `RS_CAPTURE=/path/shot.png` renders the window offscreen to a PNG and
