@@ -216,8 +216,10 @@ export function AlignTool() {
               <Handle
                 className="align__handle align__handle--start"
                 label={`Start ${formatClock(timing.startTime)}`}
+                time={timing.startTime}
                 left={xOf(timing.startTime)}
                 onDrag={dragStart}
+                onNudge={(startTime) => change({ startTime })}
               />
             ) : (
               <Offscreen side={timing.startTime < from ? 'left' : 'right'} kind="start" />
@@ -226,8 +228,10 @@ export function AlignTool() {
               <Handle
                 className="align__handle align__handle--end"
                 label={`End ${formatClock(timing.endTime)}`}
+                time={timing.endTime}
                 left={xOf(timing.endTime)}
                 onDrag={dragEnd}
+                onNudge={(endTime) => change({ endTime })}
               />
             ) : (
               <Offscreen side={timing.endTime < from ? 'left' : 'right'} kind="end" />
@@ -243,7 +247,7 @@ export function AlignTool() {
         <span className="setting-note">
           {timing === null
             ? 'Add a metronome channel in Setup to line one up.'
-            : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · drag the handles onto the music · scroll to zoom, shift to pan`}
+            : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · drag the handles, or arrow keys to nudge · scroll to zoom, shift to pan`}
         </span>
         <span className="num">{formatClock(to)}</span>
       </div>
@@ -271,16 +275,23 @@ function Offscreen({ side, kind }: { side: 'left' | 'right'; kind: 'start' | 'en
   )
 }
 
+/** Arrow keys move by this much, and a tenth of it with shift held. */
+const NUDGE_S = 0.01
+
 function Handle({
   className,
   label,
+  time,
   left,
-  onDrag
+  onDrag,
+  onNudge
 }: {
   className: string
   label: string
+  time: number
   left: string
   onDrag: (clientX: number) => void
+  onNudge: (time: number) => void
 }) {
   return (
     <span
@@ -289,6 +300,8 @@ function Handle({
       role="slider"
       tabIndex={0}
       aria-label={label}
+      aria-valuenow={time}
+      aria-valuetext={label}
       onPointerDown={(event) => {
         event.stopPropagation()
         event.currentTarget.setPointerCapture(event.pointerId)
@@ -297,7 +310,18 @@ function Handle({
       onPointerMove={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) onDrag(event.clientX)
       }}
-      onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+      onPointerUp={(event) => {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+        /* Dragging with the pointer should not leave the handle holding focus:
+           the next key pressed for anything else would light it up. */
+        event.currentTarget.blur()
+      }}
+      onKeyDown={(event) => {
+        const direction = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0
+        if (direction === 0) return
+        event.preventDefault()
+        onNudge(time + direction * NUDGE_S * (event.shiftKey ? 0.1 : 1))
+      }}
     >
       <span className="align__flag">{label}</span>
     </span>

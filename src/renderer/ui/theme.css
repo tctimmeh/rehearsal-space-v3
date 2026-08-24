@@ -99,6 +99,22 @@ button {
   cursor: text;
 }
 
+/*
+ * The browser's own focus ring is a bright box that belongs to no palette. It
+ * only ever appears on :focus-visible — so a control reached with the pointer
+ * shows nothing, and one reached with the keyboard shows something that looks
+ * like it was meant.
+ */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--text-dim);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
 /* ---------- the two materials ---------- */
 
 .raised {
