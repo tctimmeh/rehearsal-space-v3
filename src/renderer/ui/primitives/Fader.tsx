@@ -10,6 +10,8 @@ interface FaderProps {
   /** Colours the cap's indicator line — the channel's identity colour. */
   capColor?: string
   height?: number
+  /** Spoken and shown on hover; the position itself means nothing to read. */
+  readout?: string
 }
 
 export function Fader({
@@ -20,7 +22,8 @@ export function Fader({
   step = 0.01,
   onChange,
   capColor,
-  height = 54
+  height = 54,
+  readout
 }: FaderProps) {
   const { handlers } = useDragValue({ value, min, max, step, onChange, travel: height })
   const fraction = max === min ? 0 : (value - min) / (max - min)
@@ -35,6 +38,7 @@ export function Fader({
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={value}
+      {...(readout === undefined ? {} : { 'aria-valuetext': readout, title: `${label}: ${readout}` })}
       {...handlers}
     >
       <span className="fader__slot" />

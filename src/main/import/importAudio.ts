@@ -125,7 +125,8 @@ export async function importAudio({
     file: join('audio', `${id}.ogg`),
     startTime: 0,
     duration: info.durationSeconds,
-    gain: 0.8,
+    /* Unity: an imported file plays at the level it arrived at. */
+    gain: 1,
     muted: false,
     soloed: false,
     origin: origin ?? { type: 'import', sourcePath }

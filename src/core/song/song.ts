@@ -98,7 +98,9 @@ export function newSong(id: string, now = new Date()): Song {
     createdAt: timestamp,
     updatedAt: timestamp,
     channels: [],
-    buses: { music: 0.84, click: 0.5 },
+    /* Music at unity; the click deliberately lower, because a count-in set
+       right for headphones is usually too loud in a room. */
+    buses: { music: 1, click: 0.5 },
     playback: { speed: 1, pitch: { semitones: 0, cents: 0 } },
     openTools: []
   }

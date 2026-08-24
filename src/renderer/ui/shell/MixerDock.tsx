@@ -1,3 +1,4 @@
+import { faderToGain, gainToDb, gainToFader } from '@core/mix/fader'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import type { Channel, Song } from '@core/song/song'
 import { useSong, type MixerPatch } from '@renderer/state/song'
@@ -8,9 +9,6 @@ const BUSES = [
   { id: 'music', label: 'Music', color: CHANNEL_SUBJECT_COLOR.music },
   { id: 'click', label: 'Click', color: CHANNEL_SUBJECT_COLOR.metronome }
 ] as const
-
-const gainToDb = (gain: number): string =>
-  gain <= 0.0001 ? '−∞ dB' : `${(20 * Math.log10(gain)).toFixed(1).replace('-', '−')} dB`
 
 export function MixerDock({ song }: { song: Song }) {
   const { updateChannel, updateBus } = useSong()
@@ -39,8 +37,9 @@ export function MixerDock({ song }: { song: Song }) {
             <span className="bus__name">{bus.label}</span>
             <Fader
               label={`${bus.label} level`}
-              value={song.buses[bus.id]}
-              onChange={(gain) => updateBus(bus.id, gain)}
+              value={gainToFader(song.buses[bus.id])}
+              readout={gainToDb(song.buses[bus.id])}
+              onChange={(position) => updateBus(bus.id, faderToGain(position))}
               capColor={bus.color}
               height={62}
             />
@@ -74,8 +73,9 @@ function ChannelStrip({
 
       <Fader
         label={`${channel.name} level`}
-        value={channel.gain}
-        onChange={(gain) => onChange({ gain })}
+        value={gainToFader(channel.gain)}
+        readout={gainToDb(channel.gain)}
+        onChange={(position) => onChange({ gain: faderToGain(position) })}
         capColor={color}
       />
 
