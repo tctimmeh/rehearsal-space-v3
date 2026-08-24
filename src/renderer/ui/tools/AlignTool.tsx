@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 
 import { beatsBetween, solveMetronome } from '@core/metronome/solve'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
+import { clampViewCentre } from '@core/song/viewWindow'
 import {
   METRONOME_SAMPLE_LABEL,
   type AudioChannel,
@@ -33,6 +34,8 @@ export function AlignTool() {
   const addMetronome = useSong((state) => state.addMetronome)
   const position = useTransport((state) => state.position)
   const seek = useTransport((state) => state.seek)
+  const songStart = useTransport((state) => state.start)
+  const songEnd = useTransport((state) => state.end)
 
   const audio = (song?.channels.filter((c) => c.kind === 'audio') ?? []) as AudioChannel[]
   const clicks = (song?.channels.filter((c) => c.kind === 'metronome') ?? []) as MetronomeChannel[]
@@ -48,8 +51,10 @@ export function AlignTool() {
 
   const timing = useMemo(() => (click === null ? null : solveMetronome(click)), [click])
   const span = ZOOM_STEPS[spanIndex] ?? 4
-  /* Follow the click being aligned until the user pans somewhere else. */
-  const middle = centre ?? timing?.endTime ?? 0
+  /* Follow the click being aligned until the user pans somewhere else, and
+     never past the song — there is nothing out there to look at. Clamped on
+     the way out as well as in, so zooming out cannot strand the view. */
+  const middle = clampViewCentre(centre ?? timing?.endTime ?? 0, span, [songStart, songEnd])
   const from = middle - span / 2
   const to = middle + span / 2
 
@@ -173,7 +178,9 @@ export function AlignTool() {
           /* Shift pans, because at a quarter-second across the window the
              thing you are looking for is usually just off the edge. */
           if (event.shiftKey) {
-            setCentre(middle + (event.deltaY / 200) * span)
+            setCentre(
+              clampViewCentre(middle + (event.deltaY / 200) * span, span, [songStart, songEnd])
+            )
             return
           }
           /* Hold the instant under the pointer still. The zoom steps are not
@@ -186,7 +193,9 @@ export function AlignTool() {
             Math.max(0, spanIndex + (event.deltaY < 0 ? -1 : 1))
           )
           const nextSpan = ZOOM_STEPS[next] ?? span
-          setCentre(at + (middle - at) * (nextSpan / span))
+          setCentre(
+            clampViewCentre(at + (middle - at) * (nextSpan / span), nextSpan, [songStart, songEnd])
+          )
           setSpanIndex(next)
         }}
       >
