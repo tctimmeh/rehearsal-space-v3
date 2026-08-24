@@ -7,6 +7,8 @@ import { DEMUCS_MODELS, stemsOf, type DemucsModel } from '@shared/stems'
 import { SubjectIcon } from '../icons/subjectIcons'
 import { Button, Modal } from '../primitives'
 
+const DEFAULT_MODEL: DemucsModel = 'htdemucs_6s'
+
 interface StemsDialogProps {
   channel: AudioChannel
   busy: boolean
@@ -16,8 +18,10 @@ interface StemsDialogProps {
 
 /** Everything separation is about to do to the song, before it does it. */
 export function StemsDialog({ channel, busy, onSeparate, onDismiss }: StemsDialogProps) {
-  const [model, setModel] = useState<DemucsModel>('htdemucs')
-  const [chosen, setChosen] = useState<string[]>([...stemsOf('htdemucs')])
+  /* Six stems, all of them: the reason to reach for this is usually to get at
+     a part, and it is quicker to untick one than to hunt for the one wanted. */
+  const [model, setModel] = useState<DemucsModel>(DEFAULT_MODEL)
+  const [chosen, setChosen] = useState<string[]>([...stemsOf(DEFAULT_MODEL)])
   const [muteSource, setMuteSource] = useState(true)
 
   const pickModel = (next: DemucsModel) => {
@@ -104,9 +108,6 @@ export function StemsDialog({ channel, busy, onSeparate, onDismiss }: StemsDialo
           <span className="check__box" />
           Mute {channel.name} afterwards
         </button>
-        <p className="setting-note setting-note--block">
-          Separation takes roughly as long as the track itself.
-        </p>
       </div>
     </Modal>
   )

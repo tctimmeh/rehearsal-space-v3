@@ -144,8 +144,6 @@ Three ways in, all through the job queue so none of them blocks the UI:
   anything runs and the whole thing reports as a single piece of work. The
   original is kept and, by default, muted.
 
-Separation takes roughly as long as the track itself, on CPU.
-
 ## Where things are stored
 
 Settings live in `config.json` under Electron's userData directory
