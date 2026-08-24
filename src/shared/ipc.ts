@@ -38,6 +38,8 @@ export interface RehearsalApi {
     /** Imports files already on disk, as from a drop. */
     importAudio(songId: string, paths: string[]): Promise<Song>
     removeChannel(songId: string, channelId: string): Promise<Song>
+    /** Raw bytes of a channel's audio file, for decoding. */
+    readAudio(songId: string, file: string): Promise<Uint8Array>
   }
   jobs: {
     list(): Promise<Job[]>
@@ -75,6 +77,7 @@ export const IPC_CHANNELS = {
   libraryChooseAudio: 'library:choose-audio',
   libraryImportAudio: 'library:import-audio',
   libraryRemoveChannel: 'library:remove-channel',
+  libraryReadAudio: 'library:read-audio',
   jobsList: 'jobs:list',
   jobsLog: 'jobs:log',
   jobsCancel: 'jobs:cancel',

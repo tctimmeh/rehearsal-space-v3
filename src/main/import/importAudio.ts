@@ -7,7 +7,7 @@ import { PeakBuilder } from '@core/peaks/peaks'
 import { audioFileStem } from '@core/song/fileName'
 import { guessSubject, nameFromFile } from '@core/song/guessSubject'
 import { uniqueSlug } from '@core/song/slug'
-import type { AudioChannel, Channel, ChannelOrigin } from '@core/song/song'
+import type { AudioChannel, ChannelOrigin, InstrumentSubject } from '@core/song/song'
 import { jobs } from '../jobs'
 import { requireTool } from '../tools'
 import { probeAudio } from './probe'
@@ -28,7 +28,7 @@ export interface ImportRequest {
   origin?: ChannelOrigin
   /** Overrides the name and subject taken from the file name. */
   name?: string
-  subject?: Channel['subject']
+  subject?: InstrumentSubject
 }
 
 /**
@@ -43,7 +43,7 @@ export async function importAudio({
   origin,
   name,
   subject
-}: ImportRequest): Promise<AudioChannel & { origin: ChannelOrigin }> {
+}: ImportRequest): Promise<AudioChannel> {
   const ffmpeg = await requireTool('ffmpeg')
   const ffprobe = await requireTool('ffprobe')
 

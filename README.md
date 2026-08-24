@@ -64,6 +64,7 @@ src/
     ui/shell        header, scrub bar, tool rail, stage, drawer, mixer dock
     ui/views        Library, Player, Setup
     ui/tools        the tool registry and each tool's panel
+    audio/          the Web Audio graph and the clock everything reads
 ```
 
 ## Testing
@@ -93,6 +94,27 @@ blocks: work reports as a toast with progress, keeps its console log for
 diagnosis, and cancelling kills the whole process tree rather than orphaning
 workers. Successful jobs take themselves off the queue; failures stay until
 dismissed.
+
+## Playback
+
+One `AudioContext` owns the graph:
+
+```
+source (playbackRate = speed) -> channel gain -> Music bus -> [pitch] -> master
+metronome                     -> Click bus    -> [delay]   ----------> master
+```
+
+Song time is derived from the audio hardware's clock rather than counted in
+frames, so it stays right whether or not the UI is being drawn. Seeking rebuilds
+the source nodes at a new offset, which is what lets scrubbing continue without
+interrupting playback.
+
+Tempo and pitch are independent by construction: `playbackRate` resamples for
+tempo, and one pitch shifter on the Music bus corrects the pitch that causes,
+set to `semitones - 12 * log2(speed)`. That is one phase vocoder for the whole
+song no matter how many channels there are. The shifter is bypassed entirely at
+1x and 0 semitones. (Measured, in `plans/`: 0.8x with correction comes back at
+exactly the original pitch.)
 
 ## Where things are stored
 

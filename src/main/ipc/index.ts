@@ -14,6 +14,7 @@ import {
   importChannel,
   listSongs,
   readSong,
+  readChannelAudio,
   removeChannel,
   writeSong
 } from '../library'
@@ -116,6 +117,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.libraryRemoveChannel,
     (_event, songId: string, channelId: string) => removeChannel(songId, channelId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.libraryReadAudio, (_event, songId: string, file: string) =>
+    readChannelAudio(songId, file)
   )
 
   ipcMain.handle(IPC_CHANNELS.jobsList, () => jobs.list())

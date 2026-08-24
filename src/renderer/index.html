@@ -3,9 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      The stretch engine is an AudioWorklet compiled to WASM: its module is
+      loaded from a blob: URL and the WASM is fetched from a data: URL, so both
+      have to be allowed or audio silently fails to start.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      content="default-src 'self';
+               script-src 'self' blob: 'wasm-unsafe-eval';
+               worker-src 'self' blob:;
+               connect-src 'self' data: blob:;
+               style-src 'self' 'unsafe-inline';
+               img-src 'self' data:"
     />
     <title>Rehearsal Space</title>
   </head>

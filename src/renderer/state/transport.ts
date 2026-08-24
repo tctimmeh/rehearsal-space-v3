@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+import { audioEngine } from '@renderer/audio/engine'
+
 export const SPEED_MIN = 0.5
 export const SPEED_MAX = 1.5
 export const SEMITONES_MIN = -12
@@ -41,15 +43,50 @@ export const useTransport = create<TransportState>((set, get) => ({
   semitones: 0,
   cents: 0,
 
-  play: () => set({ playing: true }),
-  pause: () => set({ playing: false }),
-  toggle: () => set({ playing: !get().playing }),
+  play: () => {
+    void audioEngine.play()
+    set({ playing: true })
+  },
+  pause: () => {
+    audioEngine.pause()
+    set({ playing: false, position: audioEngine.position })
+  },
+  toggle: () => (get().playing ? get().pause() : get().play()),
   /* Stopping returns to the earliest point, which may be before 00:00. */
-  stop: () => set({ playing: false, position: get().start }),
-  seek: (position) =>
-    set({ position: Math.min(get().end, Math.max(get().start, position)) }),
+  stop: () => {
+    audioEngine.stop()
+    set({ playing: false, position: get().start })
+  },
+  seek: (position) => {
+    const clamped = Math.min(get().end, Math.max(get().start, position))
+    audioEngine.seek(clamped)
+    set({ position: clamped })
+  },
   setSpeed: (speed) => set({ speed }),
   setSemitones: (semitones) => set({ semitones }),
   setCents: (cents) => set({ cents }),
-  setBounds: (start, end) => set({ start, end })
+  setBounds: (start, end) => {
+    audioEngine.setBounds(start, end)
+    set({ start, end })
+  }
 }))
+
+/**
+ * The clock lives in the audio engine, derived from the audio hardware's own
+ * time. This pulls it into the store for the UI to read. Reaching the end is
+ * the engine's business, not a frame's, so it comes through a callback.
+ */
+export function followEngineClock(): () => void {
+  let frame = 0
+
+  audioEngine.whenEnded(() => useTransport.getState().pause())
+
+  const tick = (): void => {
+    frame = requestAnimationFrame(tick)
+    if (!useTransport.getState().playing) return
+    useTransport.setState({ position: audioEngine.position })
+  }
+
+  frame = requestAnimationFrame(tick)
+  return () => cancelAnimationFrame(frame)
+}

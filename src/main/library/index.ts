@@ -1,5 +1,5 @@
-import { join } from 'node:path'
-import { rm } from 'node:fs/promises'
+import { isAbsolute, join, normalize, relative } from 'node:path'
+import { readFile, rm } from 'node:fs/promises'
 
 import type { Song, SongSummary } from '@core/song/song'
 import { readConfig, updateConfig } from '../config'
@@ -64,4 +64,20 @@ export async function removeChannel(songId: string, channelId: string): Promise<
     ...song,
     channels: song.channels.filter((entry) => entry.id !== channelId)
   })
+}
+
+
+/**
+ * Reads a channel's audio for decoding in the renderer. The path comes from
+ * song.json, which is editable by hand, so it is confined to the song's own
+ * directory before anything is opened.
+ */
+export async function readChannelAudio(songId: string, file: string): Promise<Buffer> {
+  const directory = await songDirectory(songId)
+  const target = normalize(join(directory, file))
+  const inside = relative(directory, target)
+  if (inside.startsWith('..') || isAbsolute(inside)) {
+    throw new Error(`Refusing to read outside the song folder: "${file}"`)
+  }
+  return readFile(target)
 }

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 import { useConfig } from './state/config'
 import { useSong } from './state/song'
-import { useTransport } from './state/transport'
+import { followEngineClock, useTransport } from './state/transport'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
 import { DropTarget, HeaderBar, ScrubBar, ToastStack } from './ui/shell'
@@ -16,6 +16,7 @@ export function App() {
 
   useBoot()
   useEffect(() => useJobs.getState().watch(), [])
+  useEffect(() => followEngineClock(), [])
   useGlobalSpaceBar()
   useSaveBeforeUnload()
 

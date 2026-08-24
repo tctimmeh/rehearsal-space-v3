@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import { TOOL_META, type ToolId } from '@core/tools'
+import { audioEngine } from '@renderer/audio/engine'
 import { useTools } from './tools'
 import { useTransport } from './transport'
 
@@ -78,6 +79,7 @@ export const useSong = create<SongState>((set, get) => ({
       const song = await window.rehearsal.library.load(id)
       set({ song, error: null })
       applySongState(song)
+      await loadIntoEngine(song)
       await window.rehearsal.library.rememberLastSong(song.id)
     } catch (error) {
       set({ song: null, error: message(error) })
@@ -113,6 +115,7 @@ export const useSong = create<SongState>((set, get) => ({
     set({ song })
     /* Adding, removing or moving a channel changes where the song begins and ends. */
     if (patch.channels !== undefined) applyBounds(song)
+    audioEngine.applyMix(song)
     unsaved = true
     if (saveTimer !== null) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
@@ -198,6 +201,16 @@ function adoptChannels(
   const song = { ...current, channels: updated.channels }
   set({ song })
   applyBounds(song)
+  void loadIntoEngine(song)
+}
+
+/** Decodes whatever the song now refers to, and applies the mix to it. */
+async function loadIntoEngine(song: Song): Promise<void> {
+  try {
+    await audioEngine.load(song, (file) => window.rehearsal.library.readAudio(song.id, file))
+  } catch (error) {
+    useSong.setState({ error: message(error) })
+  }
 }
 
 /**

@@ -1,5 +1,7 @@
 import type { ToolId } from '../tools'
-import type { ChannelSubject } from './channelSubject'
+import type { ChannelSubject, InstrumentSubject } from './channelSubject'
+
+export type { InstrumentSubject }
 
 export const SONG_SCHEMA_VERSION = 1
 
@@ -20,11 +22,12 @@ export type ChannelOrigin =
 
 export interface AudioChannel extends ChannelBase {
   kind: 'audio'
-  /** Relative to the song directory, e.g. `audio/ab12.ogg`. */
+  /** Relative to the song directory, e.g. `audio/bass_take2.ogg`. */
   file: string
   /** Where the channel sits on the song timeline; 0 for a full-length track. */
   startTime: number
   duration: number
+  origin: ChannelOrigin
 }
 
 export type MetronomeSample = 'tick' | 'chirp' | 'cymbal' | 'rim' | 'kit'
@@ -45,7 +48,7 @@ export interface MetronomeChannel extends ChannelBase {
   duration: MetronomeDuration
 }
 
-export type Channel = (AudioChannel & { origin: ChannelOrigin }) | MetronomeChannel
+export type Channel = AudioChannel | MetronomeChannel
 
 export interface Song {
   schemaVersion: number

@@ -28,6 +28,13 @@ function createWindow(uiScale: number): BrowserWindow {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       zoomFactor: uiScale,
+      /* Playback follows a button the user pressed; there is no page to
+         wander onto and be ambushed by sound. */
+      autoplayPolicy: 'no-user-gesture-required',
+      /* Chromium slows timers and animation frames for windows it thinks
+         nobody is looking at. A song playing behind another window is still
+         being listened to. */
+      backgroundThrottling: false,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
