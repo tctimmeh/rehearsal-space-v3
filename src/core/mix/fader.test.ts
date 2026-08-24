@@ -21,24 +21,26 @@ describe('the fader taper', () => {
        would put half-way at -6 dB and squeeze the rest into the bottom half. */
     const steps = [1, 0.75, 0.5, 0.25].map((position) => db(faderToGain(position)))
     const drops = steps.slice(1).map((value, index) => (steps[index] as number) - value)
-    for (const drop of drops) expect(drop).toBeCloseTo(12, 5)
+    for (const drop of drops) expect(drop).toBeCloseTo(7.5, 5)
   })
 
-  it('gives the useful range the top of the fader', () => {
-    expect(db(faderToGain(0.5))).toBeCloseTo(-24, 5)
-    expect(db(faderToGain(0.75))).toBeCloseTo(-12, 5)
+  it('keeps the range short enough to balance a mix with', () => {
+    /* Balancing happens within about 15 dB. That has to be most of the fader,
+       not the top few pixels of it. */
+    expect(db(faderToGain(0.5))).toBeGreaterThan(-16)
+    expect(db(faderToGain(0.9))).toBeGreaterThan(-4)
   })
 
   it('round-trips a gain back to the same place on the fader', () => {
-    for (const gain of [0, 0.01, 0.25, 0.5, 0.8, 1]) {
+    for (const gain of [0, 0.05, 0.25, 0.5, 0.8, 1]) {
       expect(faderToGain(gainToFader(gain))).toBeCloseTo(gain, 6)
     }
   })
 
   it('reads anything below the floor as off, rather than pinning it just above', () => {
-    /* -60 dB is inaudible; the fader has no room to show the difference. */
-    expect(gainToFader(0.001)).toBe(0)
-    expect(faderToGain(gainToFader(0.001))).toBe(0)
+    /* -40 dB is gone in a mix; the fader has no room to show the difference. */
+    expect(gainToFader(0.01)).toBe(0)
+    expect(faderToGain(gainToFader(0.01))).toBe(0)
   })
 
   it('only ever moves one way', () => {

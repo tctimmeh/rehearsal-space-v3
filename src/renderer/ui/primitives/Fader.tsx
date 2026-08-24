@@ -1,5 +1,8 @@
 import { useDragValue } from './useDragValue'
 
+/** Pixels of drag that sweep the fader end to end. */
+const DRAG_TRAVEL = 240
+
 interface FaderProps {
   label: string
   value: number
@@ -25,7 +28,10 @@ export function Fader({
   height = 54,
   readout
 }: FaderProps) {
-  const { handlers } = useDragValue({ value, min, max, step, onChange, travel: height })
+  /* Drag travel is deliberately longer than the cap's own run: sweeping the
+     whole range in the fader's few dozen pixels makes every level a lucky
+     landing. Shift still gives a finer sweep again. */
+  const { handlers } = useDragValue({ value, min, max, step, onChange, travel: DRAG_TRAVEL })
   const fraction = max === min ? 0 : (value - min) / (max - min)
 
   return (
