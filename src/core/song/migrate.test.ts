@@ -62,16 +62,55 @@ describe('migrateSong', () => {
             id: 'count-in',
             name: 'Count-in',
             subject: 'metronome',
+            startTime: -2,
             endTime: 0,
-            duration: { mode: 'measures', bpm: 104, measures: 4, beatsPerMeasure: 4 }
+            bpm: 120
           }
         ]
       },
       'x'
     )
-    const channel = song.channels[0]
-    expect(channel?.kind).toBe('metronome')
-    expect(channel?.kind === 'metronome' && channel.duration.mode).toBe('measures')
+    expect(song.channels[0]?.kind).toBe('metronome')
+  })
+
+  const legacy = (duration: unknown, extra: Record<string, unknown> = {}) =>
+    migrateSong(
+      {
+        channels: [
+          {
+            kind: 'metronome',
+            id: 'c',
+            name: 'Count-in',
+            subject: 'metronome',
+            endTime: 0,
+            duration,
+            ...extra
+          }
+        ]
+      },
+      'x'
+    ).channels[0]
+
+  it('turns a length counted in measures into the two times it amounts to', () => {
+    /* Two bars of four at 120bpm ending at zero is four seconds of clicks. */
+    const channel = legacy({ mode: 'measures', bpm: 120, measures: 2, beatsPerMeasure: 4 })
+
+    expect(channel?.kind === 'metronome' && channel.startTime).toBeCloseTo(-4, 6)
+    expect(channel?.kind === 'metronome' && channel.bpm).toBe(120)
+    expect(channel?.kind === 'metronome' && channel.beatsPerMeasure).toBe(4)
+  })
+
+  it('carries an odd time signature through the conversion', () => {
+    /* Two bars of three at 90bpm: six beats of two thirds of a second. */
+    const channel = legacy({ mode: 'measures', bpm: 90, measures: 2 }, { beatsPerMeasure: 3 })
+    expect(channel?.kind === 'metronome' && channel.startTime).toBeCloseTo(-4, 6)
+  })
+
+  it('takes a length pinned by start time as it stands', () => {
+    const channel = legacy({ mode: 'startTime', approxBpm: 104, startTime: -3.25 })
+
+    expect(channel?.kind === 'metronome' && channel.startTime).toBe(-3.25)
+    expect(channel?.kind === 'metronome' && channel.bpm).toBe(104)
   })
 
   it('falls back to an unknown subject rather than dropping the channel', () => {

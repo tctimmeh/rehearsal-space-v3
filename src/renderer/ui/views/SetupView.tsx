@@ -13,7 +13,6 @@ import { useSong } from '@renderer/state/song'
 import { SubjectIcon } from '../icons/subjectIcons'
 import { Button, Modal } from '../primitives'
 import { DownloadDialog } from './DownloadDialog'
-import { MetronomeEditor } from './MetronomeEditor'
 import { StemsDialog } from './StemsDialog'
 
 export function SetupView() {
@@ -223,12 +222,9 @@ function ChannelEditor({
       </div>
 
       {channel.kind === 'metronome' ? (
-        <div className="field--spaced">
-          <MetronomeEditor
-            channel={channel}
-            onChange={(patch) => onChange(patch as Partial<Channel>)}
-          />
-        </div>
+        <p className="setting-note setting-note--hint">
+          Click tracks are set up in the alignment tool, against the music.
+        </p>
       ) : (
         <div className="field field--spaced">
           <label>Instrument</label>

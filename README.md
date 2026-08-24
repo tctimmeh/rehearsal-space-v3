@@ -168,22 +168,21 @@ count-in useful: you set where the band comes in and the clicks arrive before
 it, at negative song time if need be. The last beat *finishes* on the end time
 rather than starting there.
 
-Its length is set one of two ways:
-
-- **By measures** — a tempo and a number of bars, counted back from the end.
-- **By start time** — both ends pinned by ear, with the tempo nudged to whatever
-  divides the span evenly. The approximate tempo only decides how many beats
-  fit. A click that drifts off the music it was lined up against is worse than
-  one a fraction of a BPM from what was typed.
+Both ends are placed by eye against the waveform, and the tempo is nudged to
+whatever divides the span between them evenly. The BPM given only decides how
+many beats fit; the exact tempo follows, so the first click lands on the start
+and the last beat finishes on the end. A click that drifts off the music it was
+lined up against is worse than one a fraction of a BPM from what was typed.
 
 Clicks are scheduled ahead of time against the audio clock, never fired by a
 timer — timers are far too coarse to land on a beat. They ride the Click bus,
 which is delayed to match the pitch shifter, so click and music stay level.
 
-Both ends are set in the alignment tool rather than typed: it draws the
-precomputed waveform of whichever channel you are lining up against, down to a
-quarter of a second across the window, with the beat grid over it and the two
-ends as handles. Which zoom level of the pyramid to read, and which peaks fall
+A click track is set up entirely in the alignment tool, against the music it
+has to fit: it draws the precomputed waveform of whichever channel you are
+lining up against, down to a quarter of a second across the window, with the
+beat grid over it, the two ends as handles, and the sound, tempo, time
+signature and accent beside them. Which zoom level of the pyramid to read, and which peaks fall
 in which pixel, are worked out in core where they are tested; the canvas only
 draws.
 

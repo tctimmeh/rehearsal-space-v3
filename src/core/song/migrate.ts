@@ -5,7 +5,6 @@ import {
   SONG_SCHEMA_VERSION,
   type Channel,
   type ChannelOrigin,
-  type MetronomeDuration,
   type MetronomeSample,
   type PitchOffset,
   type Song
@@ -71,20 +70,33 @@ function parseOrigin(raw: unknown): ChannelOrigin {
   }
 }
 
-function parseDuration(raw: unknown): MetronomeDuration {
-  if (isRecord(raw) && raw['mode'] === 'startTime') {
+/**
+ * Older songs described a metronome's length one of two ways, both anchored at
+ * the end. Both reduce to a pair of times, which is all the channel keeps now:
+ * a count of measures at a tempo is simply a start time worked backwards.
+ */
+function parseSpan(raw: Record<string, unknown>): { startTime: number; bpm: number } {
+  const endTime = num(raw['endTime'], 0)
+  const legacy = isRecord(raw['duration']) ? raw['duration'] : null
+
+  if (legacy === null) {
+    return { startTime: num(raw['startTime'], endTime - 2), bpm: num(raw['bpm'], 120) }
+  }
+
+  if (legacy['mode'] === 'startTime') {
     return {
-      mode: 'startTime',
-      approxBpm: num(raw['approxBpm'], 120),
-      startTime: num(raw['startTime'], 0)
+      startTime: num(legacy['startTime'], endTime - 2),
+      bpm: num(legacy['approxBpm'], 120)
     }
   }
-  const record = isRecord(raw) ? raw : {}
-  return {
-    mode: 'measures',
-    bpm: num(record['bpm'], 120),
-    measures: Math.max(1, Math.round(num(record['measures'], 1)))
-  }
+
+  const bpm = num(legacy['bpm'], 120)
+  const measures = Math.max(1, Math.round(num(legacy['measures'], 1)))
+  const beatsPerMeasure = Math.max(
+    1,
+    Math.round(num(raw['beatsPerMeasure'], num(legacy['beatsPerMeasure'], 4)))
+  )
+  return { startTime: endTime - (measures * beatsPerMeasure * 60) / (bpm || 120), bpm }
 }
 
 function parseChannel(raw: unknown, index: number): Channel | null {
@@ -100,11 +112,14 @@ function parseChannel(raw: unknown, index: number): Channel | null {
   }
 
   if (raw['kind'] === 'metronome') {
+    const span = parseSpan(raw)
     return {
       ...base,
       kind: 'metronome',
       sample: oneOf(raw['sample'], METRONOME_SAMPLES, 'tick'),
+      startTime: span.startTime,
       endTime: num(raw['endTime'], 0),
+      bpm: span.bpm,
       /* Older songs kept this inside the measures mode, where it did not
          belong: how many beats to a measure is a property of the music, not of
          how the channel's length happens to be worked out. */
@@ -117,8 +132,7 @@ function parseChannel(raw: unknown, index: number): Channel | null {
           )
         )
       ),
-      accentFirstBeat: bool(raw['accentFirstBeat'], true),
-      duration: parseDuration(raw['duration'])
+      accentFirstBeat: bool(raw['accentFirstBeat'], true)
     }
   }
 

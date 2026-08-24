@@ -294,3 +294,19 @@
 .align__offscreen--end {
   border-right: 2px solid var(--mute);
 }
+
+.align__divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0 4px;
+  background: var(--hairline);
+  box-shadow: 1px 0 0 var(--edge-hi);
+}
+.input--tiny {
+  width: 62px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+}
+.align__accent {
+  padding-bottom: 7px;
+}

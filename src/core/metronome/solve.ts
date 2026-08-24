@@ -30,42 +30,22 @@ export const clampBpm = (bpm: number): number =>
 /**
  * Works out when every click falls.
  *
- * A metronome channel is anchored at its **end**: the point where the music
- * picks the beat back up. That is what makes a count-in useful — you set where
- * the band comes in, and the clicks arrive before it, however many there are.
- * So the last beat *finishes* exactly at the end time, rather than starting
- * there, and the start is derived rather than given.
+ * Both ends are placed by eye, so the tempo is what gives. The BPM asked for
+ * only decides how many beats fit between them; the exact tempo is then
+ * whatever divides the span evenly, so the first click lands on the start and
+ * the last beat *finishes* on the end. A click that drifts off the music it
+ * was lined up against is worse than one a fraction of a BPM from what was
+ * typed.
  */
 export function solveMetronome(channel: MetronomeChannel): MetronomeTiming {
   const beatsPerMeasure = Math.max(1, Math.round(channel.beatsPerMeasure))
-  const { endTime, duration } = channel
+  const { startTime, endTime } = channel
+  const span = endTime - startTime
 
-  if (duration.mode === 'measures') {
-    const bpm = clampBpm(duration.bpm)
-    const beatDuration = SECONDS_PER_MINUTE / bpm
-    const beatCount = Math.max(1, Math.round(duration.measures)) * beatsPerMeasure
-    return {
-      startTime: endTime - beatCount * beatDuration,
-      endTime,
-      bpm,
-      beatDuration,
-      beatCount,
-      beatsPerMeasure
-    }
-  }
-
-  /*
-   * Both ends are pinned by ear, so the tempo has to give. The approximate BPM
-   * only decides how many beats fit; the exact one is then whatever divides
-   * the span evenly, so the first click lands on the start and the last beat
-   * finishes on the end. A click that drifts off the music it was lined up
-   * against is worse than one a fraction of a BPM away from what was typed.
-   */
-  const span = endTime - duration.startTime
   if (span <= 0) {
-    const bpm = clampBpm(duration.approxBpm)
+    const bpm = clampBpm(channel.bpm)
     return {
-      startTime: duration.startTime,
+      startTime,
       endTime,
       bpm,
       beatDuration: SECONDS_PER_MINUTE / bpm,
@@ -74,12 +54,12 @@ export function solveMetronome(channel: MetronomeChannel): MetronomeTiming {
     }
   }
 
-  const approxBeat = SECONDS_PER_MINUTE / clampBpm(duration.approxBpm)
+  const approxBeat = SECONDS_PER_MINUTE / clampBpm(channel.bpm)
   const beatCount = Math.max(1, Math.round(span / approxBeat))
   const beatDuration = span / beatCount
 
   return {
-    startTime: duration.startTime,
+    startTime,
     endTime,
     bpm: SECONDS_PER_MINUTE / beatDuration,
     beatDuration,

@@ -269,3 +269,9 @@
   border-top: 1px solid var(--hairline);
   box-shadow: 0 -1px 0 var(--edge-hi);
 }
+
+.setting-note--hint {
+  display: block;
+  margin: 16px 0 0;
+  line-height: 1.6;
+}

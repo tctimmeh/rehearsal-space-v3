@@ -33,23 +33,20 @@ export interface AudioChannel extends ChannelBase {
 export type MetronomeSample = 'tick' | 'chirp' | 'cymbal' | 'rim' | 'kit'
 
 /**
- * A metronome channel is always anchored at its end time — the point where the
- * music picks the beat back up — and its start is derived.
+ * Both ends are placed by eye against the waveform, and the tempo is nudged to
+ * whatever divides the span between them evenly — so the first click lands on
+ * the start and the last beat finishes on the end, wherever they are.
  */
-export type MetronomeDuration =
-  /** Count the measures back from the end. Most useful for a count-in. */
-  | { mode: 'measures'; bpm: number; measures: number }
-  /** Pin both ends by ear and let the tempo be nudged to fit between them. */
-  | { mode: 'startTime'; approxBpm: number; startTime: number }
-
 export interface MetronomeChannel extends ChannelBase {
   kind: 'metronome'
   sample: MetronomeSample
+  startTime: number
   /** Where the music picks the beat back up: the last beat finishes here. */
   endTime: number
+  /** Approximate. It decides how many beats fit; the exact tempo follows. */
+  bpm: number
   beatsPerMeasure: number
   accentFirstBeat: boolean
-  duration: MetronomeDuration
 }
 
 export type Channel = AudioChannel | MetronomeChannel
@@ -114,10 +111,12 @@ export function newMetronomeChannel(id: string, endTime = 0): MetronomeChannel {
     muted: false,
     soloed: false,
     sample: 'tick',
+    /* One bar of four at 120, finishing where the music starts. */
+    startTime: endTime - 2,
     endTime,
+    bpm: 120,
     beatsPerMeasure: 4,
-    accentFirstBeat: true,
-    duration: { mode: 'measures', bpm: 120, measures: 1 }
+    accentFirstBeat: true
   }
 }
 

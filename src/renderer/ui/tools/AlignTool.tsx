@@ -2,7 +2,12 @@ import { useMemo, useRef, useState } from 'react'
 
 import { beatsBetween, solveMetronome } from '@core/metronome/solve'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
-import type { AudioChannel, MetronomeChannel } from '@core/song/song'
+import {
+  METRONOME_SAMPLE_LABEL,
+  type AudioChannel,
+  type MetronomeChannel,
+  type MetronomeSample
+} from '@core/song/song'
 import { formatClock } from '@core/time'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
@@ -13,6 +18,7 @@ import { usePeaks } from './usePeaks'
 const WAVE_HEIGHT = 190
 const ZOOM_STEPS = [0.25, 0.5, 1, 2, 4, 8, 20, 60, 180]
 const DEFAULT_ZOOM = 4
+const SAMPLES: MetronomeSample[] = ['tick', 'chirp', 'cymbal', 'rim', 'kit']
 
 /**
  * Lining a click track up against the music.
@@ -24,6 +30,7 @@ const DEFAULT_ZOOM = 4
 export function AlignTool() {
   const song = useSong((state) => state.song)
   const update = useSong((state) => state.update)
+  const addMetronome = useSong((state) => state.addMetronome)
   const position = useTransport((state) => state.position)
   const seek = useTransport((state) => state.seek)
 
@@ -59,38 +66,17 @@ export function AlignTool() {
     return <p className="tool-placeholder">Import some audio to line a click track up against.</p>
   }
 
-  const dragEnd = (clientX: number) => {
+  const change = (patch: Partial<MetronomeChannel>) => {
     if (click === null) return
     update({
-      channels: song.channels.map((c) =>
-        c.id === click.id ? { ...click, endTime: timeAt(clientX) } : c
-      )
+      channels: song.channels.map((c) => (c.id === click.id ? { ...click, ...patch } : c))
     })
   }
 
-  /*
-   * What the start handle means depends on how the channel's length is set.
-   * Pinned by start time, it is the start. Counted in measures, the start is
-   * derived — so dragging it changes how many measures there are, which is the
-   * only thing that can move it without contradicting the tempo.
-   */
-  const dragStart = (clientX: number) => {
-    if (click === null || timing === null) return
-    const wanted = timeAt(clientX)
-    const duration =
-      click.duration.mode === 'startTime'
-        ? { ...click.duration, startTime: wanted }
-        : {
-            ...click.duration,
-            measures: Math.max(
-              1,
-              Math.round((click.endTime - wanted) / (timing.beatDuration * timing.beatsPerMeasure))
-            )
-          }
-    update({
-      channels: song.channels.map((c) => (c.id === click.id ? { ...click, duration } : c))
-    })
-  }
+  /* Both ends are just times, so dragging either is the same thing. How many
+     beats fall between them follows from the tempo. */
+  const dragStart = (clientX: number) => change({ startTime: timeAt(clientX) })
+  const dragEnd = (clientX: number) => change({ endTime: timeAt(clientX) })
 
   const beats = timing === null ? [] : beatsBetween(timing, from, to)
 
@@ -108,8 +94,61 @@ export function AlignTool() {
           value={click?.id ?? ''}
           options={clicks.map((c) => ({ id: c.id, label: c.name }))}
           onChange={setClickId}
-          empty="No click track yet"
+          empty="None yet"
         />
+        <Button onClick={addMetronome}>New</Button>
+        {click === null ? null : (
+          <>
+            <span className="align__divider" />
+            <label className="align__picker">
+              <span>Sound</span>
+              <select
+                className="well input"
+                value={click.sample}
+                onChange={(event) => change({ sample: event.target.value as MetronomeSample })}
+              >
+                {SAMPLES.map((sample) => (
+                  <option key={sample} value={sample}>
+                    {METRONOME_SAMPLE_LABEL[sample]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Field label="BPM">
+              <input
+                className="well input input--tiny num"
+                type="number"
+                min={20}
+                value={Math.round(click.bpm)}
+                onChange={(event) => {
+                  const next = Number(event.target.value)
+                  if (Number.isFinite(next) && next > 0) change({ bpm: next })
+                }}
+              />
+            </Field>
+            <Field label="Beats">
+              <input
+                className="well input input--tiny num"
+                type="number"
+                min={1}
+                value={click.beatsPerMeasure}
+                onChange={(event) => {
+                  const next = Number(event.target.value)
+                  if (Number.isFinite(next)) change({ beatsPerMeasure: Math.max(1, next) })
+                }}
+              />
+            </Field>
+            <button
+              type="button"
+              className="check align__accent"
+              data-engaged={click.accentFirstBeat}
+              onClick={() => change({ accentFirstBeat: !click.accentFirstBeat })}
+            >
+              <span className="check__box" />
+              Accent
+            </button>
+          </>
+        )}
         <span className="align__spacer" />
         <Button disabled={spanIndex === 0} onClick={() => setSpanIndex((i) => i - 1)}>
           Closer
@@ -209,6 +248,15 @@ export function AlignTool() {
         <span className="num">{formatClock(to)}</span>
       </div>
     </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="align__picker">
+      <span>{label}</span>
+      {children}
+    </label>
   )
 }
 
