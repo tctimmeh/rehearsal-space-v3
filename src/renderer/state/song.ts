@@ -268,11 +268,24 @@ function applySongState(song: Song): void {
   useTools.getState().setOpenScoped(songScoped, song.openTools)
 }
 
+/**
+ * Seeking tears down and rebuilds every source node, so it must happen for
+ * seeking and nothing else. Moving a fader arrives here as a channel change
+ * like any other, and used to seek to the position the UI last drew — which is
+ * behind the audio clock, so playback was dragged backwards on every pixel of
+ * the drag.
+ */
 function applyBounds(song: Song): void {
   const transport = useTransport.getState()
   const [start, end] = songBounds(song)
+  if (start === transport.start && end === transport.end) return
+
   transport.setBounds(start, end)
-  transport.seek(transport.position)
+
+  /* Only move the playhead if the song no longer reaches it. */
+  const position = audioEngine.position
+  const clamped = Math.min(end, Math.max(start, position))
+  if (clamped !== position) transport.seek(clamped)
 }
 
 /**

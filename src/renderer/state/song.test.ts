@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { Channel } from '@core/song/song'
 import { newSong, type Song } from '@core/song/song'
 
 /**
@@ -8,6 +9,10 @@ import { newSong, type Song } from '@core/song/song'
  */
 interface Harness {
   useSong: typeof import('./song').useSong
+  /* Reset between tests, so these must come from the same fresh module graph
+     the store itself is using. */
+  useTransport: typeof import('./transport').useTransport
+  audioEngine: typeof import('../audio/engine').audioEngine
   /** Resolves the save that is currently in flight, as the main process would. */
   completeSave: () => void
   /** Every song handed to the main process, in order. */
@@ -46,8 +51,12 @@ async function harness(): Promise<Harness> {
   vi.stubGlobal('window', { rehearsal: bridge })
 
   const { useSong } = await import('./song')
+  const { useTransport } = await import('./transport')
+  const { audioEngine } = await import('../audio/engine')
   return {
     useSong,
+    useTransport,
+    audioEngine,
     savesStarted: () => savesLog,
     inFlight: () => pendingSaves.length,
     failSave: (reason) => {
@@ -171,5 +180,59 @@ describe('the loaded song', () => {
 
     expect(useSong.getState().song?.id).toBe('other-song')
     expect(useSong.getState().song?.title).toBe('New Song')
+  })
+})
+
+/**
+ * Seeking rebuilds every source node, so it belongs to seeking alone. When a
+ * fader also seeked, it seeked to the position the UI had last drawn — behind
+ * the audio clock — and dragged playback backwards on every pixel of the drag.
+ */
+describe('the mixer during playback', () => {
+  const withChannels = (song: Song, ...channels: Channel[]): Song => ({ ...song, channels })
+
+  const track = (id: string, duration: number): Channel =>
+    ({
+      kind: 'audio',
+      id,
+      name: id,
+      subject: 'other',
+      file: `audio/${id}.ogg`,
+      startTime: 0,
+      duration,
+      gain: 0.8,
+      muted: false,
+      soloed: false,
+      origin: { type: 'record' }
+    }) as Channel
+
+  it('does not seek when a fader moves', async () => {
+    const { useSong, useTransport, audioEngine } = await harness()
+    const seek = vi.spyOn(audioEngine, 'seek')
+
+    useSong.setState({ song: withChannels(newSong('s'), track('a', 45)) })
+    useTransport.setState({ start: 0, end: 45 })
+
+    useSong.getState().updateChannel('a', { gain: 0.31 })
+    useSong.getState().updateChannel('a', { gain: 0.32 })
+    useSong.getState().updateChannel('a', { muted: true })
+    useSong.getState().updateBus('music', 0.5)
+
+    expect(seek).not.toHaveBeenCalled()
+    expect(useSong.getState().song?.channels[0]?.gain).toBe(0.32)
+
+    /* The spy is watching the right object: an actual seek does reach it. */
+    useTransport.getState().seek(12)
+    expect(seek).toHaveBeenCalledWith(12)
+  })
+
+  it('still follows the timeline when a channel makes the song longer', async () => {
+    const { useSong, useTransport } = await harness()
+    useSong.setState({ song: withChannels(newSong('s'), track('a', 45)) })
+    useTransport.setState({ start: 0, end: 45 })
+
+    useSong.getState().update({ channels: [track('a', 45), track('b', 90)] })
+
+    expect(useTransport.getState().end).toBe(90)
   })
 })
