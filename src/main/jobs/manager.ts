@@ -14,14 +14,32 @@ const LOG_LINES = 500
 /** How long a cancelled process gets to stop politely. */
 const SIGKILL_DELAY_MS = 3000
 
+export interface JobStep {
+  command: string
+  args: string[]
+  cwd?: string
+  /** Reads progress from the step's output lines. */
+  progress?: ProgressReader
+  /**
+   * Consumes stdout as bytes instead of lines. Needed when a tool writes audio
+   * to stdout, which must not be decoded as text — progress then has to come
+   * from stderr instead.
+   */
+  onData?: (chunk: Buffer) => void
+  /** Relative share of the job's progress. Defaults to an equal share. */
+  weight?: number
+}
+
+/**
+ * One piece of work as the user sees it, which may take several processes:
+ * importing is a conversion and then a waveform pass, and that is one line in
+ * the queue, not two.
+ */
 export interface JobSpec {
   title: string
   detail: string
   subject: ChannelSubject
-  command: string
-  args: string[]
-  cwd?: string
-  progress?: ProgressReader
+  steps: JobStep[]
 }
 
 export interface JobManager {
@@ -46,7 +64,8 @@ interface JobRecord {
 export class JobFailedError extends Error {
   constructor(
     message: string,
-    readonly log: string[]
+    readonly log: string[],
+    readonly cancelled = false
   ) {
     super(message)
   }
@@ -156,75 +175,103 @@ export function createJobManager(
       for (const record of records.values()) signalGroup(record, 'SIGTERM')
     },
 
-    run: (spec) =>
-      new Promise<void>((resolve, reject) => {
-        const record: JobRecord = {
-          job: {
-            id: randomUUID(),
-            title: spec.title,
-            detail: spec.detail,
-            subject: spec.subject,
-            state: 'running',
-            progress: spec.progress === undefined ? null : 0,
-            error: null
-          },
-          log: [],
-          truncated: false,
-          child: null,
-          timers: []
+    run: async (spec) => {
+      const record: JobRecord = {
+        job: {
+          id: randomUUID(),
+          title: spec.title,
+          detail: spec.detail,
+          subject: spec.subject,
+          state: 'running',
+          progress: spec.steps.some((step) => step.progress !== undefined) ? 0 : null,
+          error: null
+        },
+        log: [],
+        truncated: false,
+        child: null,
+        timers: []
+      }
+      records.set(record.job.id, record)
+      emitNow()
+
+      const totalWeight = spec.steps.reduce((sum, step) => sum + (step.weight ?? 1), 0)
+      let doneWeight = 0
+
+      try {
+        for (const step of spec.steps) {
+          const weight = step.weight ?? 1
+          await runStep(record, step, (fraction) => {
+            if (record.job.progress === null) return
+            record.job.progress = (doneWeight + fraction * weight) / totalWeight
+            emitSoon()
+          })
+          doneWeight += weight
         }
-        records.set(record.job.id, record)
-        append(record, `$ ${spec.command} ${spec.args.join(' ')}`)
-        emitNow()
-
-        const readLine = (line: string): void => {
-          append(record, line)
-          const fraction = spec.progress?.(line)
-          if (fraction === undefined || fraction === null) return
-          record.job.progress = fraction
-          emitSoon()
+      } catch (error) {
+        const failure = error as JobFailedError
+        if (failure.cancelled) {
+          finish(record, 'cancelled', null)
+          throw new JobFailedError(`${spec.title} was cancelled`, failure.log, true)
         }
+        finish(record, 'failed', failure.message)
+        throw failure
+      }
 
-        const child = spawn(spec.command, spec.args, {
-          ...(spec.cwd === undefined ? {} : { cwd: spec.cwd }),
-          stdio: ['ignore', 'pipe', 'pipe'],
-          /* Its own process group, so cancelling takes the whole tree with it. */
-          detached: true
-        })
-        record.child = child
-
-        const toStdout = lineSplitter(readLine)
-        const toStderr = lineSplitter(readLine)
-        child.stdout?.setEncoding('utf8').on('data', toStdout)
-        child.stderr?.setEncoding('utf8').on('data', toStderr)
-
-        /* A missing tool arrives here, not as a non-zero exit code. */
-        child.on('error', (error) => {
-          const reason =
-            'code' in error && error.code === 'ENOENT'
-              ? `${spec.command} was not found`
-              : error.message
-          append(record, reason)
-          finish(record, 'failed', reason)
-          reject(new JobFailedError(reason, [...record.log]))
-        })
-
-        child.on('close', (code, signal) => {
-          if (record.job.state !== 'running') return
-          if (signal !== null) {
-            finish(record, 'cancelled', null)
-            reject(new JobFailedError(`${spec.title} was cancelled`, [...record.log]))
-            return
-          }
-          if (code === 0) {
-            finish(record, 'done', null)
-            resolve()
-            return
-          }
-          const reason = `${spec.command} exited with code ${code}`
-          finish(record, 'failed', reason)
-          reject(new JobFailedError(reason, [...record.log]))
-        })
-      })
+      finish(record, 'done', null)
+    }
   }
+}
+
+
+/** Runs one process to completion, reporting its progress as it goes. */
+function runStep(
+  record: JobRecord,
+  step: JobStep,
+  onProgress: (fraction: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    record.log.push(`$ ${step.command} ${step.args.join(' ')}`)
+
+    const readLine = (line: string): void => {
+      record.log.push(line)
+      const fraction = step.progress?.(line)
+      if (fraction !== undefined && fraction !== null) onProgress(fraction)
+    }
+
+    const child = spawn(step.command, step.args, {
+      ...(step.cwd === undefined ? {} : { cwd: step.cwd }),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      /* Its own process group, so cancelling takes the whole tree with it. */
+      detached: true
+    })
+    record.child = child
+
+    if (step.onData === undefined) {
+      child.stdout?.setEncoding('utf8').on('data', lineSplitter(readLine))
+    } else {
+      child.stdout?.on('data', step.onData)
+    }
+    child.stderr?.setEncoding('utf8').on('data', lineSplitter(readLine))
+
+    /* A missing tool arrives here, not as a non-zero exit code. */
+    child.on('error', (error) => {
+      const reason =
+        'code' in error && error.code === 'ENOENT'
+          ? `${step.command} was not found`
+          : error.message
+      record.log.push(reason)
+      reject(new JobFailedError(reason, [...record.log]))
+    })
+
+    child.on('close', (code, signal) => {
+      if (signal !== null) {
+        reject(new JobFailedError('Cancelled', [...record.log], true))
+      } else if (code === 0) {
+        onProgress(1)
+        resolve()
+      } else {
+        reject(new JobFailedError(`${step.command} exited with code ${code}`, [...record.log]))
+      }
+    })
+  })
 }

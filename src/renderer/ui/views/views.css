@@ -193,3 +193,15 @@
 .song-row:focus-within .song-row__delete {
   visibility: visible;
 }
+
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.subject-choice {
+  height: 40px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+}

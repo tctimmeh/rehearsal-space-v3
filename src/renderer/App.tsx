@@ -5,7 +5,7 @@ import { useSong } from './state/song'
 import { useTransport } from './state/transport'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
-import { HeaderBar, ScrubBar, ToastStack } from './ui/shell'
+import { DropTarget, HeaderBar, ScrubBar, ToastStack } from './ui/shell'
 import { LibraryView } from './ui/views/LibraryView'
 import { PlayerView } from './ui/views/PlayerView'
 import { SetupView } from './ui/views/SetupView'
@@ -28,6 +28,7 @@ export function App() {
       {view === 'player' ? <PlayerView /> : null}
       {view === 'setup' ? <SetupView /> : null}
       <ToastStack />
+      <DropTarget />
     </div>
   )
 }

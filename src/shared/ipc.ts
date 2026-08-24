@@ -8,6 +8,8 @@ import type { ExternalTool, ToolStatus } from './tools'
  * do. Both sides import this; the preload bridge is built from it.
  */
 export interface RehearsalApi {
+  /** Resolves a dropped File to a path on disk. */
+  pathForFile(file: File): string
   app: {
     version(): Promise<string>
     /**
@@ -31,6 +33,11 @@ export interface RehearsalApi {
     save(song: Song): Promise<Song>
     remove(id: string): Promise<void>
     rememberLastSong(id: string | null): Promise<void>
+    /** Opens a file picker and imports what is chosen. Null when cancelled. */
+    chooseAudio(songId: string): Promise<Song | null>
+    /** Imports files already on disk, as from a drop. */
+    importAudio(songId: string, paths: string[]): Promise<Song>
+    removeChannel(songId: string, channelId: string): Promise<Song>
   }
   jobs: {
     list(): Promise<Job[]>
@@ -65,6 +72,9 @@ export const IPC_CHANNELS = {
   librarySave: 'library:save',
   libraryRemove: 'library:remove',
   libraryRememberLastSong: 'library:remember-last-song',
+  libraryChooseAudio: 'library:choose-audio',
+  libraryImportAudio: 'library:import-audio',
+  libraryRemoveChannel: 'library:remove-channel',
   jobsList: 'jobs:list',
   jobsLog: 'jobs:log',
   jobsCancel: 'jobs:cancel',

@@ -76,7 +76,7 @@ stays browsable outside the app.
 ```
 <library>/comeback-season/
   song.json     versioned; parsed with fallbacks, so a hand-edit cannot brick it
-  audio/        one file per audio channel        (M3)
-  peaks/        precomputed waveform peaks        (M3)
+  audio/        one Ogg Vorbis file per audio channel
+  peaks/        precomputed min/max waveform envelopes, four zoom levels
   lyrics.txt    plain text, copy-pasteable        (M9)
 ```

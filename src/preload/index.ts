@@ -1,9 +1,11 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 
 import { IPC_CHANNELS, type RehearsalApi } from '../shared/ipc'
 import type { Job } from '../shared/jobs'
 
 const api: RehearsalApi = {
+  /* Electron no longer puts a path on File; this is the sanctioned way to get one. */
+  pathForFile: (file) => webUtils.getPathForFile(file),
   app: {
     version: () => ipcRenderer.invoke(IPC_CHANNELS.appVersion),
     onFlushRequest: (handler) => {
@@ -29,7 +31,12 @@ const api: RehearsalApi = {
     load: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryLoad, id),
     save: (song) => ipcRenderer.invoke(IPC_CHANNELS.librarySave, song),
     remove: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryRemove, id),
-    rememberLastSong: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryRememberLastSong, id)
+    rememberLastSong: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryRememberLastSong, id),
+    chooseAudio: (songId) => ipcRenderer.invoke(IPC_CHANNELS.libraryChooseAudio, songId),
+    importAudio: (songId, paths) =>
+      ipcRenderer.invoke(IPC_CHANNELS.libraryImportAudio, songId, paths),
+    removeChannel: (songId, channelId) =>
+      ipcRenderer.invoke(IPC_CHANNELS.libraryRemoveChannel, songId, channelId)
   },
   jobs: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.jobsList),

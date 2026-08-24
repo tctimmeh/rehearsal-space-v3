@@ -20,6 +20,10 @@ interface SongState {
   update: (patch: Partial<Song>) => void
   updateChannel: (id: string, patch: MixerPatch) => void
   updateBus: (bus: 'music' | 'click', gain: number) => void
+  /** Imports files as new channels. Empty `paths` opens a file picker. */
+  importAudio: (paths?: string[]) => Promise<void>
+  removeChannel: (channelId: string) => Promise<void>
+  importing: boolean
   /** Writes any pending change now. */
   flush: () => Promise<void>
 }
@@ -52,6 +56,7 @@ export const useSong = create<SongState>((set, get) => ({
   songs: [],
   song: null,
   error: null,
+  importing: false,
 
   refresh: async () => {
     set({ songs: await window.rehearsal.library.list() })
@@ -104,7 +109,10 @@ export const useSong = create<SongState>((set, get) => ({
   update: (patch) => {
     const current = get().song
     if (current === null) return
-    set({ song: { ...current, ...patch } })
+    const song = { ...current, ...patch }
+    set({ song })
+    /* Adding, removing or moving a channel changes where the song begins and ends. */
+    if (patch.channels !== undefined) applyBounds(song)
     unsaved = true
     if (saveTimer !== null) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
@@ -129,6 +137,39 @@ export const useSong = create<SongState>((set, get) => ({
     get().update({ buses: { ...song.buses, [bus]: gain } })
   },
 
+  importAudio: async (paths) => {
+    const song = get().song
+    if (song === null) return
+    /* The song on disk gains a channel, so anything unsaved must land first. */
+    await get().flush()
+
+    set({ importing: true, error: null })
+    try {
+      const updated =
+        paths === undefined || paths.length === 0
+          ? await window.rehearsal.library.chooseAudio(song.id)
+          : await window.rehearsal.library.importAudio(song.id, paths)
+      if (updated !== null) adoptChannels(set, get, updated)
+    } catch (error) {
+      set({ error: message(error) })
+    } finally {
+      set({ importing: false })
+    }
+    await get().refresh()
+  },
+
+  removeChannel: async (channelId) => {
+    const song = get().song
+    if (song === null) return
+    await get().flush()
+    try {
+      adoptChannels(set, get, await window.rehearsal.library.removeChannel(song.id, channelId))
+    } catch (error) {
+      set({ error: message(error) })
+    }
+    await get().refresh()
+  },
+
   flush: async () => {
     if (saveTimer !== null) clearTimeout(saveTimer)
     saveTimer = null
@@ -141,6 +182,23 @@ export const useSong = create<SongState>((set, get) => ({
     }
   }
 }))
+
+/**
+ * Main owns the channel list while an import is running — it writes the file
+ * itself — but the user may have been editing the title all the while, so only
+ * the channels are taken from what comes back.
+ */
+function adoptChannels(
+  set: (partial: Partial<SongState>) => void,
+  get: () => SongState,
+  updated: Song
+): void {
+  const current = get().song
+  if (current === null || current.id !== updated.id) return
+  const song = { ...current, channels: updated.channels }
+  set({ song })
+  applyBounds(song)
+}
 
 /**
  * Writes the loaded song, then writes it again if it changed while we were
@@ -191,10 +249,17 @@ function applySongState(song: Song): void {
   transport.setSpeed(song.playback.speed)
   transport.setSemitones(song.playback.pitch.semitones)
   transport.setCents(song.playback.pitch.cents)
-  transport.setBounds(...songBounds(song))
+  applyBounds(song)
 
   const songScoped = (id: ToolId) => TOOL_META[id].scope === 'song'
   useTools.getState().setOpenScoped(songScoped, song.openTools)
+}
+
+function applyBounds(song: Song): void {
+  const transport = useTransport.getState()
+  const [start, end] = songBounds(song)
+  transport.setBounds(start, end)
+  transport.seek(transport.position)
 }
 
 /**

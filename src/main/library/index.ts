@@ -1,5 +1,9 @@
+import { join } from 'node:path'
+import { rm } from 'node:fs/promises'
+
 import type { Song, SongSummary } from '@core/song/song'
 import { readConfig, updateConfig } from '../config'
+import { importAudio } from '../import/importAudio'
 import { createLibrary } from './library'
 
 /** The library folder is a setting, so it is resolved per call rather than held. */
@@ -21,4 +25,38 @@ export async function deleteSong(id: string): Promise<void> {
   await (await library()).remove(id)
   const { lastSongId } = await readConfig()
   if (lastSongId === id) await updateConfig({ lastSongId: null })
+}
+
+
+const songDirectory = async (id: string): Promise<string> =>
+  join((await readConfig()).libraryPath, id)
+
+/**
+ * Imports a file as a new channel. The song on disk is the authority here:
+ * the renderer may have unsaved edits of its own, so only the channel list
+ * comes back.
+ */
+export async function importChannel(songId: string, sourcePath: string): Promise<Song> {
+  const directory = await songDirectory(songId)
+  const channel = await importAudio({ songDirectory: directory, sourcePath })
+
+  const song = await readSong(songId)
+  return writeSong({ ...song, channels: [...song.channels, channel] })
+}
+
+/** Removes a channel and the files that belong only to it. */
+export async function removeChannel(songId: string, channelId: string): Promise<Song> {
+  const song = await readSong(songId)
+  const channel = song.channels.find((entry) => entry.id === channelId)
+  const directory = await songDirectory(songId)
+
+  if (channel?.kind === 'audio') {
+    await rm(join(directory, channel.file), { force: true })
+    await rm(join(directory, 'peaks', `${channel.id}.peaks`), { force: true })
+  }
+
+  return writeSong({
+    ...song,
+    channels: song.channels.filter((entry) => entry.id !== channelId)
+  })
 }

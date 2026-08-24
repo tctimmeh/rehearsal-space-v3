@@ -17,8 +17,7 @@ const shell = (script: string) => ({
   title: 'Testing',
   detail: 'a script',
   subject: 'other' as const,
-  command: 'sh',
-  args: ['-c', script]
+  steps: [{ command: 'sh', args: ['-c', script] }]
 })
 
 describe('createJobManager', () => {
@@ -72,7 +71,7 @@ describe('createJobManager', () => {
     const { manager, latest } = watcher()
 
     await expect(
-      manager.run({ ...shell(''), command: 'definitely-not-a-real-tool' })
+      manager.run({ ...shell(''), steps: [{ command: 'definitely-not-a-real-tool', args: [] }] })
     ).rejects.toThrow(/was not found/)
     expect(latest()[0]?.state).toBe('failed')
   })
@@ -82,8 +81,17 @@ describe('createJobManager', () => {
 
     /* The \r is what a tool redrawing a bar in place emits instead of \n. */
     await manager.run({
-      ...shell('printf "out_time_us=60000000\\r"; sleep 0.2; printf "out_time_us=120000000\\n"; sleep 0.2'),
-      progress: ffmpegProgress(240)
+      ...shell(''),
+      steps: [
+        {
+          command: 'sh',
+          args: [
+            '-c',
+            'printf "out_time_us=60000000\\r"; sleep 0.2; printf "out_time_us=120000000\\n"; sleep 0.2'
+          ],
+          progress: ffmpegProgress(240)
+        }
+      ]
     })
 
     const seen = snapshots.flat().map((job) => job.progress)
@@ -103,6 +111,61 @@ describe('createJobManager', () => {
 
     await expect(running).rejects.toThrow(/cancelled/)
     expect(Date.now() - startedAt).toBeLessThan(2000)
+  })
+
+  it('shows several processes as one job, weighted across the whole', async () => {
+    const { manager, snapshots, latest } = watcher()
+
+    await manager.run({
+      ...shell(''),
+      steps: [
+        { command: 'sh', args: ['-c', 'echo one; sleep 0.15'], progress: () => null },
+        { command: 'sh', args: ['-c', 'echo two; sleep 0.15'], progress: () => null }
+      ]
+    })
+
+    /* One queue entry throughout, and the first step lands at the halfway mark. */
+    expect(snapshots.every((snapshot) => snapshot.length <= 1)).toBe(true)
+    expect(snapshots.flat().map((job) => job.progress)).toContain(0.5)
+    expect(latest()[0]?.state).toBe('done')
+
+    const log = manager.log(latest()[0]?.id ?? '')
+    expect(log).toContain('one')
+    expect(log).toContain('two')
+  })
+
+  it('stops at the first step that fails, without running the rest', async () => {
+    const { manager, latest } = watcher()
+
+    await expect(
+      manager.run({
+        ...shell(''),
+        steps: [
+          { command: 'sh', args: ['-c', 'exit 4'] },
+          { command: 'sh', args: ['-c', 'echo should-not-run'] }
+        ]
+      })
+    ).rejects.toThrow(/exited with code 4/)
+
+    expect(manager.log(latest()[0]?.id ?? '')).not.toContain('should-not-run')
+  })
+
+  it('reads stdout as bytes when a step produces audio rather than text', async () => {
+    const { manager } = watcher()
+    const chunks: Buffer[] = []
+
+    await manager.run({
+      ...shell(''),
+      steps: [
+        {
+          command: 'sh',
+          args: ['-c', 'printf "\\001\\002\\377"; echo progress 1>&2'],
+          onData: (chunk) => chunks.push(chunk)
+        }
+      ]
+    })
+
+    expect(Buffer.concat(chunks)).toEqual(Buffer.from([1, 2, 255]))
   })
 
   it('runs jobs in parallel and reports them independently', async () => {
