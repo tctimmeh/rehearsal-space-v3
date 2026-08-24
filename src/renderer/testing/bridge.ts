@@ -28,8 +28,7 @@ export function installBridge(overrides: Partial<RehearsalApi['library']> = {}) 
       app: { version: vi.fn(), onFlushRequest: vi.fn(() => () => undefined) },
       config: {
         get: vi.fn(),
-        setUiScale: vi.fn(),
-        setShowCents: vi.fn(),
+        set: vi.fn(),
         chooseLibraryFolder: vi.fn(),
         revealLibraryFolder: vi.fn()
       },

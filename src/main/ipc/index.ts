@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from 'electron'
 
 import { migrateSong } from '@core/song/migrate'
-import { UI_SCALE_MAX, UI_SCALE_MIN } from '../../shared/config'
+import type { Preferences } from '../../shared/config'
 import { IPC_CHANNELS } from '../../shared/ipc'
 import type { SeparateRequest } from '../../shared/stems'
 import { isExternalTool } from '../../shared/tools'
@@ -47,17 +47,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.configGet, () => readConfig())
 
-  ipcMain.handle(IPC_CHANNELS.configSetUiScale, async (_event, scale: unknown) => {
-    const requested = typeof scale === 'number' && Number.isFinite(scale) ? scale : 1
-    const uiScale = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, requested))
-    const config = await updateConfig({ uiScale })
+  ipcMain.handle(IPC_CHANNELS.configSet, async (_event, patch: unknown) => {
+    const wanted = typeof patch === 'object' && patch !== null ? (patch as Preferences) : {}
+    const config = await updateConfig(wanted)
     applyUiScale(config.uiScale)
     return config
   })
-
-  ipcMain.handle(IPC_CHANNELS.configSetShowCents, (_event, show: unknown) =>
-    updateConfig({ showCents: show === true })
-  )
 
   ipcMain.handle(IPC_CHANNELS.configChooseLibraryFolder, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatClock, formatRemaining } from './time'
+import { formatClock, formatClockPrecise, formatRemaining } from './time'
 
 describe('formatClock', () => {
   it('pads minutes and seconds', () => {
@@ -27,5 +27,21 @@ describe('formatRemaining', () => {
 
   it('clamps at the end rather than going positive', () => {
     expect(formatRemaining(250, 240)).toBe('-00:00')
+  })
+})
+
+describe('formatClockPrecise', () => {
+  it('keeps the thousandths, which is the whole point of it', () => {
+    expect(formatClockPrecise(4.062)).toBe('00:04.062')
+    expect(formatClockPrecise(0)).toBe('00:00.000')
+  })
+
+  it('pads the seconds so the width does not jump while dragging', () => {
+    expect(formatClockPrecise(9.5)).toBe('00:09.500')
+    expect(formatClockPrecise(61.25)).toBe('01:01.250')
+  })
+
+  it('signs a count-in, like the coarse clock does', () => {
+    expect(formatClockPrecise(-2.5)).toBe('-00:02.500')
   })
 })

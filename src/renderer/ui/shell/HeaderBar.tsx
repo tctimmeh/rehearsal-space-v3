@@ -119,7 +119,7 @@ export function HeaderBar() {
 }
 
 function CentsToggle({ on, inUse }: { on: boolean; inUse: boolean }) {
-  const setShowCents = useConfig((state) => state.setShowCents)
+  const setPreference = useConfig((state) => state.set)
   const label = inUse && !on ? 'Cents in use' : on ? 'Hide cents' : 'Fine tune in cents'
 
   return (
@@ -130,7 +130,7 @@ function CentsToggle({ on, inUse }: { on: boolean; inUse: boolean }) {
       title={label}
       aria-label={label}
       aria-pressed={on}
-      onClick={() => void setShowCents(!on)}
+      onClick={() => void setPreference({ showCents: !on })}
     >
       ¢
     </button>

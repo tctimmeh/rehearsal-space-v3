@@ -2,12 +2,23 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app } from 'electron'
 
-import { UI_SCALE_MAX, UI_SCALE_MIN, type AppConfig } from '../shared/config'
+import {
+  PAN_SPEED_MAX,
+  PAN_SPEED_MIN,
+  UI_SCALE_MAX,
+  UI_SCALE_MIN,
+  ZOOM_SPEED_MAX,
+  ZOOM_SPEED_MIN,
+  type AppConfig
+} from '../shared/config'
 import { isExternalTool, type ExternalTool } from '../shared/tools'
 import { writeAtomically } from './library/library'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
+
+const number = (raw: unknown, fallback: number, min: number, max: number): number =>
+  typeof raw === 'number' && Number.isFinite(raw) ? clamp(raw, min, max) : fallback
 
 const configPath = (): string => join(app.getPath('userData'), 'config.json')
 
@@ -16,6 +27,10 @@ export const defaultConfig = (): AppConfig => ({
   lastSongId: null,
   uiScale: 1.2,
   showCents: false,
+  /* A wheel notch moves a sixth of the window and is worth a third of a zoom
+     step: fine work wants a wheel that does not throw the view about. */
+  panSpeed: 0.15,
+  zoomSpeed: 0.35,
   toolPaths: {}
 })
 
@@ -40,6 +55,8 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
         : defaults.uiScale,
     showCents:
       typeof record['showCents'] === 'boolean' ? record['showCents'] : defaults.showCents,
+    panSpeed: number(record['panSpeed'], defaults.panSpeed, PAN_SPEED_MIN, PAN_SPEED_MAX),
+    zoomSpeed: number(record['zoomSpeed'], defaults.zoomSpeed, ZOOM_SPEED_MIN, ZOOM_SPEED_MAX),
     toolPaths: parseToolPaths(record['toolPaths'])
   }
 }

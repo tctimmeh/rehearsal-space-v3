@@ -1,12 +1,11 @@
 import { create } from 'zustand'
 
-import type { AppConfig } from '@shared/config'
+import type { AppConfig, Preferences } from '@shared/config'
 
 interface ConfigState {
   config: AppConfig | null
   load: () => Promise<AppConfig>
-  setUiScale: (scale: number) => Promise<void>
-  setShowCents: (show: boolean) => Promise<void>
+  set: (patch: Partial<Preferences>) => Promise<void>
   chooseLibraryFolder: () => Promise<AppConfig | null>
   revealLibraryFolder: () => Promise<void>
 }
@@ -20,12 +19,8 @@ export const useConfig = create<ConfigState>((set, get) => ({
     return config
   },
 
-  setUiScale: async (scale) => {
-    set({ config: await window.rehearsal.config.setUiScale(scale) })
-  },
-
-  setShowCents: async (show) => {
-    set({ config: await window.rehearsal.config.setShowCents(show) })
+  set: async (patch) => {
+    set({ config: await window.rehearsal.config.set(patch) })
   },
 
   /** Returns the new config only when the folder actually changed. */

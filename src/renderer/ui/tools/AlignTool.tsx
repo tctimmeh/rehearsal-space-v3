@@ -9,7 +9,8 @@ import {
   type MetronomeChannel,
   type MetronomeSample
 } from '@core/song/song'
-import { formatClock } from '@core/time'
+import { formatClock, formatClockPrecise } from '@core/time'
+import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
 import { Button } from '../primitives'
@@ -44,6 +45,12 @@ export function AlignTool() {
   const [clickId, setClickId] = useState<string | null>(null)
   const [spanIndex, setSpanIndex] = useState(DEFAULT_ZOOM)
   const [centre, setCentre] = useState<number | null>(null)
+  const panSpeed = useConfig((state) => state.config?.panSpeed ?? 0.15)
+  const zoomSpeed = useConfig((state) => state.config?.zoomSpeed ?? 0.35)
+  /* Wheel notches are counted up rather than acted on one by one, so a slow
+     zoom is slow rather than dead, and a trackpad's many small deltas add up
+     to the same movement as one notch of a wheel. */
+  const zoomCarry = useRef(0)
 
   const against = audio.find((c) => c.id === againstId) ?? audio[0] ?? null
   const click = clicks.find((c) => c.id === clickId) ?? clicks[0] ?? null
@@ -57,6 +64,9 @@ export function AlignTool() {
   const middle = clampViewCentre(centre ?? timing?.endTime ?? 0, span, [songStart, songEnd])
   const from = middle - span / 2
   const to = middle + span / 2
+
+  /* Whole seconds are useless once the window is short. */
+  const clock = span < 2 ? formatClockPrecise : formatClock
 
   const strip = useRef<HTMLDivElement>(null)
   const timeAt = (clientX: number): number => {
@@ -177,21 +187,25 @@ export function AlignTool() {
         onWheel={(event) => {
           /* Shift pans, because at a quarter-second across the window the
              thing you are looking for is usually just off the edge. */
+          const notches = event.deltaY / 100
+
           if (event.shiftKey) {
             setCentre(
-              clampViewCentre(middle + (event.deltaY / 200) * span, span, [songStart, songEnd])
+              clampViewCentre(middle + notches * span * panSpeed, span, [songStart, songEnd])
             )
             return
           }
+
+          zoomCarry.current += notches * zoomSpeed
+          const steps = Math.trunc(zoomCarry.current)
+          if (steps === 0) return
+          zoomCarry.current -= steps
           /* Hold the instant under the pointer still. The zoom steps are not
              in a constant ratio, so the ratio has to be taken from the steps
              themselves — guessing at it makes the view creep away from the
              transient being aimed at, a little more with every notch. */
           const at = timeAt(event.clientX)
-          const next = Math.min(
-            ZOOM_STEPS.length - 1,
-            Math.max(0, spanIndex + (event.deltaY < 0 ? -1 : 1))
-          )
+          const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, spanIndex + steps))
           const nextSpan = ZOOM_STEPS[next] ?? span
           setCentre(
             clampViewCentre(at + (middle - at) * (nextSpan / span), nextSpan, [songStart, songEnd])
@@ -224,7 +238,7 @@ export function AlignTool() {
             {inView(timing.startTime, from, to) ? (
               <Handle
                 className="align__handle align__handle--start"
-                label={`Start ${formatClock(timing.startTime)}`}
+                label={`Start ${clock(timing.startTime)}`}
                 time={timing.startTime}
                 left={xOf(timing.startTime)}
                 onDrag={dragStart}
@@ -236,7 +250,7 @@ export function AlignTool() {
             {inView(timing.endTime, from, to) ? (
               <Handle
                 className="align__handle align__handle--end"
-                label={`End ${formatClock(timing.endTime)}`}
+                label={`End ${clock(timing.endTime)}`}
                 time={timing.endTime}
                 left={xOf(timing.endTime)}
                 onDrag={dragEnd}
@@ -252,13 +266,13 @@ export function AlignTool() {
       </div>
 
       <div className="align__scale">
-        <span className="num">{formatClock(from)}</span>
+        <span className="num">{clock(from)}</span>
         <span className="setting-note">
           {timing === null
             ? 'Add a metronome channel in Setup to line one up.'
             : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · drag the handles, or arrow keys to nudge · scroll to zoom, shift to pan`}
         </span>
-        <span className="num">{formatClock(to)}</span>
+        <span className="num">{clock(to)}</span>
       </div>
     </div>
   )
