@@ -258,3 +258,59 @@ describe('reaching the end of the song', () => {
     expect(useTransport.getState().position).toBe(-4)
   })
 })
+
+describe('the library list', () => {
+  const listed = (id: string, title: string, artist: string) => ({
+    id,
+    title,
+    artist,
+    channelCount: 0,
+    hasLyrics: true
+  })
+
+  it('follows a change that renames no file, such as the artist', async () => {
+    const { useSong, completeSave } = await harness()
+    useSong.setState({
+      song: { ...newSong('coast-road'), title: 'Coast Road' },
+      songs: [listed('coast-road', 'Coast Road', '')]
+    })
+
+    useSong.getState().update({ artist: 'The Lowlifes' })
+    await vi.advanceTimersByTimeAsync(500)
+    completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(useSong.getState().songs[0]?.artist).toBe('The Lowlifes')
+  })
+
+  it('does not forget things the song file cannot tell it', async () => {
+    /* Whether lyrics exist is a file on disk, not a field of the song. */
+    const { useSong, completeSave } = await harness()
+    useSong.setState({
+      song: { ...newSong('coast-road'), title: 'Coast Road' },
+      songs: [listed('coast-road', 'Coast Road', '')]
+    })
+
+    useSong.getState().update({ artist: 'Somebody' })
+    await vi.advanceTimersByTimeAsync(500)
+    completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(useSong.getState().songs[0]?.hasLyrics).toBe(true)
+  })
+
+  it('leaves other songs alone', async () => {
+    const { useSong, completeSave } = await harness()
+    useSong.setState({
+      song: { ...newSong('coast-road'), title: 'Coast Road' },
+      songs: [listed('coast-road', 'Coast Road', ''), listed('b-side', 'B Side', 'Someone')]
+    })
+
+    useSong.getState().update({ artist: 'The Lowlifes' })
+    await vi.advanceTimersByTimeAsync(500)
+    completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(useSong.getState().songs[1]).toEqual(listed('b-side', 'B Side', 'Someone'))
+  })
+})

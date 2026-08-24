@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
@@ -279,9 +280,34 @@ async function writeUntilQuiet(
      */
     const current = get().song
     if (current === null) return
-    set({ song: { ...current, id: saved.id, updatedAt: saved.updatedAt }, error: null })
-    if (saved.id !== song.id) await get().refresh()
+    const adopted = { ...current, id: saved.id, updatedAt: saved.updatedAt }
+    set({ song: adopted, error: null })
+
+    if (saved.id !== song.id) {
+      /* The directory was renamed, so the whole list is keyed differently. */
+      await get().refresh()
+    } else {
+      restateSummary(set, get, adopted)
+    }
   }
+}
+
+/**
+ * Keeps the library's row for a song in step with the song itself. Only a title
+ * that changes the directory name used to prompt this, so re-crediting a song —
+ * which changes no filename at all — left the library still showing "No artist"
+ * while the header showed otherwise.
+ */
+function restateSummary(
+  set: (partial: Partial<SongState>) => void,
+  get: () => SongState,
+  song: Song
+): void {
+  const { songs } = get()
+  const existing = songs.find((entry) => entry.id === song.id)
+  if (existing === undefined) return
+  /* Lyrics are a file on disk, which saving the song says nothing about. */
+  set({ songs: songs.map((entry) => (entry.id === song.id ? summarise(song, existing.hasLyrics) : entry)) })
 }
 
 /** Song-scoped state that lives outside the song store: transport and tools. */
