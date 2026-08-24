@@ -23,6 +23,21 @@ If `ELECTRON_RUN_AS_NODE` is set in your shell, Electron starts as plain Node an
 `require('electron')` returns the npm helper instead of the real module. Unset it
 (`env -u ELECTRON_RUN_AS_NODE ...`).
 
+### Running against throwaway settings
+
+Anything that launches the app for testing must pass `--user-data-dir`,
+otherwise it reads and writes the real `config.json` — the library folder, the
+interface scale, the external tool paths — and a test that tidies up after
+itself will take those with it.
+
+```sh
+npx electron . --user-data-dir=/tmp/rs-test
+```
+
+The library folder is separate from that and is set inside the app, so point it
+at a scratch directory too rather than filling your own library with test
+songs.
+
 ### Looking at the UI without a screen
 
 Setting `RS_CAPTURE=/path/shot.png` renders the window offscreen to a PNG and
@@ -32,7 +47,7 @@ waits longer before the shot when something slow is still loading.
 ```sh
 npm run build
 env -u ELECTRON_RUN_AS_NODE ELECTRON_DISABLE_SANDBOX=1 \
-  RS_CAPTURE=/tmp/shot.png npx electron .
+  RS_CAPTURE=/tmp/shot.png npx electron . --user-data-dir=/tmp/rs-test
 ```
 
 ## Layout
