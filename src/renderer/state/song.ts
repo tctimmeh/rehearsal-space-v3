@@ -30,6 +30,8 @@ interface SongState {
   separate: (request: SeparateRequest) => Promise<void>
   /** True while any of importing, downloading or separating is under way. */
   importing: boolean
+  /** How far through decoding a song's channels we are, while that is happening. */
+  loading: { decoded: number; total: number } | null
   /** Writes any pending change now. */
   flush: () => Promise<void>
   dismissError: () => void
@@ -64,6 +66,7 @@ export const useSong = create<SongState>((set, get) => ({
   song: null,
   error: null,
   importing: false,
+  loading: null,
 
   dismissError: () => set({ error: null }),
 
@@ -83,14 +86,22 @@ export const useSong = create<SongState>((set, get) => ({
     await get().flush()
     generation += 1
     useTransport.getState().stop()
+
+    /* Announced before the song has even been read, so pressing play in the
+       meantime waits for it rather than running the clock over silence. */
+    const loaded = audioEngine.beginLoad()
+    set({ loading: { decoded: 0, total: 0 } })
     try {
       const song = await window.rehearsal.library.load(id)
       set({ song, error: null })
       applySongState(song)
-      await loadIntoEngine(song)
+      await loadIntoEngine(song, (decoded, total) => set({ loading: { decoded, total } }))
       await window.rehearsal.library.rememberLastSong(song.id)
     } catch (error) {
       set({ song: null, error: message(error) })
+    } finally {
+      set({ loading: null })
+      loaded()
     }
   },
 
@@ -234,9 +245,16 @@ function adoptChannels(
 }
 
 /** Decodes whatever the song now refers to, and applies the mix to it. */
-async function loadIntoEngine(song: Song): Promise<void> {
+async function loadIntoEngine(
+  song: Song,
+  onProgress?: (decoded: number, total: number) => void
+): Promise<void> {
   try {
-    await audioEngine.load(song, (file) => window.rehearsal.library.readAudio(song.id, file))
+    await audioEngine.load(
+      song,
+      (file) => window.rehearsal.library.readAudio(song.id, file),
+      onProgress
+    )
   } catch (error) {
     useSong.setState({ error: message(error) })
   }

@@ -706,3 +706,15 @@
   font-size: 15px;
   color: var(--text);
 }
+
+.scrub__track--loading {
+  display: grid;
+  place-items: center;
+  height: 14px;
+  cursor: default;
+}
+.scrub__loading {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}

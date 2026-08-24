@@ -27,6 +27,7 @@ const formatCents = (cents: number) => signed(cents, '¢')
 export function HeaderBar() {
   const { view, setView } = useView()
   const song = useSong((state) => state.song)
+  const loading = useSong((state) => state.loading)
   const update = useSong((state) => state.update)
   const { playing, speed, semitones, cents, toggle, stop, setSpeed, setSemitones, setCents } =
     useTransport()
@@ -57,14 +58,14 @@ export function HeaderBar() {
       <span className="bar__sep" />
 
       <div className="transport">
-        <IconButton label="Stop" onClick={stop} disabled={song === null}>
+        <IconButton label="Stop" onClick={stop} disabled={song === null || loading !== null}>
           <StopIcon />
         </IconButton>
         <IconButton
           label={playing ? 'Pause' : 'Play'}
           variant="go"
           onClick={toggle}
-          disabled={song === null}
+          disabled={song === null || loading !== null}
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
         </IconButton>

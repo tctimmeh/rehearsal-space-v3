@@ -45,8 +45,12 @@ export class AudioEngine {
   private pitch: PitchOffset = { semitones: 0, cents: 0 }
 
   private playing = false
+  /** Set while play is getting ready, so the clock does not run before sound. */
+  private starting = false
   /** Rising per attempt, so a stale start cannot resurrect itself. */
   private playAttempt = 0
+  /** Resolves when a load the caller has announced has finished. */
+  private awaited: { promise: Promise<void>; settle: () => void } | null = null
   /** Loads run one at a time; two at once would overwrite each other. */
   private loading: Promise<unknown> = Promise.resolve()
   /** Song time at the moment the clock was last anchored. */
@@ -92,7 +96,9 @@ export class AudioEngine {
 
   /** Song time now, whether or not anything is playing. */
   get position(): number {
-    if (!this.playing || this.context === null) return this.anchorSong
+    /* While getting ready the playhead stays put: it has not started yet, and
+       a playhead that moves without sound is just a lie about where you are. */
+    if (!this.playing || this.starting || this.context === null) return this.anchorSong
     const elapsed = this.context.currentTime - this.anchorContext
     return Math.min(this.end, this.anchorSong + elapsed * this.rate)
   }
@@ -223,10 +229,14 @@ export class AudioEngine {
    * loser's would be left connected with nothing able to stop it — audible for
    * ever, including after stop. So they queue.
    */
-  load(song: Song, readAudio: (file: string) => Promise<Uint8Array>): Promise<void> {
+  load(
+    song: Song,
+    readAudio: (file: string) => Promise<Uint8Array>,
+    onProgress?: (decoded: number, total: number) => void
+  ): Promise<void> {
     const next = this.loading.then(
-      () => this.loadNow(song, readAudio),
-      () => this.loadNow(song, readAudio)
+      () => this.loadNow(song, readAudio, onProgress),
+      () => this.loadNow(song, readAudio, onProgress)
     )
     this.loading = next.catch(() => undefined)
     return next
@@ -234,7 +244,8 @@ export class AudioEngine {
 
   private async loadNow(
     song: Song,
-    readAudio: (file: string) => Promise<Uint8Array>
+    readAudio: (file: string) => Promise<Uint8Array>,
+    onProgress?: (decoded: number, total: number) => void
   ): Promise<void> {
     const context = this.ensureContext()
     const wanted = new Map(
@@ -249,11 +260,16 @@ export class AudioEngine {
       this.channels.delete(id)
     }
 
+    let decoded = 0
+    const total = wanted.size
+    onProgress?.(0, total)
+
     await Promise.all(
       [...wanted.values()].map(async (channel) => {
         const existing = this.channels.get(channel.id)
         if (existing !== undefined) {
           existing.channel = channel
+          onProgress?.((decoded += 1), total)
           return
         }
         const bytes = await readAudio(channel.file)
@@ -271,6 +287,7 @@ export class AudioEngine {
           return
         }
         this.channels.set(channel.id, { channel, buffer, gain, source: null })
+        onProgress?.((decoded += 1), total)
       })
     )
 
@@ -294,6 +311,26 @@ export class AudioEngine {
     rampTo(this.clickBus as GainNode, song.buses.click, context)
   }
 
+  /**
+   * Announces that a song is about to be loaded, before the work that finds it
+   * has even started. Play waits for this, so pressing play the instant a song
+   * is chosen waits rather than running the clock over silence.
+   */
+  beginLoad(): () => void {
+    if (this.awaited === null) {
+      let settle!: () => void
+      const promise = new Promise<void>((resolve) => {
+        settle = resolve
+      })
+      this.awaited = { promise, settle }
+    }
+    const mine = this.awaited
+    return () => {
+      if (this.awaited === mine) this.awaited = null
+      mine.settle()
+    }
+  }
+
   async play(): Promise<void> {
     if (this.playing) return
     const context = this.ensureContext()
@@ -305,12 +342,17 @@ export class AudioEngine {
      * then playback starts anyway with the transport certain it is stopped.
      */
     this.playing = true
+    this.starting = true
     this.anchorContext = context.currentTime
     const attempt = (this.playAttempt += 1)
 
     await this.loadStretch()
+    /* Whatever song is arriving has to arrive before there is anything to play. */
+    await this.awaited?.promise
+    await this.loading
     if (context.state === 'suspended') await context.resume()
 
+    this.starting = false
     /* Stopped, paused, or asked to start again while we were getting ready. */
     if (!this.playing || attempt !== this.playAttempt) return
 
@@ -322,6 +364,7 @@ export class AudioEngine {
   pause(): void {
     if (!this.playing) return
     this.playAttempt += 1
+    this.starting = false
     this.anchorSong = this.position
     this.playing = false
     this.clearEndTimer()
@@ -331,6 +374,7 @@ export class AudioEngine {
   stop(): void {
     this.playing = false
     this.playAttempt += 1
+    this.starting = false
     this.clearEndTimer()
     this.stopSources()
     this.anchorSong = this.start

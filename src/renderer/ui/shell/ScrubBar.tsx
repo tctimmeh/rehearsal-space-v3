@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react'
 
 import { formatClock, formatRemaining } from '@core/time'
+import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
 
 /**
@@ -9,6 +10,7 @@ import { useTransport } from '@renderer/state/transport'
  */
 export function ScrubBar() {
   const { position, start, end, seek } = useTransport()
+  const loading = useSong((state) => state.loading)
   const track = useRef<HTMLDivElement>(null)
 
   const span = end - start
@@ -23,6 +25,22 @@ export function ScrubBar() {
     },
     [seek, span, start]
   )
+
+  if (loading !== null) {
+    return (
+      <div className="scrub">
+        <span className="scrub__time">--:--</span>
+        <div className="well scrub__track scrub__track--loading">
+          <span className="scrub__loading">
+            {loading.total === 0
+              ? 'Loading…'
+              : `Loading ${loading.decoded} of ${loading.total} channels…`}
+          </span>
+        </div>
+        <span className="scrub__time scrub__time--end">--:--</span>
+      </div>
+    )
+  }
 
   return (
     <div className="scrub">
