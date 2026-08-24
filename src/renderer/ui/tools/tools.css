@@ -310,3 +310,7 @@
 .align__accent {
   padding-bottom: 7px;
 }
+
+.align__strip[data-grabbing='true'] {
+  cursor: grabbing;
+}

@@ -52,11 +52,17 @@ whatever it was written to do to their songs. Moving `HOME` does not help: it
 isolates the run, not the build the user's own app is reading.
 
 ```sh
-git worktree add -f --detach /tmp/rs-verify HEAD
+git worktree add -f --detach /tmp/rs-verify "$(git rev-parse HEAD)"
 ln -s "$PWD/node_modules" /tmp/rs-verify/node_modules
-# patch, build and run entirely inside /tmp/rs-verify
-git -C /tmp/rs-verify checkout -- src/   # reset between runs
+rsync -a --delete src/ /tmp/rs-verify/src/   # before every run
+# then patch, build and run entirely inside /tmp/rs-verify
 ```
+
+Copy the whole of `src` in each time rather than resetting the worktree with
+git. The worktree sits on the commit it was made at, so `git checkout -- src/`
+inside it restores *that* commit — which quietly reverted a half-finished
+feature to the version before it existed and made a working change look
+broken.
 
 ### Looking at the UI without a screen
 

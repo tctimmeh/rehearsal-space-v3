@@ -48,8 +48,11 @@ export function AlignTool() {
   const [clickId, setClickId] = useState<string | null>(null)
   const [span, setSpan] = useState(DEFAULT_SPAN)
   const [centre, setCentre] = useState<number | null>(null)
-  const panSpeed = useConfig((state) => state.config?.panSpeed ?? 0.15)
-  const zoomSpeed = useConfig((state) => state.config?.zoomSpeed ?? 0.25)
+  const panSpeed = useConfig((state) => state.config?.panSpeed ?? 0.1)
+  const zoomSpeed = useConfig((state) => state.config?.zoomSpeed ?? 0.15)
+  /* Where a middle-button drag took hold, and where the view was then. */
+  const grab = useRef<{ x: number; centre: number } | null>(null)
+  const [grabbing, setGrabbing] = useState(false)
 
   const against = audio.find((c) => c.id === againstId) ?? audio[0] ?? null
   const click = clicks.find((c) => c.id === clickId) ?? clicks[0] ?? null
@@ -189,10 +192,52 @@ export function AlignTool() {
       <div
         className="align__strip well"
         ref={strip}
+        data-grabbing={grabbing}
         onPointerDown={(event) => {
           if ((event.target as HTMLElement).closest('.align__handle') !== null) return
+
+          /* Middle button drags the waveform along under the pointer. */
+          if (event.button === 1) {
+            event.preventDefault()
+            /* Take hold first. Capture is a convenience — it keeps the drag
+               alive past the edge of the strip — and must not be what decides
+               whether the drag happens at all. */
+            grab.current = { x: event.clientX, centre: middle }
+            setGrabbing(true)
+            try {
+              event.currentTarget.setPointerCapture(event.pointerId)
+            } catch {
+              /* No capture; the drag still works within the strip. */
+            }
+            return
+          }
+          if (event.button !== 0) return
           seek(timeAt(event.clientX))
         }}
+        onPointerMove={(event) => {
+          const held = grab.current
+          const box = strip.current?.getBoundingClientRect()
+          if (held === null || box === undefined || box.width === 0) return
+          const moved = ((event.clientX - held.x) / box.width) * visible
+          setCentre(clampViewCentre(held.centre - moved, visible, [songStart, songEnd]))
+        }}
+        onPointerUp={(event) => {
+          if (grab.current === null) return
+          grab.current = null
+          setGrabbing(false)
+          try {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          } catch {
+            /* Never captured. */
+          }
+        }}
+        onPointerLeave={() => {
+          if (grab.current === null) return
+          grab.current = null
+          setGrabbing(false)
+        }}
+        /* Without this the middle button starts Chromium's own scrolling. */
+        onAuxClick={(event) => event.preventDefault()}
         onWheel={(event) => {
           /* Shift pans, because at a quarter-second across the window the
              thing you are looking for is usually just off the edge. */
@@ -267,7 +312,7 @@ export function AlignTool() {
         <span className="setting-note">
           {timing === null
             ? 'Add a metronome channel in Setup to line one up.'
-            : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · drag the handles, or arrow keys to nudge · scroll to zoom, shift to pan`}
+            : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · drag the handles, or arrow keys to nudge · scroll to zoom, middle-drag or shift-scroll to pan`}
         </span>
         <span className="num">{clock(to)}</span>
       </div>
