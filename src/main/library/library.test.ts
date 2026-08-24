@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { createLibrary, type SongLibrary } from './library'
+import { createLibrary, writeAtomically, type SongLibrary } from './library'
 
 let root: string
 let library: SongLibrary
@@ -120,5 +120,32 @@ describe('createLibrary', () => {
   it('refuses ids that would escape the library directory', async () => {
     await expect(library.read('../../etc')).rejects.toThrow(/unsafe song id/)
     await expect(library.remove('..')).rejects.toThrow(/unsafe song id/)
+  })
+})
+
+describe('writeAtomically', () => {
+  it('survives two writes to the same file at once', async () => {
+    /* Every write used one temp name per process, so concurrent writes shared
+       it: the first rename moved it away and the second failed with ENOENT.
+       Nothing was lost — the target had already been replaced — but the caller
+       saw an error for work that had in fact succeeded. */
+    const target = join(root, 'config.json')
+
+    await Promise.all([
+      writeAtomically(target, '{"a":1}\n'),
+      writeAtomically(target, '{"a":2}\n'),
+      writeAtomically(target, '{"a":3}\n')
+    ])
+
+    /* One of them won, and it is a whole file rather than a torn one. */
+    expect(JSON.parse(await readFile(target, 'utf8'))).toHaveProperty('a')
+  })
+
+  it('leaves no temporary files behind', async () => {
+    const target = join(root, 'song.json')
+    await Promise.all(
+      Array.from({ length: 8 }, (_, index) => writeAtomically(target, `{"n":${index}}\n`))
+    )
+    expect((await readdir(root)).filter((name) => name.endsWith('.tmp'))).toEqual([])
   })
 })

@@ -23,15 +23,28 @@ const exists = async (path: string): Promise<boolean> => {
   }
 }
 
+let writeCounter = 0
+
 /**
  * Write to a sibling temp file and rename over the target, so an interrupted
  * write cannot leave a half-written file behind.
+ *
+ * The temp name has to be unique per write, not merely per process: two writes
+ * to one file at once would otherwise share it, and the first rename would
+ * move it out from under the second, which then fails on work that had in fact
+ * succeeded.
  */
 export async function writeAtomically(path: string, contents: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true })
-  const temporary = `${path}.${process.pid}.tmp`
-  await writeFile(temporary, contents, 'utf8')
-  await rename(temporary, path)
+  writeCounter += 1
+  const temporary = `${path}.${process.pid}.${writeCounter}.tmp`
+  try {
+    await writeFile(temporary, contents, 'utf8')
+    await rename(temporary, path)
+  } catch (error) {
+    await rm(temporary, { force: true })
+    throw error
+  }
 }
 
 export interface SongLibrary {

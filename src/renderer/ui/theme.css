@@ -76,6 +76,29 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * The window as a whole does not select, because dragging across a control
+ * surface should not paint it blue. Anything the user might need to quote back
+ * — an error, a path, a log, a value — opts back in.
+ */
+.selectable,
+.readout,
+.setting-path,
+.tool-row__detail,
+.toast__sub,
+.job-log,
+.app__error,
+.setting-error {
+  user-select: text;
+}
+
+.setting-path,
+.job-log,
+.app__error,
+.setting-error {
+  cursor: text;
+}
+
 /* ---------- the two materials ---------- */
 
 .raised {

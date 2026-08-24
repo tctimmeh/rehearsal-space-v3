@@ -27,6 +27,7 @@ interface SongState {
   importing: boolean
   /** Writes any pending change now. */
   flush: () => Promise<void>
+  dismissError: () => void
 }
 
 /** The parts of a channel the mixer can change, common to both channel kinds. */
@@ -58,6 +59,8 @@ export const useSong = create<SongState>((set, get) => ({
   song: null,
   error: null,
   importing: false,
+
+  dismissError: () => set({ error: null }),
 
   refresh: async () => {
     set({ songs: await window.rehearsal.library.list() })

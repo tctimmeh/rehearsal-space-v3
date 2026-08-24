@@ -24,12 +24,29 @@ export function App() {
     <div className="app">
       <HeaderBar />
       <ScrubBar />
-      {error === null ? null : <p className="app__error">{error}</p>}
+      {error === null ? null : <ErrorBanner message={error} />}
       {view === 'library' ? <LibraryView /> : null}
       {view === 'player' ? <PlayerView /> : null}
       {view === 'setup' ? <SetupView /> : null}
       <ToastStack />
       <DropTarget />
+    </div>
+  )
+}
+
+/** Errors are worth reading, quoting, and then getting rid of. */
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="app__error" role="alert">
+      <span>{message}</span>
+      <button
+        type="button"
+        className="app__error-dismiss"
+        aria-label="Dismiss"
+        onClick={() => useSong.getState().dismissError()}
+      >
+        ×
+      </button>
     </div>
   )
 }

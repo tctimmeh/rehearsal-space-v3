@@ -65,7 +65,19 @@ export async function readConfig(): Promise<AppConfig> {
   return cached
 }
 
-export async function updateConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
+/** Settings are read, changed and written back, so changes have to queue. */
+let writing: Promise<unknown> = Promise.resolve()
+
+export function updateConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
+  const next = writing.then(
+    () => applyPatch(patch),
+    () => applyPatch(patch)
+  )
+  writing = next.catch(() => undefined)
+  return next
+}
+
+async function applyPatch(patch: Partial<AppConfig>): Promise<AppConfig> {
   const next = parse({ ...(await readConfig()), ...patch }, defaultConfig())
   await writeAtomically(configPath(), `${JSON.stringify(next, null, 2)}\n`)
   cached = next
