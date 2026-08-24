@@ -114,14 +114,16 @@ tempo, and one pitch shifter on the Music bus corrects the pitch that causes,
 set to `semitones - 12 * log2(speed)`. That is one phase vocoder for the whole
 song no matter how many channels there are.
 
-Both the shifted and unshifted paths run at once and are held level with each
-other, and moving a knob crossfades between them. The shifter needs its own
-120 ms of latency to fill before it produces anything, so a path that is only
-connected when wanted answers with silence for that long the moment a knob is
-touched. Everything else — the unshifted music, the click — is delayed to match
-it, which costs a constant 120 ms of output latency and keeps the shifter
-running even while nothing is being shifted. That is the price of a knob that
-does not interrupt the music.
+The music always runs through the shifter, whether or not anything is being
+shifted. Set to no shift it is transparent — measured at -126 dB against a
+direct render, which is float rounding — so routing around it buys nothing, and
+routing around it is what made touching a knob interrupt the music: the shifter
+needs its own 120 ms of latency to fill before it produces anything, and the
+two paths sit that far apart in time.
+
+So there is one path, one constant 120 ms of output latency, and the click is
+delayed to match it. Changing tempo or pitch tells the shifter a new number and
+rewires nothing.
 
 ## Where things are stored
 

@@ -1,7 +1,7 @@
 import SignalsmithStretch, { type StretchNode } from 'signalsmith-stretch'
 
 import { audibleGain } from '@core/mix/audible'
-import { isShiftNeutral, shifterSemitones } from '@core/mix/pitch'
+import { shifterSemitones } from '@core/mix/pitch'
 import type { AudioChannel, PitchOffset, Song } from '@core/song/song'
 
 /** Ramp length for gain changes: long enough not to click, short enough to feel instant. */
@@ -12,9 +12,6 @@ const END_GRACE_S = 0.05
 
 /** Room for the shifter's own delay, which the other paths are held back by. */
 const MAX_ALIGN_DELAY_S = 1
-
-/** Long enough not to click, short enough that a knob still feels connected. */
-const CROSSFADE_S = 0.04
 
 interface LoadedChannel {
   channel: AudioChannel
@@ -44,10 +41,6 @@ export class AudioEngine {
   private stretch: StretchNode | null = null
   private stretchLoading: Promise<StretchNode | null> | null = null
   private clickDelay: DelayNode | null = null
-  /** Holds the unshifted path level with the shifted one. */
-  private dryDelay: DelayNode | null = null
-  private dryGain: GainNode | null = null
-  private wetGain: GainNode | null = null
   private stretchLatency = 0
   private pitch: PitchOffset = { semitones: 0, cents: 0 }
 
@@ -69,30 +62,19 @@ export class AudioEngine {
       this.musicBus = context.createGain()
       this.clickBus = context.createGain()
       this.clickDelay = context.createDelay(MAX_ALIGN_DELAY_S)
-      this.dryDelay = context.createDelay(MAX_ALIGN_DELAY_S)
-      this.dryGain = context.createGain()
-      this.wetGain = context.createGain()
 
       /*
-       * Both paths run at once and stay level with each other, so switching
-       * between them is a crossfade rather than a cut:
+       * The music always runs through the shifter:
        *
-       *   musicBus ─► dryDelay ─► dryGain ─┐
-       *           └─► shifter  ─► wetGain ─┴─► master
+       *   musicBus ─► shifter ─► master
+       *   clickBus ─► delay   ─► master
        *
-       * The shifter is fed even while nothing is being shifted, because it
-       * takes its 120 ms of latency to fill and would otherwise answer with
-       * silence for that long the moment a knob was touched. The unshifted
-       * path is delayed to match, so the two carry the same moment of music
-       * and a crossfade between them stays coherent.
+       * Set to no shift it is transparent — measured at -126 dB against a
+       * direct render, which is float rounding — so there is nothing to gain
+       * by routing around it, and routing around it was what made touching a
+       * knob interrupt the music. The click is delayed to match the shifter's
+       * latency, which is now simply constant.
        */
-      this.musicBus.connect(this.dryDelay)
-      this.dryDelay.connect(this.dryGain)
-      this.dryGain.connect(this.master)
-      this.wetGain.connect(this.master)
-      this.dryGain.gain.value = 1
-      this.wetGain.gain.value = 0
-
       this.clickBus.connect(this.clickDelay)
       this.clickDelay.connect(this.master)
       this.master.connect(context.destination)
@@ -157,56 +139,43 @@ export class AudioEngine {
    * speed and pitch the audio reaches the output untouched, rather than through
    * a phase vocoder set to do nothing.
    */
-  /**
-   * Points the output at whichever path is wanted. Nothing is rewired: both
-   * are already running, so this is a short crossfade and never a gap.
-   */
+  /** Tells the shifter what the two knobs add up to. Nothing is ever rewired. */
   private applyShift(): void {
-    const { context, dryGain, wetGain, stretch } = this
-    if (context === null || dryGain === null || wetGain === null) return
-
-    const shift = shifterSemitones(this.rate, this.pitch)
-    const wet = stretch !== null && !isShiftNeutral(this.rate, this.pitch)
-
-    /* Ask for the new pitch before fading towards it, so the shifter is
-       already producing it by the time it can be heard. */
-    if (stretch !== null && wet) stretch.schedule({ semitones: shift }, true)
-
-    crossfade(dryGain, wet ? 0 : 1, context)
-    crossfade(wetGain, wet ? 1 : 0, context)
+    this.stretch?.schedule({ semitones: shifterSemitones(this.rate, this.pitch) }, true)
   }
 
+  /**
+   * Builds the music path once the shifter is ready. If it never becomes
+   * ready — a broken worklet, a content policy that forbids it — the music
+   * goes straight to the output instead, unshiftable but audible.
+   */
   private async loadStretch(): Promise<StretchNode | null> {
     if (this.stretch !== null) return this.stretch
-    const context = this.context
-    if (context === null) return null
+    const { context, musicBus, master } = this
+    if (context === null || musicBus === null || master === null) return null
 
     this.stretchLoading ??= SignalsmithStretch(context)
       .then(async (node) => {
         node.schedule({ active: true, semitones: 0 }, true)
         node.start()
-        node.connect(this.wetGain as GainNode)
-        this.musicBus?.connect(node)
+        musicBus.connect(node)
+        node.connect(master)
         this.stretch = node
 
-        /* Now the latency is knowable, everything else can be lined up to it. */
         this.stretchLatency = Number(await node.latency()) || 0
-        this.alignDelays()
+        this.clickDelay?.delayTime.setValueAtTime(
+          Math.min(MAX_ALIGN_DELAY_S, Math.max(0, this.stretchLatency)),
+          context.currentTime
+        )
         this.applyShift()
         return node
       })
-      .catch(() => null)
+      .catch(() => {
+        musicBus.connect(master)
+        return null
+      })
 
     return this.stretchLoading
-  }
-
-  /** Holds the unshifted music and the click level with the shifted music. */
-  private alignDelays(): void {
-    const context = this.context
-    if (context === null) return
-    const delay = Math.min(MAX_ALIGN_DELAY_S, Math.max(0, this.stretchLatency))
-    this.dryDelay?.delayTime.setValueAtTime(delay, context.currentTime)
-    this.clickDelay?.delayTime.setValueAtTime(delay, context.currentTime)
   }
 
   setBounds(start: number, end: number): void {
@@ -302,6 +271,8 @@ export class AudioEngine {
 
   async play(): Promise<void> {
     const context = this.ensureContext()
+    /* Settle the routing before any sound comes out of it. */
+    await this.loadStretch()
     if (context.state === 'suspended') await context.resume()
     if (this.playing) return
     /* Starting at the very end would play nothing; go back to the beginning. */
@@ -414,14 +385,6 @@ export class AudioEngine {
     }
     loaded.source = source
   }
-}
-
-/** A short linear fade. Both paths carry the same music, so this sums to unity. */
-function crossfade(node: GainNode, target: number, context: AudioContext): void {
-  const now = context.currentTime
-  node.gain.cancelScheduledValues(now)
-  node.gain.setValueAtTime(node.gain.value, now)
-  node.gain.linearRampToValueAtTime(target, now + CROSSFADE_S)
 }
 
 function rampTo(node: GainNode, value: number, context: AudioContext): void {

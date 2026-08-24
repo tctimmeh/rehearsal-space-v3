@@ -18,7 +18,3 @@ export const requestedSemitones = (pitch: PitchOffset): number =>
  */
 export const shifterSemitones = (speed: number, pitch: PitchOffset): number =>
   requestedSemitones(pitch) - SEMITONES_PER_OCTAVE * Math.log2(speed)
-
-/** Neutral means the shifter can be taken out of the path altogether. */
-export const isShiftNeutral = (speed: number, pitch: PitchOffset): boolean =>
-  Math.abs(shifterSemitones(speed, pitch)) < 0.001
