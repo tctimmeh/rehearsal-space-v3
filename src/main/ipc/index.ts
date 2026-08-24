@@ -3,6 +3,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } fr
 import { migrateSong } from '@core/song/migrate'
 import { UI_SCALE_MAX, UI_SCALE_MIN } from '../../shared/config'
 import { IPC_CHANNELS } from '../../shared/ipc'
+import type { SeparateRequest } from '../../shared/stems'
 import { isExternalTool } from '../../shared/tools'
 import { readConfig, updateConfig } from '../config'
 import { jobs } from '../jobs'
@@ -11,11 +12,13 @@ import { setToolPath, toolStatus } from '../tools'
 import {
   createSong,
   deleteSong,
+  downloadChannel,
   importChannel,
   listSongs,
   readSong,
   readChannelAudio,
   removeChannel,
+  separateChannel,
   writeSong
 } from '../library'
 
@@ -121,6 +124,14 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.libraryReadAudio, (_event, songId: string, file: string) =>
     readChannelAudio(songId, file)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.libraryDownloadAudio, (_event, songId: string, url: string) =>
+    downloadChannel(songId, url)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.librarySeparate, (_event, songId: string, request: SeparateRequest) =>
+    separateChannel(songId, request)
   )
 
   ipcMain.handle(IPC_CHANNELS.jobsList, () => jobs.list())

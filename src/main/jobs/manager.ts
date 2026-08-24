@@ -230,7 +230,8 @@ function runStep(
   onProgress: (fraction: number) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    record.log.push(`$ ${step.command} ${step.args.join(' ')}`)
+    const { args } = step
+    record.log.push(`$ ${step.command} ${args.join(' ')}`)
 
     const readLine = (line: string): void => {
       record.log.push(line)
@@ -238,7 +239,7 @@ function runStep(
       if (fraction !== undefined && fraction !== null) onProgress(fraction)
     }
 
-    const child = spawn(step.command, step.args, {
+    const child = spawn(step.command, args, {
       ...(step.cwd === undefined ? {} : { cwd: step.cwd }),
       stdio: ['ignore', 'pipe', 'pipe'],
       /* Its own process group, so cancelling takes the whole tree with it. */

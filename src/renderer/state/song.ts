@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
+import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
 import { audioEngine } from '@renderer/audio/engine'
 import { useTools } from './tools'
@@ -24,6 +25,9 @@ interface SongState {
   /** Imports files as new channels. Empty `paths` opens a file picker. */
   importAudio: (paths?: string[]) => Promise<void>
   removeChannel: (channelId: string) => Promise<void>
+  downloadAudio: (url: string) => Promise<void>
+  separate: (request: SeparateRequest) => Promise<void>
+  /** True while any of importing, downloading or separating is under way. */
   importing: boolean
   /** Writes any pending change now. */
   flush: () => Promise<void>
@@ -144,24 +148,19 @@ export const useSong = create<SongState>((set, get) => ({
   },
 
   importAudio: async (paths) => {
-    const song = get().song
-    if (song === null) return
-    /* The song on disk gains a channel, so anything unsaved must land first. */
-    await get().flush()
+    await runAdding(set, get, (song) =>
+      paths === undefined || paths.length === 0
+        ? window.rehearsal.library.chooseAudio(song.id)
+        : window.rehearsal.library.importAudio(song.id, paths)
+    )
+  },
 
-    set({ importing: true, error: null })
-    try {
-      const updated =
-        paths === undefined || paths.length === 0
-          ? await window.rehearsal.library.chooseAudio(song.id)
-          : await window.rehearsal.library.importAudio(song.id, paths)
-      if (updated !== null) adoptChannels(set, get, updated)
-    } catch (error) {
-      set({ error: message(error) })
-    } finally {
-      set({ importing: false })
-    }
-    await get().refresh()
+  downloadAudio: async (url) => {
+    await runAdding(set, get, (song) => window.rehearsal.library.downloadAudio(song.id, url))
+  },
+
+  separate: async (request) => {
+    await runAdding(set, get, (song) => window.rehearsal.library.separate(song.id, request))
   },
 
   removeChannel: async (channelId) => {
@@ -188,6 +187,32 @@ export const useSong = create<SongState>((set, get) => ({
     }
   }
 }))
+
+/**
+ * Everything that adds channels goes the same way: settle anything unsaved
+ * first, since the song on disk is about to change underneath us, then take
+ * the channel list back from whatever main wrote.
+ */
+async function runAdding(
+  set: (partial: Partial<SongState>) => void,
+  get: () => SongState,
+  work: (song: Song) => Promise<Song | null>
+): Promise<void> {
+  const song = get().song
+  if (song === null) return
+  await get().flush()
+
+  set({ importing: true, error: null })
+  try {
+    const updated = await work(song)
+    if (updated !== null) adoptChannels(set, get, updated)
+  } catch (error) {
+    set({ error: message(error) })
+  } finally {
+    set({ importing: false })
+  }
+  await get().refresh()
+}
 
 /**
  * Main owns the channel list while an import is running — it writes the file

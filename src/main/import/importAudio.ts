@@ -8,7 +8,7 @@ import { audioFileStem } from '@core/song/fileName'
 import { guessSubject, nameFromFile } from '@core/song/guessSubject'
 import { uniqueSlug } from '@core/song/slug'
 import type { AudioChannel, ChannelOrigin, InstrumentSubject } from '@core/song/song'
-import { jobs } from '../jobs'
+import { jobs, type JobStep } from '../jobs'
 import { requireTool } from '../tools'
 import { probeAudio } from './probe'
 
@@ -32,33 +32,42 @@ export interface ImportRequest {
 }
 
 /**
- * Converts a file into the song's own audio directory and builds its waveform,
- * as one job: two processes, but one piece of work as far as anyone watching
- * is concerned.
+ * The processes that turn one source file into a channel: a conversion into
+ * the song's audio folder, and a pass that reads the result back to build its
+ * waveform. Kept separate from running them so several conversions can share a
+ * single job — separating a track produces one piece of work, not seven.
  */
-export async function importAudio({
+export interface ConversionPlan {
+  channel: AudioChannel
+  steps: JobStep[]
+  /** Writes the waveform. Call once the steps have run. */
+  finish: () => Promise<void>
+}
+
+interface PlanRequest {
+  ffmpeg: string
+  songDirectory: string
+  /** Need not exist yet: an earlier step in the same job may be producing it. */
+  sourcePath: string
+  id: string
+  name: string
+  subject: InstrumentSubject
+  origin: ChannelOrigin
+  durationSeconds: number
+}
+
+export function planConversion({
+  ffmpeg,
   songDirectory,
   sourcePath,
-  takenIds = [],
-  origin,
+  id,
   name,
-  subject
-}: ImportRequest): Promise<AudioChannel> {
-  const ffmpeg = await requireTool('ffmpeg')
-  const ffprobe = await requireTool('ffprobe')
-
-  const info = await probeAudio(ffprobe, sourcePath)
-  await mkdir(join(songDirectory, 'audio'), { recursive: true })
-  await mkdir(join(songDirectory, 'peaks'), { recursive: true })
-
-  /* The file keeps its name, so the song folder reads like what went into it.
-     Dedupe against what is already there as well as against the song's
-     channels, so an orphaned file can never be written over. */
-  const onDisk = (await readdir(join(songDirectory, 'audio'))).map((entry) => parse(entry).name)
-  const id = uniqueSlug(audioFileStem(sourcePath), [...takenIds, ...onDisk])
+  subject,
+  origin,
+  durationSeconds
+}: PlanRequest): ConversionPlan {
   const audioPath = join(songDirectory, 'audio', `${id}.ogg`)
   const peaksPath = join(songDirectory, 'peaks', `${id}.peaks`)
-
   const builder = new PeakBuilder()
   /* Audio arrives in chunks that need not align to a sample. */
   let remainder: Buffer = Buffer.alloc(0)
@@ -75,10 +84,21 @@ export async function importAudio({
     builder.push(samples)
   }
 
-  await jobs.run({
-    title: 'Importing',
-    detail: `${nameFromFile(sourcePath)} → ogg`,
-    subject: subject ?? guessSubject(sourcePath),
+  return {
+    channel: {
+      kind: 'audio',
+      id,
+      name,
+      subject,
+      file: join('audio', `${id}.ogg`),
+      startTime: 0,
+      duration: durationSeconds,
+      /* Unity: an imported file plays at the level it arrived at. */
+      gain: 1,
+      muted: false,
+      soloed: false,
+      origin
+    },
     steps: [
       {
         command: ffmpeg,
@@ -94,7 +114,7 @@ export async function importAudio({
           audioPath,
           '-y'
         ],
-        progress: ffmpegProgress(info.durationSeconds),
+        progress: ffmpegProgress(durationSeconds),
         weight: 3
       },
       {
@@ -108,27 +128,68 @@ export async function importAudio({
           '-f', 'f32le',
           '-'
         ],
-        progress: ffmpegProgress(info.durationSeconds),
+        progress: ffmpegProgress(durationSeconds),
         onData: takeSamples,
         weight: 1
       }
-    ]
-  })
+    ],
+    finish: async () => {
+      await writeFile(peaksPath, encodePeaks(builder.finish(Number(TARGET_SAMPLE_RATE))))
+    }
+  }
+}
 
-  await writeFile(peaksPath, encodePeaks(builder.finish(Number(TARGET_SAMPLE_RATE))))
+/** Makes sure a song has somewhere to put audio and waveforms. */
+export async function ensureSongFolders(songDirectory: string): Promise<void> {
+  await mkdir(join(songDirectory, 'audio'), { recursive: true })
+  await mkdir(join(songDirectory, 'peaks'), { recursive: true })
+}
 
-  return {
-    kind: 'audio',
+/** Names already taken, so a new file cannot land on an existing one. */
+export async function takenStems(songDirectory: string, channelIds: string[]): Promise<string[]> {
+  const onDisk = await readdir(join(songDirectory, 'audio')).catch(() => [])
+  return [...channelIds, ...onDisk.map((entry) => parse(entry).name)]
+}
+
+/**
+ * Converts a file into the song's own audio directory and builds its waveform,
+ * as one job: two processes, but one piece of work as far as anyone watching
+ * is concerned.
+ */
+export async function importAudio({
+  songDirectory,
+  sourcePath,
+  takenIds = [],
+  origin,
+  name,
+  subject
+}: ImportRequest): Promise<AudioChannel> {
+  const ffmpeg = await requireTool('ffmpeg')
+  const ffprobe = await requireTool('ffprobe')
+
+  const info = await probeAudio(ffprobe, sourcePath)
+  await ensureSongFolders(songDirectory)
+
+  /* The file keeps its name, so the song folder reads like what went into it. */
+  const id = uniqueSlug(audioFileStem(sourcePath), await takenStems(songDirectory, takenIds))
+
+  const plan = planConversion({
+    ffmpeg,
+    songDirectory,
+    sourcePath,
     id,
     name: name ?? nameFromFile(sourcePath),
     subject: subject ?? guessSubject(sourcePath),
-    file: join('audio', `${id}.ogg`),
-    startTime: 0,
-    duration: info.durationSeconds,
-    /* Unity: an imported file plays at the level it arrived at. */
-    gain: 1,
-    muted: false,
-    soloed: false,
-    origin: origin ?? { type: 'import', sourcePath }
-  }
+    origin: origin ?? { type: 'import', sourcePath },
+    durationSeconds: info.durationSeconds
+  })
+
+  await jobs.run({
+    title: 'Importing',
+    detail: `${nameFromFile(sourcePath)} → ogg`,
+    subject: plan.channel.subject,
+    steps: plan.steps
+  })
+  await plan.finish()
+  return plan.channel
 }

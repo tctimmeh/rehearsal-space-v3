@@ -12,4 +12,4 @@ export const jobs = createJobManager((snapshot: Job[]) => {
 })
 
 export { JobFailedError } from './manager'
-export type { JobSpec } from './manager'
+export type { JobSpec, JobStep } from './manager'

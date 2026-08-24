@@ -1,5 +1,6 @@
 import type { Song, SongSummary } from '@core/song/song'
 import type { AppConfig } from './config'
+import type { SeparateRequest } from './stems'
 import type { Job } from './jobs'
 import type { ExternalTool, ToolStatus } from './tools'
 
@@ -40,6 +41,8 @@ export interface RehearsalApi {
     removeChannel(songId: string, channelId: string): Promise<Song>
     /** Raw bytes of a channel's audio file, for decoding. */
     readAudio(songId: string, file: string): Promise<Uint8Array>
+    downloadAudio(songId: string, url: string): Promise<Song>
+    separate(songId: string, request: SeparateRequest): Promise<Song>
   }
   jobs: {
     list(): Promise<Job[]>
@@ -78,6 +81,8 @@ export const IPC_CHANNELS = {
   libraryImportAudio: 'library:import-audio',
   libraryRemoveChannel: 'library:remove-channel',
   libraryReadAudio: 'library:read-audio',
+  libraryDownloadAudio: 'library:download-audio',
+  librarySeparate: 'library:separate',
   jobsList: 'jobs:list',
   jobsLog: 'jobs:log',
   jobsCancel: 'jobs:cancel',

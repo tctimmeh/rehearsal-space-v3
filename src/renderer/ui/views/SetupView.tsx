@@ -5,14 +5,18 @@ import {
   CHANNEL_SUBJECT_LABEL,
   INSTRUMENT_SUBJECTS
 } from '@core/song/channelSubject'
-import type { Channel } from '@core/song/song'
+import type { AudioChannel, Channel } from '@core/song/song'
+import type { DemucsModel } from '@shared/stems'
 import { formatClock } from '@core/time'
 import { useSong } from '@renderer/state/song'
 import { SubjectIcon } from '../icons/subjectIcons'
 import { Button, Modal } from '../primitives'
+import { DownloadDialog } from './DownloadDialog'
+import { StemsDialog } from './StemsDialog'
 
 export function SetupView() {
-  const { song, update, importAudio, removeChannel, importing } = useSong()
+  const { song, update, importAudio, downloadAudio, separate, removeChannel, importing } =
+    useSong()
   /*
    * Ids, not channels. Holding a copy of the channel would freeze the editor
    * against a song that keeps changing underneath it — its own edits included,
@@ -20,6 +24,8 @@ export function SetupView() {
    */
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [stemsId, setStemsId] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   const byId = (id: string | null) =>
     id === null ? null : (song?.channels.find((channel) => channel.id === id) ?? null)
@@ -34,6 +40,8 @@ export function SetupView() {
 
   const editing = byId(editingId)
   const deleting = byId(deletingId)
+  const stemsChannel = byId(stemsId)
+  const stems = stemsChannel?.kind === 'audio' ? (stemsChannel as AudioChannel) : null
 
   return (
     <div className="setup">
@@ -61,9 +69,14 @@ export function SetupView() {
 
       <div className="section-head">
         <h4>Channels</h4>
-        <Button variant="primary" disabled={importing} onClick={() => void importAudio()}>
-          {importing ? 'Importing…' : 'Import audio'}
-        </Button>
+        <span className="section-head__actions">
+          <Button disabled={importing} onClick={() => setDownloading(true)}>
+            Download…
+          </Button>
+          <Button variant="primary" disabled={importing} onClick={() => void importAudio()}>
+            {importing ? 'Working…' : 'Import audio'}
+          </Button>
+        </span>
       </div>
 
       {song.channels.length === 0 ? (
@@ -83,7 +96,10 @@ export function SetupView() {
               </span>
             </span>
             <span className="channel-row__actions">
-              <Button disabled title="Separating stems arrives in M6">
+              <Button
+                disabled={importing || channel.kind !== 'audio'}
+                onClick={() => setStemsId(channel.id)}
+              >
                 Stems
               </Button>
               <Button onClick={() => setEditingId(channel.id)}>Edit</Button>
@@ -104,6 +120,29 @@ export function SetupView() {
               )
             })
           }
+        />
+      )}
+
+      {stems === null ? null : (
+        <StemsDialog
+          channel={stems}
+          busy={importing}
+          onDismiss={() => setStemsId(null)}
+          onSeparate={(model: DemucsModel, chosen, muteSource) => {
+            setStemsId(null)
+            void separate({ channelId: stems.id, model, stems: chosen, muteSource })
+          }}
+        />
+      )}
+
+      {!downloading ? null : (
+        <DownloadDialog
+          busy={importing}
+          onDismiss={() => setDownloading(false)}
+          onDownload={(url) => {
+            setDownloading(false)
+            void downloadAudio(url)
+          }}
         />
       )}
 

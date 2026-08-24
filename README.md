@@ -130,6 +130,22 @@ So there is one path, one constant 120 ms of output latency, and the click is
 delayed to match it. Changing tempo or pitch tells the shifter a new number and
 rewires nothing.
 
+## Adding channels
+
+Three ways in, all through the job queue so none of them blocks the UI:
+
+- **Import** a file from disk, or drop it on the window.
+- **Download** from a URL with `yt-dlp`. Two jobs rather than one, because they
+  are two things: a download that depends on somebody else's server, and a
+  conversion that does not. The file is named after the title, so the channel
+  and the song folder are too.
+- **Separate** a channel into stems with `demucs`. One job, not seven —
+  `demucs` writes to a predictable place, so every conversion is planned before
+  anything runs and the whole thing reports as a single piece of work. The
+  original is kept and, by default, muted.
+
+Separation takes roughly as long as the track itself, on CPU.
+
 ## Where things are stored
 
 Settings live in `config.json` under Electron's userData directory

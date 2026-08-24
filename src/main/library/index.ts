@@ -1,9 +1,12 @@
 import { isAbsolute, join, normalize, relative } from 'node:path'
 import { readFile, rm } from 'node:fs/promises'
 
-import type { Song, SongSummary } from '@core/song/song'
+import type { AudioChannel, Song, SongSummary } from '@core/song/song'
+import type { SeparateRequest } from '../../shared/stems'
 import { readConfig, updateConfig } from '../config'
+import { downloadAudio } from '../import/download'
 import { importAudio } from '../import/importAudio'
+import { separateStems } from '../import/separate'
 import { createLibrary } from './library'
 
 /** The library folder is a setting, so it is resolved per call rather than held. */
@@ -80,4 +83,49 @@ export async function readChannelAudio(songId: string, file: string): Promise<Bu
     throw new Error(`Refusing to read outside the song folder: "${file}"`)
   }
   return readFile(target)
+}
+
+
+/** Downloads the audio behind a URL and adds it as a channel. */
+export async function downloadChannel(songId: string, url: string): Promise<Song> {
+  const directory = await songDirectory(songId)
+  const existing = await readSong(songId)
+  const channel = await downloadAudio(
+    directory,
+    url,
+    existing.channels.map((entry) => entry.id)
+  )
+
+  const song = await readSong(songId)
+  return writeSong({ ...song, channels: [...song.channels, channel] })
+}
+
+/**
+ * Splits a channel into instruments. The original is kept — separation is not
+ * a conversion — and is usually muted, since hearing it under its own parts is
+ * rarely what anyone wants.
+ */
+export async function separateChannel(
+  songId: string,
+  request: SeparateRequest
+): Promise<Song> {
+  const directory = await songDirectory(songId)
+  const before = await readSong(songId)
+  const source = before.channels.find((entry) => entry.id === request.channelId)
+  if (source === undefined || source.kind !== 'audio') {
+    throw new Error('That channel has no audio to separate.')
+  }
+
+  const stems = await separateStems(directory, source as AudioChannel, request)
+
+  const song = await readSong(songId)
+  return writeSong({
+    ...song,
+    channels: [
+      ...song.channels.map((entry) =>
+        entry.id === request.channelId && request.muteSource ? { ...entry, muted: true } : entry
+      ),
+      ...stems
+    ]
+  })
 }
