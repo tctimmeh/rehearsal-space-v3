@@ -33,6 +33,10 @@
   --solo: #56c283;
   --solo-lo: #2b8a52;
 
+  /* Where you are, as against what the music is doing. Not a channel colour:
+     it belongs to no channel. */
+  --playhead: #ffd166;
+
   --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
   --sans: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 
