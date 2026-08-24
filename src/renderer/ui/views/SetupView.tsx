@@ -9,8 +9,16 @@ import { Button, Modal } from '../primitives'
 
 export function SetupView() {
   const { song, update, importAudio, removeChannel, importing } = useSong()
-  const [editing, setEditing] = useState<Channel | null>(null)
-  const [confirming, setConfirming] = useState<Channel | null>(null)
+  /*
+   * Ids, not channels. Holding a copy of the channel would freeze the editor
+   * against a song that keeps changing underneath it — its own edits included,
+   * so a controlled input would reset on every keystroke.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const byId = (id: string | null) =>
+    id === null ? null : (song?.channels.find((channel) => channel.id === id) ?? null)
 
   if (song === null) {
     return (
@@ -19,6 +27,9 @@ export function SetupView() {
       </div>
     )
   }
+
+  const editing = byId(editingId)
+  const deleting = byId(deletingId)
 
   return (
     <div className="setup">
@@ -73,8 +84,8 @@ export function SetupView() {
               <Button disabled title="Separating stems arrives in M6">
                 Stems
               </Button>
-              <Button onClick={() => setEditing(channel)}>Edit</Button>
-              <Button onClick={() => setConfirming(channel)}>Delete</Button>
+              <Button onClick={() => setEditingId(channel.id)}>Edit</Button>
+              <Button onClick={() => setDeletingId(channel.id)}>Delete</Button>
             </span>
           </div>
         ))
@@ -83,7 +94,7 @@ export function SetupView() {
       {editing === null ? null : (
         <ChannelEditor
           channel={editing}
-          onDone={() => setEditing(null)}
+          onDone={() => setEditingId(null)}
           onChange={(patch) =>
             update({
               channels: song.channels.map((entry) =>
@@ -94,21 +105,21 @@ export function SetupView() {
         />
       )}
 
-      {confirming === null ? null : (
+      {deleting === null ? null : (
         <Modal
-          title={`Delete "${confirming.name}"?`}
-          {...(confirming.kind === 'audio'
+          title={`Delete "${deleting.name}"?`}
+          {...(deleting.kind === 'audio'
             ? { subtitle: 'Its audio and waveform are removed from the song folder.' }
             : {})}
-          onDismiss={() => setConfirming(null)}
+          onDismiss={() => setDeletingId(null)}
           footer={
             <>
-              <Button onClick={() => setConfirming(null)}>Cancel</Button>
+              <Button onClick={() => setDeletingId(null)}>Cancel</Button>
               <Button
                 variant="primary"
                 onClick={() => {
-                  void removeChannel(confirming.id)
-                  setConfirming(null)
+                  void removeChannel(deleting.id)
+                  setDeletingId(null)
                 }}
               >
                 Delete
@@ -150,7 +161,7 @@ function ChannelEditor({
         />
       </div>
 
-      <div className="field setting-section">
+      <div className="field field--spaced">
         <label>Instrument</label>
         <div className="subject-grid">
           {CHANNEL_SUBJECTS.map((subject) => (

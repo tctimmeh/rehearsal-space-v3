@@ -13,7 +13,8 @@ export function LibraryView() {
   const { songs, song, create, load, remove } = useSong()
   const setView = useView((state) => state.setView)
   const [sort, setSort] = useState<SortKey>('title')
-  const [pendingDelete, setPendingDelete] = useState<SongSummary | null>(null)
+  /* An id, so the dialog cannot show a title that has since changed. */
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const sorted = useMemo(() => {
     const byTitle = (a: SongSummary, b: SongSummary) => a.title.localeCompare(b.title)
@@ -21,6 +22,8 @@ export function LibraryView() {
       sort === 'title' ? byTitle(a, b) : a.artist.localeCompare(b.artist) || byTitle(a, b)
     )
   }, [songs, sort])
+
+  const deleting = songs.find((entry) => entry.id === deletingId) ?? null
 
   const openSong = async (id: string) => {
     await load(id)
@@ -79,7 +82,7 @@ export function LibraryView() {
                 </span>
               </button>
               <span className="col-actions">
-                <Button className="song-row__delete" onClick={() => setPendingDelete(summary)}>
+                <Button className="song-row__delete" onClick={() => setDeletingId(summary.id)}>
                   Delete
                 </Button>
               </span>
@@ -88,19 +91,19 @@ export function LibraryView() {
         )}
       </div>
 
-      {pendingDelete === null ? null : (
+      {deleting === null ? null : (
         <Modal
-          title={`Delete "${pendingDelete.title}"?`}
+          title={`Delete "${deleting.title}"?`}
           subtitle="This removes the whole song directory: settings, audio and lyrics."
-          onDismiss={() => setPendingDelete(null)}
+          onDismiss={() => setDeletingId(null)}
           footer={
             <>
-              <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
+              <Button onClick={() => setDeletingId(null)}>Cancel</Button>
               <Button
                 variant="primary"
                 onClick={() => {
-                  void remove(pendingDelete.id)
-                  setPendingDelete(null)
+                  void remove(deleting.id)
+                  setDeletingId(null)
                 }}
               >
                 Delete
