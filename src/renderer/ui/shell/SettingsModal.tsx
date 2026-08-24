@@ -108,9 +108,7 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
             Faster
           </Button>
           <span className="setting-note">
-            {config.zoomSpeed >= 1
-              ? 'a step per notch'
-              : `${Math.round(1 / config.zoomSpeed)} notches per step`}
+            {`${Math.round((2 ** config.zoomSpeed - 1) * 100)}% closer or wider per notch`}
           </span>
         </div>
       </section>

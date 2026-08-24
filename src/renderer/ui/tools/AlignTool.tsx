@@ -18,8 +18,11 @@ import { Waveform } from './Waveform'
 import { usePeaks } from './usePeaks'
 
 const WAVE_HEIGHT = 190
-const ZOOM_STEPS = [0.25, 0.5, 1, 2, 4, 8, 20, 60, 180]
-const DEFAULT_ZOOM = 4
+const DEFAULT_SPAN = 4
+/** Fifty milliseconds across the window is about as close as peaks can say. */
+const MIN_SPAN = 0.05
+/** Pressing a button is a deliberate step, so it is worth more than a notch. */
+const BUTTON_FACTOR = 1.6
 const SAMPLES: MetronomeSample[] = ['tick', 'chirp', 'cymbal', 'rim', 'kit']
 
 /**
@@ -43,30 +46,39 @@ export function AlignTool() {
 
   const [againstId, setAgainstId] = useState<string | null>(null)
   const [clickId, setClickId] = useState<string | null>(null)
-  const [spanIndex, setSpanIndex] = useState(DEFAULT_ZOOM)
+  const [span, setSpan] = useState(DEFAULT_SPAN)
   const [centre, setCentre] = useState<number | null>(null)
   const panSpeed = useConfig((state) => state.config?.panSpeed ?? 0.15)
-  const zoomSpeed = useConfig((state) => state.config?.zoomSpeed ?? 0.35)
-  /* Wheel notches are counted up rather than acted on one by one, so a slow
-     zoom is slow rather than dead, and a trackpad's many small deltas add up
-     to the same movement as one notch of a wheel. */
-  const zoomCarry = useRef(0)
+  const zoomSpeed = useConfig((state) => state.config?.zoomSpeed ?? 0.25)
 
   const against = audio.find((c) => c.id === againstId) ?? audio[0] ?? null
   const click = clicks.find((c) => c.id === clickId) ?? clicks[0] ?? null
   const peaks = usePeaks(song?.id, against?.id)
 
   const timing = useMemo(() => (click === null ? null : solveMetronome(click)), [click])
-  const span = ZOOM_STEPS[spanIndex] ?? 4
   /* Follow the click being aligned until the user pans somewhere else, and
      never past the song — there is nothing out there to look at. Clamped on
      the way out as well as in, so zooming out cannot strand the view. */
-  const middle = clampViewCentre(centre ?? timing?.endTime ?? 0, span, [songStart, songEnd])
-  const from = middle - span / 2
-  const to = middle + span / 2
+  /* No wider than the song plus a little air: there is nothing beyond it. */
+  const maxSpan = Math.max(DEFAULT_SPAN, songEnd - songStart + 2)
+  const visible = Math.min(maxSpan, Math.max(MIN_SPAN, span))
+  const middle = clampViewCentre(centre ?? timing?.endTime ?? 0, visible, [songStart, songEnd])
+  const from = middle - visible / 2
+  const to = middle + visible / 2
 
   /* Whole seconds are useless once the window is short. */
-  const clock = span < 2 ? formatClockPrecise : formatClock
+  const clock = visible < 2 ? formatClockPrecise : formatClock
+
+  /**
+   * Zooming is continuous rather than stepped. A notch is worth a fraction of
+   * a doubling, so every notch moves the view — a wheel that sometimes does
+   * nothing feels broken, however sensible the reason.
+   */
+  const zoomBy = (factor: number, at: number) => {
+    const next = Math.min(maxSpan, Math.max(MIN_SPAN, visible * factor))
+    setCentre(clampViewCentre(at + (middle - at) * (next / visible), next, [songStart, songEnd]))
+    setSpan(next)
+  }
 
   const strip = useRef<HTMLDivElement>(null)
   const timeAt = (clientX: number): number => {
@@ -165,16 +177,13 @@ export function AlignTool() {
           </>
         )}
         <span className="align__spacer" />
-        <Button disabled={spanIndex === 0} onClick={() => setSpanIndex((i) => i - 1)}>
+        <Button disabled={visible <= MIN_SPAN} onClick={() => zoomBy(1 / BUTTON_FACTOR, middle)}>
           Closer
         </Button>
-        <Button
-          disabled={spanIndex === ZOOM_STEPS.length - 1}
-          onClick={() => setSpanIndex((i) => i + 1)}
-        >
+        <Button disabled={visible >= maxSpan} onClick={() => zoomBy(BUTTON_FACTOR, middle)}>
           Wider
         </Button>
-        <span className="setting-note num">{span < 1 ? `${span * 1000}ms` : `${span}s`}</span>
+        <span className="setting-note num">{formatSpan(visible)}</span>
       </div>
 
       <div
@@ -191,26 +200,14 @@ export function AlignTool() {
 
           if (event.shiftKey) {
             setCentre(
-              clampViewCentre(middle + notches * span * panSpeed, span, [songStart, songEnd])
+              clampViewCentre(middle + notches * visible * panSpeed, visible, [songStart, songEnd])
             )
             return
           }
 
-          zoomCarry.current += notches * zoomSpeed
-          const steps = Math.trunc(zoomCarry.current)
-          if (steps === 0) return
-          zoomCarry.current -= steps
-          /* Hold the instant under the pointer still. The zoom steps are not
-             in a constant ratio, so the ratio has to be taken from the steps
-             themselves — guessing at it makes the view creep away from the
-             transient being aimed at, a little more with every notch. */
-          const at = timeAt(event.clientX)
-          const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, spanIndex + steps))
-          const nextSpan = ZOOM_STEPS[next] ?? span
-          setCentre(
-            clampViewCentre(at + (middle - at) * (nextSpan / span), nextSpan, [songStart, songEnd])
-          )
-          setSpanIndex(next)
+          /* Hold the instant under the pointer still while the window grows or
+             shrinks around it. */
+          zoomBy(2 ** (notches * zoomSpeed), timeAt(event.clientX))
         }}
       >
         <Waveform
@@ -286,6 +283,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   )
 }
+
+const formatSpan = (seconds: number): string =>
+  seconds < 1 ? `${Math.round(seconds * 1000)}ms` : `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`
 
 const inView = (time: number, from: number, to: number): boolean => time >= from && time <= to
 

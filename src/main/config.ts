@@ -27,10 +27,11 @@ export const defaultConfig = (): AppConfig => ({
   lastSongId: null,
   uiScale: 1.2,
   showCents: false,
-  /* A wheel notch moves a sixth of the window and is worth a third of a zoom
-     step: fine work wants a wheel that does not throw the view about. */
+  /* A wheel notch moves a sixth of the window, and zooms by a fifth of a
+     doubling — about 19%. Fine work wants a wheel that moves every time
+     without throwing the view about. */
   panSpeed: 0.15,
-  zoomSpeed: 0.35,
+  zoomSpeed: 0.25,
   toolPaths: {}
 })
 

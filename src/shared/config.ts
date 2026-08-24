@@ -11,7 +11,7 @@ export interface AppConfig {
   showCents: boolean
   /** Fraction of the visible window a wheel notch pans in the alignment tool. */
   panSpeed: number
-  /** Zoom steps a wheel notch is worth. Below 1, several notches make a step. */
+  /** Fraction of a doubling a wheel notch zooms by. Every notch moves. */
   zoomSpeed: number
   /** Explicit locations for external tools, overriding the search. */
   toolPaths: Partial<Record<ExternalTool, string>>
