@@ -236,3 +236,25 @@ describe('the mixer during playback', () => {
     expect(useTransport.getState().end).toBe(90)
   })
 })
+
+describe('reaching the end of the song', () => {
+  it('goes back to the beginning, as if it had been stopped', async () => {
+    const { useTransport, audioEngine } = await harness()
+    vi.stubGlobal('requestAnimationFrame', () => 0)
+    vi.stubGlobal('cancelAnimationFrame', () => undefined)
+
+    let ended = (): void => undefined
+    vi.spyOn(audioEngine, 'whenEnded').mockImplementation((handler) => {
+      ended = handler
+    })
+    const { followEngineClock } = await import('./transport')
+    followEngineClock()
+
+    /* A song with a count-in begins before zero, and that is where it returns. */
+    useTransport.setState({ start: -4, end: 45, position: 44.9, playing: true })
+    ended()
+
+    expect(useTransport.getState().playing).toBe(false)
+    expect(useTransport.getState().position).toBe(-4)
+  })
+})

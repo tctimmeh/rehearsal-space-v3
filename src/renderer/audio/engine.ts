@@ -4,6 +4,9 @@ import type { AudioChannel, Song } from '@core/song/song'
 /** Ramp length for gain changes: long enough not to click, short enough to feel instant. */
 const GAIN_RAMP_S = 0.015
 
+/** A moment past the end, so the last of the audio is never clipped short. */
+const END_GRACE_S = 0.05
+
 interface LoadedChannel {
   channel: AudioChannel
   buffer: AudioBuffer
@@ -86,7 +89,7 @@ export class AudioEngine {
    */
   private scheduleEnd(): void {
     this.clearEndTimer()
-    const remaining = (this.end - this.position) / this.rate
+    const remaining = (this.end - this.position) / this.rate + END_GRACE_S
     if (remaining <= 0) return
     this.endTimer = setTimeout(() => {
       this.endTimer = null

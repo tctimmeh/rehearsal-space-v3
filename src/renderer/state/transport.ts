@@ -79,7 +79,9 @@ export const useTransport = create<TransportState>((set, get) => ({
 export function followEngineClock(): () => void {
   let frame = 0
 
-  audioEngine.whenEnded(() => useTransport.getState().pause())
+  /* Running out is the same as being stopped: the playhead goes back to the
+     top, which may be before 00:00 when there is a count-in. */
+  audioEngine.whenEnded(() => useTransport.getState().stop())
 
   const tick = (): void => {
     frame = requestAnimationFrame(tick)
