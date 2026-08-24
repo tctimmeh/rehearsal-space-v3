@@ -10,7 +10,7 @@ See [SPEC.md](SPEC.md) for what it does.
 npm install
 npm run dev          # live-reloading Electron app
 npm run build        # typecheck + production build into out/
-npm test             # vitest over the pure core
+npm test             # vitest: pure logic, main-process modules, and components
 ```
 
 ### Linux notes
@@ -50,6 +50,22 @@ src/
     ui/views        Library, Player, Setup
     ui/tools        the tool registry and each tool's panel
 ```
+
+## Testing
+
+Most tests are pure and run in node — music and timing maths, the song schema,
+progress parsers — plus the filesystem modules against a temp directory, and
+the job queue against real processes.
+
+Component tests are the exception, and exist for one specific failure: a
+component holding a copy of state that it also edits. A controlled input then
+resets to the stale copy after every keystroke, so only the last character
+survives, which presents as the field "appending one letter" rather than as a
+stale read. Those tests declare `@vitest-environment jsdom` in a docblock and
+drive real key events, because nothing less reproduces it.
+
+When adding one, check it fails against the bug before trusting it to catch the
+bug.
 
 ## External tools
 
