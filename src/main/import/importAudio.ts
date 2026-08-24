@@ -1,11 +1,12 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { mkdir, readdir, writeFile } from 'node:fs/promises'
+import { join, parse } from 'node:path'
 
 import { ffmpegProgress } from '@core/jobs/progress'
 import { encodePeaks } from '@core/peaks/format'
 import { PeakBuilder } from '@core/peaks/peaks'
+import { audioFileStem } from '@core/song/fileName'
 import { guessSubject, nameFromFile } from '@core/song/guessSubject'
+import { uniqueSlug } from '@core/song/slug'
 import type { AudioChannel, Channel, ChannelOrigin } from '@core/song/song'
 import { jobs } from '../jobs'
 import { requireTool } from '../tools'
@@ -22,6 +23,8 @@ export const AUDIO_EXTENSIONS = [
 export interface ImportRequest {
   songDirectory: string
   sourcePath: string
+  /** Channel ids already in use, so a repeated import gets its own name. */
+  takenIds?: string[]
   origin?: ChannelOrigin
   /** Overrides the name and subject taken from the file name. */
   name?: string
@@ -36,6 +39,7 @@ export interface ImportRequest {
 export async function importAudio({
   songDirectory,
   sourcePath,
+  takenIds = [],
   origin,
   name,
   subject
@@ -44,11 +48,16 @@ export async function importAudio({
   const ffprobe = await requireTool('ffprobe')
 
   const info = await probeAudio(ffprobe, sourcePath)
-  const id = randomUUID().slice(0, 8)
-  const audioPath = join(songDirectory, 'audio', `${id}.ogg`)
-  const peaksPath = join(songDirectory, 'peaks', `${id}.peaks`)
   await mkdir(join(songDirectory, 'audio'), { recursive: true })
   await mkdir(join(songDirectory, 'peaks'), { recursive: true })
+
+  /* The file keeps its name, so the song folder reads like what went into it.
+     Dedupe against what is already there as well as against the song's
+     channels, so an orphaned file can never be written over. */
+  const onDisk = (await readdir(join(songDirectory, 'audio'))).map((entry) => parse(entry).name)
+  const id = uniqueSlug(audioFileStem(sourcePath), [...takenIds, ...onDisk])
+  const audioPath = join(songDirectory, 'audio', `${id}.ogg`)
+  const peaksPath = join(songDirectory, 'peaks', `${id}.peaks`)
 
   const builder = new PeakBuilder()
   /* Audio arrives in chunks that need not align to a sample. */

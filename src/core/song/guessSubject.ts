@@ -1,4 +1,4 @@
-import type { ChannelSubject } from './channelSubject'
+import { DEFAULT_SUBJECT, type InstrumentSubject } from './channelSubject'
 
 /**
  * Imported files and separated stems are usually named after what is on them.
@@ -8,7 +8,7 @@ import type { ChannelSubject } from './channelSubject'
  * Order matters: "electric guitar" must not be caught by the plain guitar rule
  * that follows it.
  */
-const HINTS: [pattern: RegExp, subject: ChannelSubject][] = [
+const HINTS: [pattern: RegExp, subject: InstrumentSubject][] = [
   [/\b(full[\s_-]?mix|mix|master|backing|instrumental|song|track)\b/, 'music'],
   [/(vocal|vox|voice|sing|lead|harmon|choir|acapella)/, 'vocals'],
   [/(drum|perc|kick|snare|hat|cymbal|kit|beat)/, 'drums'],
@@ -18,11 +18,16 @@ const HINTS: [pattern: RegExp, subject: ChannelSubject][] = [
   [/(guitar|gtr|riff)/, 'guitar'],
   [/(piano|keys|keyboard|rhodes|organ|wurli)/, 'piano'],
   [/(synth|pad|arp|lead[\s_-]?synth)/, 'synth'],
-  [/(click|metronome|count[\s_-]?in|tempo)/, 'metronome']
+  /* Imported click tracks are audio like any other, but they are certainly not
+     the full mix, so they must not land on the default. */
+  [/(click|metronome|count[\s_-]?in|tempo)/, 'other'],
+  /* demucs names its catch-all stem exactly this, so it must not fall through
+     to the default and be taken for the full mix. */
+  [/^other$/, 'other']
 ]
 
 /** Takes a file name or a stem name; the extension and path are ignored. */
-export function guessSubject(name: string): ChannelSubject {
+export function guessSubject(name: string): InstrumentSubject {
   const cleaned = name
     .replace(/^.*[/\\]/, '')
     .replace(/\.[a-z0-9]{1,5}$/i, '')
@@ -31,7 +36,7 @@ export function guessSubject(name: string): ChannelSubject {
   for (const [pattern, subject] of HINTS) {
     if (pattern.test(cleaned)) return subject
   }
-  return 'other'
+  return DEFAULT_SUBJECT
 }
 
 /** A channel name from a file name: no path, no extension, tidied separators. */

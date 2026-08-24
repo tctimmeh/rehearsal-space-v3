@@ -1,6 +1,10 @@
 import { useState } from 'react'
 
-import { CHANNEL_SUBJECT_COLOR, CHANNEL_SUBJECT_LABEL, CHANNEL_SUBJECTS } from '@core/song/channelSubject'
+import {
+  CHANNEL_SUBJECT_COLOR,
+  CHANNEL_SUBJECT_LABEL,
+  INSTRUMENT_SUBJECTS
+} from '@core/song/channelSubject'
 import type { Channel } from '@core/song/song'
 import { formatClock } from '@core/time'
 import { useSong } from '@renderer/state/song'
@@ -75,9 +79,7 @@ export function SetupView() {
             <span className="channel-row__name">
               {channel.name}
               <span className="channel-row__file">
-                {channel.kind === 'audio'
-                  ? `${channel.file} · ${formatClock(channel.duration)}`
-                  : 'Metronome'}
+                {channel.kind === 'audio' ? formatClock(channel.duration) : 'Metronome'}
               </span>
             </span>
             <span className="channel-row__actions">
@@ -161,10 +163,11 @@ function ChannelEditor({
         />
       </div>
 
+      {channel.kind === 'metronome' ? null : (
       <div className="field field--spaced">
         <label>Instrument</label>
         <div className="subject-grid">
-          {CHANNEL_SUBJECTS.map((subject) => (
+          {INSTRUMENT_SUBJECTS.map((subject) => (
             <button
               key={subject}
               type="button"
@@ -180,6 +183,7 @@ function ChannelEditor({
           ))}
         </div>
       </div>
+      )}
     </Modal>
   )
 }

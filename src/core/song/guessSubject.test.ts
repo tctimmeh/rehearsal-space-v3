@@ -9,6 +9,7 @@ describe('guessSubject', () => {
     expect(guessSubject('bass.wav')).toBe('bass')
     expect(guessSubject('piano.wav')).toBe('piano')
     expect(guessSubject('guitar.wav')).toBe('guitar')
+    /* The catch-all stem, which must not be taken for the full mix. */
     expect(guessSubject('other.wav')).toBe('other')
   })
 
@@ -33,9 +34,16 @@ describe('guessSubject', () => {
     expect(guessSubject('/home/tim/Music/session/drums.aiff')).toBe('drums')
   })
 
-  it('falls back rather than guessing wildly', () => {
-    expect(guessSubject('take 4.wav')).toBe('other')
-    expect(guessSubject('')).toBe('other')
+  it('assumes a full mix when the name gives nothing away', () => {
+    expect(guessSubject('take 4.wav')).toBe('music')
+    expect(guessSubject('')).toBe('music')
+  })
+
+  it('never guesses a kind of channel that is not an instrument', () => {
+    /* A click track is audio like any other — but not the full mix. */
+    expect(guessSubject('click_track.wav')).toBe('other')
+    expect(guessSubject('count-in.wav')).toBe('other')
+    expect(guessSubject('lyrics.wav')).not.toBe('lyrics')
   })
 })
 

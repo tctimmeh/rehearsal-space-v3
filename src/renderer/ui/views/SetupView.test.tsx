@@ -95,6 +95,16 @@ describe('typing into the channel editor', () => {
 })
 
 describe('the instrument buttons', () => {
+  it('offer instruments only, not other kinds of channel', async () => {
+    const user = userEvent.setup()
+    render(<SetupView />)
+
+    const dialog = await openEditor(user, 'Bass take2')
+    expect(within(dialog).queryByTitle('Metronome')).toBeNull()
+    expect(within(dialog).queryByTitle('Lyrics')).toBeNull()
+    expect(within(dialog).getByTitle('Music (full mix)')).toBeTruthy()
+  })
+
   it('follow the selection rather than freezing at what was open', async () => {
     const user = userEvent.setup()
     render(<SetupView />)

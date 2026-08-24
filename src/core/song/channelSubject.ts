@@ -20,6 +20,26 @@ export const CHANNEL_SUBJECTS = [
 
 export type ChannelSubject = (typeof CHANNEL_SUBJECTS)[number]
 
+/**
+ * Metronome and lyrics are kinds of channel, not things anyone plays. They
+ * carry an identity so their channels look like themselves in the mixer, but
+ * they are never offered as an instrument for a piece of audio.
+ */
+export const NON_INSTRUMENT_SUBJECTS = ['metronome', 'lyrics'] as const
+
+export type InstrumentSubject = Exclude<
+  ChannelSubject,
+  (typeof NON_INSTRUMENT_SUBJECTS)[number]
+>
+
+export const INSTRUMENT_SUBJECTS = CHANNEL_SUBJECTS.filter(
+  (subject): subject is InstrumentSubject =>
+    !(NON_INSTRUMENT_SUBJECTS as readonly string[]).includes(subject)
+)
+
+/** What an import becomes when its name gives nothing away: most are full mixes. */
+export const DEFAULT_SUBJECT: InstrumentSubject = 'music'
+
 export const CHANNEL_SUBJECT_COLOR: Record<ChannelSubject, string> = {
   music: '#cbd5e1',
   vocals: '#ff9b5c',

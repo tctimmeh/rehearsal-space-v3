@@ -38,7 +38,12 @@ const songDirectory = async (id: string): Promise<string> =>
  */
 export async function importChannel(songId: string, sourcePath: string): Promise<Song> {
   const directory = await songDirectory(songId)
-  const channel = await importAudio({ songDirectory: directory, sourcePath })
+  const existing = await readSong(songId)
+  const channel = await importAudio({
+    songDirectory: directory,
+    sourcePath,
+    takenIds: existing.channels.map((entry) => entry.id)
+  })
 
   const song = await readSong(songId)
   return writeSong({ ...song, channels: [...song.channels, channel] })
