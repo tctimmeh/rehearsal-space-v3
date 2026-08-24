@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { songBounds } from '@core/song/bounds'
 import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
@@ -371,20 +372,3 @@ function applyBounds(song: Song): void {
   if (clamped !== position) transport.seek(clamped)
 }
 
-/**
- * The timeline runs from the earliest channel start — negative when a count-in
- * exists — to the last moment any channel is still playing.
- */
-export function songBounds(song: Song): [start: number, end: number] {
-  let start = 0
-  let end = 0
-  for (const channel of song.channels) {
-    if (channel.kind === 'audio') {
-      start = Math.min(start, channel.startTime)
-      end = Math.max(end, channel.startTime + channel.duration)
-    } else {
-      end = Math.max(end, channel.endTime)
-    }
-  }
-  return [start, end]
-}
