@@ -112,11 +112,16 @@ interrupting playback.
 Tempo and pitch are independent by construction: `playbackRate` resamples for
 tempo, and one pitch shifter on the Music bus corrects the pitch that causes,
 set to `semitones - 12 * log2(speed)`. That is one phase vocoder for the whole
-song no matter how many channels there are, and it is bypassed entirely at 1x
-and 0 semitones so ordinary playback never goes through a phase vocoder at all.
+song no matter how many channels there are.
 
-The shifter costs 120 ms of latency, which the click bus is delayed by to match
-— otherwise a count-in would run ahead of the music it is counting in.
+Both the shifted and unshifted paths run at once and are held level with each
+other, and moving a knob crossfades between them. The shifter needs its own
+120 ms of latency to fill before it produces anything, so a path that is only
+connected when wanted answers with silence for that long the moment a knob is
+touched. Everything else — the unshifted music, the click — is delayed to match
+it, which costs a constant 120 ms of output latency and keeps the shifter
+running even while nothing is being shifted. That is the price of a knob that
+does not interrupt the music.
 
 ## Where things are stored
 
