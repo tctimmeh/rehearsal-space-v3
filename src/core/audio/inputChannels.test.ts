@@ -31,21 +31,26 @@ describe('pickInput', () => {
 })
 
 describe('inputOptions', () => {
-  it('does not ask which input to use when there is only one', () => {
-    expect(inputOptions(1)).toEqual([{ value: ALL_INPUTS, label: 'The only input' }])
+  it('does not ask which channel to use when there is only one', () => {
+    expect(inputOptions(1)).toEqual([{ value: ALL_INPUTS, label: 'The only channel' }])
     expect(inputOptions(0)).toHaveLength(1)
   })
 
-  it('offers each socket, and the pair together', () => {
+  it('names a stereo pair after the stream, not after sockets it cannot count', () => {
     expect(inputOptions(2).map((option) => option.label)).toEqual([
-      'Input 1',
-      'Input 2',
-      'All 2 together'
+      'Both together',
+      'Left only',
+      'Right only'
     ])
   })
 
-  it('scales to an interface with more sockets', () => {
+  it('leads with taking the device as it comes, which is the usual case', () => {
+    expect(inputOptions(2)[0]?.value).toBe(ALL_INPUTS)
+    expect(inputOptions(8)[0]?.value).toBe(ALL_INPUTS)
+  })
+
+  it('scales to an interface with more channels', () => {
     expect(inputOptions(8)).toHaveLength(9)
-    expect(inputOptions(8).at(-1)?.value).toBe(ALL_INPUTS)
+    expect(inputOptions(8).at(-1)?.label).toBe('Channel 8 only')
   })
 })

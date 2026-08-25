@@ -1,4 +1,4 @@
-/** 0 means take the device as it comes; otherwise the 1-based input to keep. */
+/** 0 means take the device as it comes; otherwise the 1-based channel to keep. */
 export type InputChoice = number
 
 export const ALL_INPUTS: InputChoice = 0
@@ -25,14 +25,28 @@ export function pickInput(
   return wanted === undefined ? [] : [wanted]
 }
 
-/** How the inputs of a device are offered, given how many it turned out to have. */
+/**
+ * How the channels of a device are offered.
+ *
+ * They are named after the stream rather than after sockets, because nothing
+ * reports how many sockets a device really has: a laptop's built-in microphone
+ * array and a two-input interface both arrive as two channels carrying
+ * different sound, and are indistinguishable from inside the browser.
+ */
 export function inputOptions(count: number): { value: InputChoice; label: string }[] {
-  if (count <= 1) return [{ value: ALL_INPUTS, label: 'The only input' }]
+  if (count <= 1) return [{ value: ALL_INPUTS, label: 'The only channel' }]
+  if (count === 2) {
+    return [
+      { value: ALL_INPUTS, label: 'Both together' },
+      { value: 1, label: 'Left only' },
+      { value: 2, label: 'Right only' }
+    ]
+  }
   return [
+    { value: ALL_INPUTS, label: `All ${count} together` },
     ...Array.from({ length: count }, (_, index) => ({
       value: index + 1,
-      label: `Input ${index + 1}`
-    })),
-    { value: ALL_INPUTS, label: `All ${count} together` }
+      label: `Channel ${index + 1} only`
+    }))
   ]
 }

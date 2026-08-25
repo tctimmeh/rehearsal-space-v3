@@ -66,7 +66,7 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
   const nameOf = (device: MediaDeviceInfo, index: number) =>
     device.label === '' ? `Device ${index + 1}` : device.label
 
-  const sockets = typeof report === 'object' ? report.sockets : null
+  const channels = typeof report === 'object' ? report.channels : null
   const resolved = typeof report === 'object' ? report.name : ''
 
   const explainDefault = () => {
@@ -104,6 +104,7 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
         <span className="setting-label">Device</span>
         <select
           className="well input setting-select"
+          aria-label="Device"
           value={chosen}
           onChange={(event) =>
             void setPreference({ inputDeviceId: event.target.value, inputChannel: ALL_INPUTS })
@@ -121,14 +122,18 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
       {explainDefault() === '' ? null : <p className="setting-under">{explainDefault()}</p>}
 
       <div className="setting-row setting-row--tight">
-        <span className="setting-label">Socket</span>
+        <span className="setting-label">Channels</span>
         <select
           className="well input setting-select"
+          aria-label="Channels"
           value={channel}
-          disabled={sockets === null || sockets <= 1}
+          disabled={channels === null || channels <= 1}
           onChange={(event) => void setPreference({ inputChannel: Number(event.target.value) })}
         >
-          {(sockets === null ? [{ value: ALL_INPUTS, label: 'Looking…' }] : inputOptions(sockets)).map(
+          {(channels === null
+            ? [{ value: ALL_INPUTS, label: 'Looking…' }]
+            : inputOptions(channels)
+          ).map(
             (option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -138,8 +143,11 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
         </select>
       </div>
 
-      {sockets !== null && sockets > 1 ? (
-        <p className="setting-under">an interface with two sockets is one stereo device</p>
+      {channels === 2 ? (
+        <p className="setting-under">
+          an interface with two sockets arrives as one stereo device: socket 1 is the left
+          channel, socket 2 the right
+        </p>
       ) : null}
     </Modal>
   )

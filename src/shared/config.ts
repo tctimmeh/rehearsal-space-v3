@@ -13,9 +13,9 @@ export interface AppConfig {
   panSpeed: number
   /** Fraction of a doubling a wheel notch zooms by. Every notch moves. */
   zoomSpeed: number
-  /** Which input to record from. Empty means whatever the system offers. */
+  /** Which input to record from. Empty means the system default. */
   inputDeviceId: string
-  /** Which socket of that device: 0 for all of them, otherwise 1-based. */
+  /** Which channel of that device: 0 for all of them, otherwise 1-based. */
   inputChannel: number
   /** Explicit locations for external tools, overriding the search. */
   toolPaths: Partial<Record<ExternalTool, string>>
