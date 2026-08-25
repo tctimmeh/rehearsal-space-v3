@@ -114,18 +114,37 @@ export class Recorder {
 
 }
 
-/** Input devices, once permission has been given to know their names. */
+/**
+ * The real input devices.
+ *
+ * Browsers also list stand-ins — an entry called "Default", and on some systems
+ * a "Communications" one — which are not hardware but a way of saying "whatever
+ * the system is set to". Offering those alongside a choice that already means
+ * the same thing gives two entries that do one job, so they are left out.
+ */
+const STAND_INS = new Set(['default', 'communications'])
+
 export async function inputDevices(): Promise<MediaDeviceInfo[]> {
   const devices = await navigator.mediaDevices.enumerateDevices()
-  return devices.filter((device) => device.kind === 'audioinput')
+  return devices.filter(
+    (device) => device.kind === 'audioinput' && !STAND_INS.has(device.deviceId)
+  )
+}
+
+export interface InputReport {
+  sockets: number
+  /** What the device actually opened calls itself, which is the point when
+      none was named. Reported by the track rather than looked up by id: an
+      unconstrained request reports back the id "default", which names nothing. */
+  name: string
 }
 
 /**
- * How many sockets a device actually offers, found by opening it briefly. It
- * cannot be known any other way: capabilities are only reported for a track
- * that already exists.
+ * Opens an input briefly to find out about it. Neither of these can be known
+ * any other way: capabilities are only reported for a track that already
+ * exists, and which device "no preference" resolves to is up to the system.
  */
-export async function countInputs(deviceId: string): Promise<number> {
+export async function probeInput(deviceId: string): Promise<InputReport> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       ...(deviceId === '' ? {} : { deviceId: { exact: deviceId } }),
@@ -137,5 +156,8 @@ export async function countInputs(deviceId: string): Promise<number> {
   const capabilities = track?.getCapabilities?.() as { channelCount?: { max?: number } } | undefined
   for (const each of stream.getTracks()) each.stop()
 
-  return Math.max(1, capabilities?.channelCount?.max ?? settings?.channelCount ?? 1)
+  return {
+    sockets: Math.max(1, capabilities?.channelCount?.max ?? settings?.channelCount ?? 1),
+    name: track?.label ?? ''
+  }
 }

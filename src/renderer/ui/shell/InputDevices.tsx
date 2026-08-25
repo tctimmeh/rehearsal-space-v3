@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { ALL_INPUTS, inputOptions } from '@core/audio/inputChannels'
 import { useConfig } from '@renderer/state/config'
-import { countInputs, inputDevices } from '@renderer/audio/recorder'
+import { inputDevices, probeInput, type InputReport } from '@renderer/audio/recorder'
 import { Button } from '../primitives'
+
+const SYSTEM_DEFAULT = ''
 
 /**
  * Which input to record from.
@@ -12,11 +14,12 @@ import { Button } from '../primitives'
  * to listen once, so before that they are numbered and there is a way to ask.
  */
 export function InputDevices() {
-  const chosen = useConfig((state) => state.config?.inputDeviceId ?? '')
+  const chosen = useConfig((state) => state.config?.inputDeviceId ?? SYSTEM_DEFAULT)
   const channel = useConfig((state) => state.config?.inputChannel ?? ALL_INPUTS)
   const setPreference = useConfig((state) => state.set)
   const [devices, setDevices] = useState<MediaDeviceInfo[] | null>(null)
-  const [sockets, setSockets] = useState<number | null>(null)
+  const [report, setReport] = useState<InputReport | 'looking' | 'unavailable'>('looking')
+
   const [asking, setAsking] = useState(false)
 
   const look = useCallback(async () => {
@@ -31,16 +34,17 @@ export function InputDevices() {
     void look()
   }, [look])
 
-  /* How many sockets a device has can only be learned by opening it. */
+  /* What a device offers, and which one "system default" means, are both only
+     knowable by opening it. */
   useEffect(() => {
     let current = true
-    setSockets(null)
-    void countInputs(chosen)
-      .then((count) => {
-        if (current) setSockets(count)
+    setReport('looking')
+    void probeInput(chosen)
+      .then((found) => {
+        if (current) setReport(found)
       })
       .catch(() => {
-        if (current) setSockets(null)
+        if (current) setReport('unavailable')
       })
     return () => {
       current = false
@@ -58,6 +62,21 @@ export function InputDevices() {
     } finally {
       setAsking(false)
     }
+  }
+
+  const nameOf = (device: MediaDeviceInfo, index: number) =>
+    device.label === '' ? `Device ${index + 1}` : device.label
+
+  const sockets = typeof report === 'object' ? report.sockets : null
+  const resolved = typeof report === 'object' ? report.name : ''
+
+  const explainDefault = () => {
+    if (chosen !== SYSTEM_DEFAULT) return report === 'unavailable' ? 'not available right now' : ''
+    if (report === 'looking') return 'finding out which one that is…'
+    if (report === 'unavailable') return 'no input available'
+    return resolved === ''
+      ? 'follows the system setting'
+      : `right now that is ${resolved}, and it follows the system setting`
   }
 
   const unnamed = (devices ?? []).some((device) => device.label === '')
@@ -84,14 +103,16 @@ export function InputDevices() {
             void setPreference({ inputDeviceId: event.target.value, inputChannel: ALL_INPUTS })
           }
         >
-          <option value="">Whatever the system offers</option>
+          <option value={SYSTEM_DEFAULT}>System default</option>
           {(devices ?? []).map((device, index) => (
             <option key={device.deviceId} value={device.deviceId}>
-              {device.label === `` ? `Device ${index + 1}` : device.label}
+              {nameOf(device, index)}
             </option>
           ))}
         </select>
       </div>
+
+      {explainDefault() === '' ? null : <p className="setting-under">{explainDefault()}</p>}
 
       <div className="setting-row setting-row--tight">
         <span className="setting-label">Socket</span>

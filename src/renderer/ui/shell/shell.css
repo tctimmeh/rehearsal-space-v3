@@ -731,6 +731,11 @@
 .setting-row--tight {
   margin-top: 8px;
 }
+.setting-under {
+  margin: 5px 0 0 50px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
 
 .setting-select {
   flex: 1;
