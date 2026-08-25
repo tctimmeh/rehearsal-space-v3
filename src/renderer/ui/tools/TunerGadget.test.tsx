@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { noteFromFrequency } from '@core/music/note'
+import { useConfig } from '@renderer/state/config'
+import { installBridge } from '@renderer/testing/bridge'
 import { useTuner } from '@renderer/state/tuner'
 import { TunerGadget } from './TunerGadget'
 
@@ -31,7 +33,22 @@ vi.mock('@renderer/state/tuner', async () => {
 const hearing = (hz: number, fading = false) =>
   useTuner.setState({ note: noteFromFrequency(hz), frequency: hz, fading, status: 'listening' })
 
+const configured = (inputDeviceId: string, inputChannel = 0) => ({
+  libraryPath: '/songs',
+  lastSongId: null,
+  uiScale: 1.2,
+  showCents: false,
+  panSpeed: 0.1,
+  zoomSpeed: 0.15,
+  inputDeviceId,
+  inputChannel,
+  metronome: { bpm: 100, beatsPerMeasure: 4 as number, accentFirstBeat: true, sample: 'tick' as const },
+  toolPaths: {}
+})
+
 beforeEach(() => {
+  installBridge()
+  useConfig.setState({ config: configured('') })
   listening.starts = 0
   listening.stops = 0
   useTuner.setState({ status: 'listening', note: null, frequency: null, fading: false })
@@ -104,5 +121,44 @@ describe('the tuner display', () => {
     render(<TunerGadget />)
 
     expect(screen.getByText('no input')).toBeDefined()
+  })
+})
+
+/**
+ * Changing the input used to leave the tuner holding the device chosen before
+ * it, which is silent — so it went dead until the tool was closed and opened.
+ */
+describe('when the input is changed underneath it', () => {
+  it('listens to the new one', () => {
+    render(<TunerGadget />)
+    expect(listening.starts).toBe(1)
+
+    act(() => {
+      useConfig.setState({ config: configured('rubix') })
+    })
+
+    expect(listening.stops).toBe(1)
+    expect(listening.starts).toBe(2)
+  })
+
+  it('follows a change of channel too, not only of device', () => {
+    useConfig.setState({ config: configured('rubix', 1) })
+    render(<TunerGadget />)
+
+    act(() => {
+      useConfig.setState({ config: configured('rubix', 2) })
+    })
+
+    expect(listening.starts).toBe(2)
+  })
+
+  it('does not start over for a setting that has nothing to do with it', () => {
+    render(<TunerGadget />)
+
+    act(() => {
+      useConfig.setState({ config: { ...configured(''), uiScale: 1.5 } })
+    })
+
+    expect(listening.starts).toBe(1)
   })
 })

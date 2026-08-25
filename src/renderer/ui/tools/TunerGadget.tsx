@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 import { IN_TUNE_CENTS, isInTune } from '@core/music/note'
+import { useConfig } from '@renderer/state/config'
 import { startListening, stopListening, useTuner } from '@renderer/state/tuner'
 import { Readout } from '../primitives'
 
@@ -13,12 +14,19 @@ export function TunerGadget() {
   const frequency = useTuner((state) => state.frequency)
   const fading = useTuner((state) => state.fading)
 
+  const deviceId = useConfig((state) => state.config?.inputDeviceId ?? '')
+  const channel = useConfig((state) => state.config?.inputChannel ?? 0)
+
   /* Opening the tool is the whole of the intent: nobody opens a tuner without
-     wanting it to listen. Closing it lets the microphone go. */
+     wanting it to listen. Closing it lets the microphone go.
+
+     Keyed on the input, because changing it while the tuner is open used to
+     leave it holding the device that was chosen before — which is silent, so
+     the tuner simply went dead until it was closed and opened again. */
   useEffect(() => {
     void startListening()
     return stopListening
-  }, [])
+  }, [deviceId, channel])
 
   const cents = note?.cents ?? 0
   const tuned = note !== null && !fading && isInTune(cents)
