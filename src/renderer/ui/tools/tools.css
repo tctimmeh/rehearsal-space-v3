@@ -172,7 +172,9 @@
 }
 .editor__behind {
   overflow: hidden;
-  color: var(--text-dim);
+  /* The words themselves are the brightest thing here; everything else on the
+     page is quieter than they are. */
+  color: var(--text);
   pointer-events: none;
 }
 .editor__input {
@@ -196,6 +198,15 @@
 }
 .editor__line--chords {
   color: var(--chord-color);
+}
+/* A line still being worked on: legible, and plainly not finished. */
+.editor__line--unfinished {
+  color: var(--text-faint);
+}
+/* A remark rather than part of the song, on whatever kind of line it sits. */
+.editor__comment {
+  color: var(--text-dim);
+  font-style: italic;
 }
 .editor__gutter {
   width: 34px;

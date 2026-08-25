@@ -4,6 +4,7 @@ import { Chord } from 'tonal'
 
 import {
   classifyLine,
+  piecesOf,
   isChordLine,
   isSectionLine,
   transposeChord,
@@ -200,5 +201,90 @@ describe('how far it will go', () => {
 
   it('goes no further than an octave, whatever it is asked for', () => {
     expect(transposeChord('C', 25)).toBe(transposeChord('C', 12))
+  })
+})
+
+/**
+ * Every line here is from a real song in the library, which is where each of
+ * these turned out to be missing.
+ */
+describe('chords as people actually write them', () => {
+  it('reads a chord with a bracketed extension', () => {
+    expect(isChordLine('Am(add4)/F#           G       G7')).toBe(true)
+    expect(isChordLine('C6(#11)')).toBe(true)
+  })
+
+  it('moves one without losing what is hanging off it', () => {
+    expect(transposeChord('Am(add4)', 2)).toBe('Bm(add4)')
+    expect(transposeChord('Am(add4)/F#', 2)).toBe('Bm(add4)/G#')
+    expect(transposeChord('C6(#11)', 1)).toBe('C#6(#11)')
+  })
+
+  it('reads a chord line with a repeat mark on the end', () => {
+    expect(isChordLine('C  Fmaj7/C  C  (x2)')).toBe(true)
+  })
+
+  it('reads a chord line with a remark on the end', () => {
+    expect(isChordLine('Dm7                   F           G7  (single strum and hold)')).toBe(
+      true
+    )
+  })
+
+  it('does not mistake a remark for a chord line', () => {
+    expect(isChordLine('(Repeat intro x2, End on beat 3)')).toBe(false)
+    expect(classifyLine('(Repeat intro x2, End on beat 3)')).toBe('lyric')
+  })
+})
+
+describe('remarks in brackets', () => {
+  const line = '  C      E7/B      Am(add4)     ( E7/B = x-2-x-4-3-4, Am(add4) = x-0-x-5-3-5 )'
+
+  it('is one piece however many words are in it', () => {
+    const remarks = piecesOf(line).filter((piece) => piece.comment)
+    expect(remarks).toHaveLength(1)
+    expect(remarks[0]?.text).toBe('( E7/B = x-2-x-4-3-4, Am(add4) = x-0-x-5-3-5 )')
+  })
+
+  it('leaves the chord names inside a remark exactly as written', () => {
+    const moved = transposeChordLine(line, 2)
+
+    expect(moved).toContain('( E7/B = x-2-x-4-3-4, Am(add4) = x-0-x-5-3-5 )')
+    expect(piecesOf(moved).map((piece) => piece.text)).toEqual([
+      'D',
+      'F#7/C#',
+      'Bm(add4)',
+      '( E7/B = x-2-x-4-3-4, Am(add4) = x-0-x-5-3-5 )'
+    ])
+  })
+
+  it('holds every column on the line, remark included', () => {
+    const before = piecesOf(line).map((piece) => piece.at)
+    const after = piecesOf(transposeChordLine(line, 2)).map((piece) => piece.at)
+    expect(after).toEqual(before)
+  })
+
+  it('runs to the end of the line when the bracket is never closed', () => {
+    const pieces = piecesOf('C   (unfinished thought')
+    expect(pieces[1]?.text).toBe('(unfinished thought')
+  })
+
+  it('is found on a line of words as readily as on a line of chords', () => {
+    const pieces = piecesOf('Storm winds blowing  ("only know to run" is awkward)')
+    expect(pieces.filter((piece) => piece.comment)[0]?.text).toBe(
+      '("only know to run" is awkward)'
+    )
+  })
+})
+
+describe('lines marked as not finished', () => {
+  it('takes a dash at the start as the mark, spaced or not', () => {
+    expect(classifyLine('- Storm winds blowing and we only know to run')).toBe('unfinished')
+    expect(classifyLine('-Something something something something')).toBe('unfinished')
+    expect(classifyLine('   - indented and unfinished')).toBe('unfinished')
+  })
+
+  it('leaves a dash inside a line alone', () => {
+    expect(classifyLine('A long — long time ago')).toBe('lyric')
+    expect(classifyLine('well-worn and waiting')).toBe('lyric')
   })
 })

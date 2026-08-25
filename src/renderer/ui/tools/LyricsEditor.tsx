@@ -1,10 +1,43 @@
 import { useEffect, useMemo, useRef } from 'react'
 
-import { classifyLine } from '@core/lyrics/chords'
+import { classifyLine, piecesOf } from '@core/lyrics/chords'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import { useLyrics } from '@renderer/state/lyrics'
 import { useSong } from '@renderer/state/song'
 import { Button } from '../primitives'
+
+/**
+ * A line, with anything in brackets marked as a remark.
+ *
+ * Remarks are notes to yourself — a fingering, a reminder that a line is
+ * awkward, how many times to repeat the intro — so they are shown as quieter
+ * than the song they are written beside, whatever kind of line they sit on.
+ */
+function Coloured({ line }: { line: string }) {
+  const parts: { text: string; comment: boolean }[] = []
+  let at = 0
+  for (const piece of piecesOf(line)) {
+    if (!piece.comment) continue
+    if (piece.at > at) parts.push({ text: line.slice(at, piece.at), comment: false })
+    parts.push({ text: piece.text, comment: true })
+    at = piece.at + piece.text.length
+  }
+  if (at < line.length) parts.push({ text: line.slice(at), comment: false })
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.comment ? (
+          <span key={index} className="editor__comment">
+            {part.text}
+          </span>
+        ) : (
+          <span key={index}>{part.text}</span>
+        )
+      )}
+    </>
+  )
+}
 
 /** Chord charts are written in columns, and a tab is how a column is reached. */
 const TAB_STOP = 4
@@ -96,7 +129,7 @@ export function LyricsEditor() {
           <pre className="editor__behind" ref={behind} aria-hidden="true">
             {lines.map((line, index) => (
               <div key={index} className={`editor__line editor__line--${classifyLine(line)}`}>
-                {line === '' ? ' ' : line}
+                {line === '' ? ' ' : <Coloured line={line} />}
               </div>
             ))}
           </pre>

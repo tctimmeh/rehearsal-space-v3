@@ -132,3 +132,62 @@ describe('the tab key', () => {
     expect(useLyrics.getState().text).toBe('Am  ')
   })
 })
+
+/**
+ * Taken from a real song in the library: remarks in brackets, lines marked as
+ * not finished, and chords with brackets of their own.
+ */
+describe('the kinds of line in a real song', () => {
+  const song = [
+    '[Bridge]',
+    'C  Fmaj7/C  C  (x2)',
+    '- Storm winds blowing and we only know to run  ("only know to run" is awkward)',
+    'A long long time ago',
+    '(Repeat intro x2, End on beat 3)',
+    'Am(add4)/F#           G       G7'
+  ].join('\n')
+
+  beforeEach(() => {
+    useLyrics.setState({ text: song })
+  })
+
+  it('tells each kind apart', () => {
+    render(<LyricsEditor />)
+
+    expect(coloured().map((line) => line.className.replace('editor__line editor__line--', '')))
+      .toEqual(['section', 'chords', 'unfinished', 'lyric', 'lyric', 'chords'])
+  })
+
+  it('marks the remark on a line rather than the whole line', () => {
+    render(<LyricsEditor />)
+    const unfinished = coloured()[2] as HTMLElement
+
+    const remark = unfinished.querySelector('.editor__comment')
+    expect(remark?.textContent).toBe('("only know to run" is awkward)')
+    expect(unfinished.textContent).toBe(
+      '- Storm winds blowing and we only know to run  ("only know to run" is awkward)'
+    )
+  })
+
+  it('marks a repeat mark on a chord line as a remark', () => {
+    render(<LyricsEditor />)
+
+    expect((coloured()[1] as HTMLElement).querySelector('.editor__comment')?.textContent).toBe(
+      '(x2)'
+    )
+  })
+
+  it('transposes the chords and leaves every remark alone', async () => {
+    const user = userEvent.setup()
+    render(<LyricsEditor />)
+
+    await user.click(screen.getByRole('button', { name: '+' }))
+
+    const after = useLyrics.getState().text.split('\n')
+    expect(after[1]).toBe('C# F#maj7/C# C# (x2)')
+    expect(after[5]).toBe('A#m(add4)/G           G#      G#7')
+    expect(after[2]).toBe(
+      '- Storm winds blowing and we only know to run  ("only know to run" is awkward)'
+    )
+  })
+})
