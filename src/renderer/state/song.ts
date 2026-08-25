@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { takeStartTime } from '@core/audio/take'
+import { placeTake, trimHead } from '@core/audio/take'
 import { songBounds } from '@core/song/bounds'
 import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
@@ -231,7 +231,7 @@ export const useSong = create<SongState>((set, get) => ({
     }
 
     const transport = useTransport.getState()
-    const startTime = takeStartTime({
+    const { startTime, trimSeconds } = placeTake({
       songTimeAtFirstSample: take.songTimeAtFirstSample,
       audibleDelay: audioEngine.audibleDelay,
       inputLatency: take.inputLatency,
@@ -241,10 +241,17 @@ export const useSong = create<SongState>((set, get) => ({
 
     /* Only the socket the instrument is in, so a two-input interface does not
        produce a take with the guitar on one side and the room on the other. */
-    const wav = encodeWav(
+    const kept = trimHead(
       pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS),
+      trimSeconds,
       take.sampleRate
     )
+    if ((kept[0]?.length ?? 0) === 0) {
+      set({ error: 'The recording captured nothing.' })
+      return
+    }
+
+    const wav = encodeWav(kept, take.sampleRate)
     await runAdding(set, get, (song) =>
       window.rehearsal.library.addRecording(song.id, wav, startTime, takeName(song))
     )
