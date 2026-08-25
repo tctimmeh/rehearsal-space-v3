@@ -12,8 +12,6 @@ import {
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { Button, Modal, Readout } from '../primitives'
-import { InputDevices } from './InputDevices'
-import { ToolStatusSection } from './ToolStatusSection'
 
 /** Everything here is about the app, not about any one song. */
 export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
@@ -128,14 +126,6 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
           <Button onClick={() => void pickFolder()}>Choose…</Button>
           <Button onClick={() => void revealLibraryFolder()}>Open</Button>
         </div>
-      </section>
-
-      <section className="setting-section">
-        <InputDevices />
-      </section>
-
-      <section className="setting-section">
-        <ToolStatusSection />
       </section>
     </Modal>
   )

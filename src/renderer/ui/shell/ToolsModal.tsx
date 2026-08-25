@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import type { ExternalTool, ToolStatus } from '@shared/tools'
-import { Button } from '../primitives'
+import { Button, Modal } from '../primitives'
 
 /**
  * The app runs external tools it does not ship. When one is missing, the
@@ -9,7 +9,7 @@ import { Button } from '../primitives'
  * rather than leaving it to be discovered — and pointing the app at a build
  * that lives somewhere unusual has to be possible.
  */
-export function ToolStatusSection() {
+export function ToolsModal({ onDismiss }: { onDismiss: () => void }) {
   const [tools, setTools] = useState<ToolStatus[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,14 +44,22 @@ export function ToolStatusSection() {
   const reset = (tool: ExternalTool) => act(() => window.rehearsal.tools.clear(tool))
 
   return (
-    <>
-      <div className="section-head">
-        <h4>External tools</h4>
-        <Button disabled={busy} onClick={() => void check(true)}>
-          {busy ? 'Checking…' : 'Check again'}
-        </Button>
-      </div>
-
+    <Modal
+      title="External tools"
+      subtitle="Programs the app runs but does not ship"
+      size="wide"
+      onDismiss={onDismiss}
+      footer={
+        <>
+          <span className="modal__foot-aside">
+            <Button disabled={busy} onClick={() => void check(true)}>
+              {busy ? 'Checking…' : 'Check again'}
+            </Button>
+          </span>
+          <Button onClick={onDismiss}>Done</Button>
+        </>
+      }
+    >
       {error === null ? null : <p className="setting-error">{error}</p>}
 
       {tools === null ? (
@@ -81,6 +89,6 @@ export function ToolStatusSection() {
           </div>
         ))
       )}
-    </>
+    </Modal>
   )
 }

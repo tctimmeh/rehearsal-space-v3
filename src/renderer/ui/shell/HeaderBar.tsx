@@ -15,6 +15,8 @@ import { useView, VIEWS } from '@renderer/state/view'
 import { KebabIcon, PauseIcon, PlayIcon, RecordIcon, StopIcon } from '../icons/uiIcons'
 import { IconButton, Knob, Tabs } from '../primitives'
 import { SettingsModal } from './SettingsModal'
+import { RecordingModal } from './RecordingModal'
+import { ToolsModal } from './ToolsModal'
 
 const formatSpeed = (speed: number) => `${Math.round(speed * 100)}%`
 
@@ -150,9 +152,11 @@ function CentsToggle({ on, inUse }: { on: boolean; inUse: boolean }) {
   )
 }
 
+type Dialog = 'settings' | 'recording' | 'tools' | null
+
 function AppMenu() {
   const [open, setOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [dialog, setDialog] = useState<Dialog>(null)
   const revealLibraryFolder = useConfig((state) => state.revealLibraryFolder)
   const wrap = useRef<HTMLDivElement>(null)
 
@@ -177,6 +181,18 @@ function AppMenu() {
     action()
   }
 
+  const dismiss = () => setDialog(null)
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== ',' || !event.ctrlKey) return
+      event.preventDefault()
+      setDialog('settings')
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   return (
     <div className="menu-wrap" ref={wrap}>
       <IconButton
@@ -189,14 +205,19 @@ function AppMenu() {
 
       {open ? (
         <div className="menu" role="menu">
-          <MenuItem label="Settings" shortcut="Ctrl+," onClick={choose(() => setSettingsOpen(true))} />
+          <MenuItem label="Settings" shortcut="Ctrl+," onClick={choose(() => setDialog('settings'))} />
+          <MenuItem label="Recording…" onClick={choose(() => setDialog('recording'))} />
+          <MenuItem label="External tools…" onClick={choose(() => setDialog('tools'))} />
+          <div className="menu__sep" />
           <MenuItem label="Library folder" onClick={choose(() => void revealLibraryFolder())} />
           <div className="menu__sep" />
           <MenuItem label="Quit" shortcut="Ctrl+Q" onClick={choose(() => window.close())} />
         </div>
       ) : null}
 
-      {settingsOpen ? <SettingsModal onDismiss={() => setSettingsOpen(false)} /> : null}
+      {dialog === 'settings' ? <SettingsModal onDismiss={dismiss} /> : null}
+      {dialog === 'recording' ? <RecordingModal onDismiss={dismiss} /> : null}
+      {dialog === 'tools' ? <ToolsModal onDismiss={dismiss} /> : null}
     </div>
   )
 }

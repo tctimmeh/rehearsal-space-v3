@@ -214,6 +214,9 @@
 .modal__body {
   padding: 14px 15px;
 }
+.modal__foot-aside {
+  margin-right: auto;
+}
 .modal__foot {
   padding: 12px 15px;
   border-top: 1px solid var(--hairline);

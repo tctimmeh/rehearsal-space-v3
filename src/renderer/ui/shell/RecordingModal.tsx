@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ALL_INPUTS, inputOptions } from '@core/audio/inputChannels'
 import { useConfig } from '@renderer/state/config'
 import { inputDevices, probeInput, type InputReport } from '@renderer/audio/recorder'
-import { Button } from '../primitives'
+import { Button, Modal } from '../primitives'
 
 const SYSTEM_DEFAULT = ''
 
@@ -13,13 +13,12 @@ const SYSTEM_DEFAULT = ''
  * A browser will not say what the inputs are called until it has been allowed
  * to listen once, so before that they are numbered and there is a way to ask.
  */
-export function InputDevices() {
+export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
   const chosen = useConfig((state) => state.config?.inputDeviceId ?? SYSTEM_DEFAULT)
   const channel = useConfig((state) => state.config?.inputChannel ?? ALL_INPUTS)
   const setPreference = useConfig((state) => state.set)
   const [devices, setDevices] = useState<MediaDeviceInfo[] | null>(null)
   const [report, setReport] = useState<InputReport | 'looking' | 'unavailable'>('looking')
-
   const [asking, setAsking] = useState(false)
 
   const look = useCallback(async () => {
@@ -82,18 +81,25 @@ export function InputDevices() {
   const unnamed = (devices ?? []).some((device) => device.label === '')
 
   return (
-    <>
-      <div className="section-head">
-        <h4>Recording</h4>
-        {unnamed ? (
-          <Button disabled={asking} onClick={() => void askForNames()}>
-            {asking ? 'Asking…' : 'Show device names'}
-          </Button>
-        ) : (
-          <Button onClick={() => void look()}>Look again</Button>
-        )}
-      </div>
-
+    <Modal
+      title="Recording"
+      subtitle="The input used when you record"
+      onDismiss={onDismiss}
+      footer={
+        <>
+          <span className="modal__foot-aside">
+            {unnamed ? (
+              <Button disabled={asking} onClick={() => void askForNames()}>
+                {asking ? 'Asking…' : 'Show device names'}
+              </Button>
+            ) : (
+              <Button onClick={() => void look()}>Look again</Button>
+            )}
+          </span>
+          <Button onClick={onDismiss}>Done</Button>
+        </>
+      }
+    >
       <div className="setting-row">
         <span className="setting-label">Device</span>
         <select
@@ -130,12 +136,11 @@ export function InputDevices() {
             )
           )}
         </select>
-        <span className="setting-note">
-          {sockets !== null && sockets > 1
-            ? 'an interface with two sockets is one stereo device'
-            : ''}
-        </span>
       </div>
-    </>
+
+      {sockets !== null && sockets > 1 ? (
+        <p className="setting-under">an interface with two sockets is one stereo device</p>
+      ) : null}
+    </Modal>
   )
 }
