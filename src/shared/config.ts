@@ -1,4 +1,13 @@
+import type { MetronomeSample } from '../core/song/song'
 import type { ExternalTool } from './tools'
+
+/** The stand-alone metronome, which belongs to the app rather than a song. */
+export interface MetronomeSettings {
+  bpm: number
+  beatsPerMeasure: number
+  accentFirstBeat: boolean
+  sample: MetronomeSample
+}
 
 export interface AppConfig {
   /** Directory holding one sub-directory per song. */
@@ -17,6 +26,8 @@ export interface AppConfig {
   inputDeviceId: string
   /** Which channel of that device: 0 for all of them, otherwise 1-based. */
   inputChannel: number
+  /** Where the stand-alone metronome was left. */
+  metronome: MetronomeSettings
   /** Explicit locations for external tools, overriding the search. */
   toolPaths: Partial<Record<ExternalTool, string>>
 }
@@ -36,5 +47,11 @@ export const ZOOM_SPEED_STEP = 0.05
 /** Settings the user can simply set, as against those with their own flow. */
 export type Preferences = Pick<
   AppConfig,
-  'uiScale' | 'showCents' | 'panSpeed' | 'zoomSpeed' | 'inputDeviceId' | 'inputChannel'
+  | 'uiScale'
+  | 'showCents'
+  | 'panSpeed'
+  | 'zoomSpeed'
+  | 'inputDeviceId'
+  | 'inputChannel'
+  | 'metronome'
 >

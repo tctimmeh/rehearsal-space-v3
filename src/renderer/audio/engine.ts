@@ -160,6 +160,32 @@ export class AudioEngine {
     return this.stretchLatency + output
   }
 
+  /**
+   * Where the stand-alone metronome puts its clicks: straight into the master,
+   * with none of the delay the song's click bus carries.
+   *
+   * That delay exists to line clicks up with music that has been through the
+   * shifter. This metronome has no music to agree with — it is its own
+   * reference — so making it wait would only put it further behind the button
+   * that started it.
+   */
+  get clickDestination(): AudioNode {
+    this.ensureContext()
+    return this.master as GainNode
+  }
+
+  /** A click sample, once they have loaded. */
+  clickSample(name: MetronomeSample): AudioBuffer | undefined {
+    this.ensureContext()
+    return this.clicks.get(name)
+  }
+
+  /** Settles once the click samples are in memory. */
+  clicksReady(): Promise<unknown> {
+    this.ensureContext()
+    return this.clicksLoading ?? Promise.resolve()
+  }
+
   /** The graph's own context, for capture to share. */
   get audioContext(): AudioContext {
     return this.ensureContext()

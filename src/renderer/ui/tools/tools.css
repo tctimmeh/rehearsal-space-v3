@@ -338,3 +338,57 @@
 .align__strip[data-grabbing='true'] {
   cursor: grabbing;
 }
+
+/* ---------- stand-alone metronome ---------- */
+.metro__tempo {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.metro__unit {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.metro__beats {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+/* Each beat of the measure, lit as it is heard. */
+.metro__beat {
+  width: 7px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--well);
+  border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.metro__beat[data-accent='true'] {
+  height: 26px;
+}
+.metro__beat[data-lit='true'] {
+  background: var(--go);
+  box-shadow: 0 0 7px rgba(111, 217, 154, 0.7);
+}
+.metro__beat[data-lit='true'][data-accent='true'] {
+  background: var(--playhead);
+  box-shadow: 0 0 8px rgba(255, 209, 102, 0.75);
+}
+.metro__field,
+.metro__check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.metro__number {
+  width: 42px;
+  padding: 4px 5px;
+  font-size: 12px;
+  text-align: center;
+}
+.metro__sample {
+  padding: 4px 6px;
+  font-size: 12px;
+}

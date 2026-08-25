@@ -4,6 +4,8 @@ import { useConfig } from './state/config'
 import { useSong } from './state/song'
 import { followEngineClock, useTransport } from './state/transport'
 import { followTransportForRecording } from './state/recording'
+import { followMetronomeBeats, useMetronome } from './state/metronome'
+import { useTools } from './state/tools'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
 import { DropTarget, HeaderBar, ScrubBar, ToastStack } from './ui/shell'
@@ -19,7 +21,9 @@ export function App() {
   useEffect(() => useJobs.getState().watch(), [])
   useEffect(() => followEngineClock(), [])
   useEffect(() => followTransportForRecording(), [])
+  useEffect(() => followMetronomeBeats(), [])
   useGlobalSpaceBar()
+  useMetronomeHotkey()
   useSaveBeforeUnload()
 
   return (
@@ -74,6 +78,28 @@ function useGlobalSpaceBar() {
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
       event.preventDefault()
       useTransport.getState().toggle()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+}
+
+/**
+ * Tilde starts and stops the stand-alone metronome from anywhere, and brings
+ * it out if it was put away — starting a click nobody can see would leave no
+ * way to stop it but the same key again.
+ */
+function useMetronomeHotkey() {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== '`' && event.key !== '~') return
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (target?.isContentEditable) return
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
+      event.preventDefault()
+      if (!useTools.getState().open.metronome) useTools.getState().toggle('metronome')
+      useMetronome.getState().toggle()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

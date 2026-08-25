@@ -89,6 +89,17 @@ export interface SongSummary {
 
 export const DEFAULT_SONG_TITLE = 'New Song'
 
+export const METRONOME_SAMPLES: readonly MetronomeSample[] = [
+  'tick',
+  'chirp',
+  'cymbal',
+  'rim',
+  'kit'
+]
+
+export const isMetronomeSample = (value: unknown): value is MetronomeSample =>
+  typeof value === 'string' && (METRONOME_SAMPLES as readonly string[]).includes(value)
+
 export const METRONOME_SAMPLE_LABEL: Record<MetronomeSample, string> = {
   tick: 'Tick',
   chirp: 'Chirp',

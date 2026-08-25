@@ -1,11 +1,11 @@
 import { isToolId, type ToolId } from '../tools'
 import { CHANNEL_SUBJECTS, type ChannelSubject } from './channelSubject'
 import {
+  METRONOME_SAMPLES,
   newSong,
   SONG_SCHEMA_VERSION,
   type Channel,
   type ChannelOrigin,
-  type MetronomeSample,
   type PitchOffset,
   type Song
 } from './song'
@@ -30,7 +30,6 @@ const clamped = (value: unknown, fallback: number, min: number, max: number): nu
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
 
-const METRONOME_SAMPLES: readonly MetronomeSample[] = ['tick', 'chirp', 'cymbal', 'rim', 'kit']
 
 const SEMITONE_LIMIT = 12
 const CENT_LIMIT = 50

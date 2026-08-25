@@ -12,6 +12,9 @@ import {
   type AppConfig
 } from '../shared/config'
 import { isExternalTool, type ExternalTool } from '../shared/tools'
+import { isMetronomeSample } from '../core/song/song'
+import { BEATS_MAX, BEATS_MIN } from '../core/metronome/pulse'
+import type { MetronomeSettings } from '../shared/config'
 import { writeAtomically } from './library/library'
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -33,6 +36,7 @@ export const defaultConfig = (): AppConfig => ({
   zoomSpeed: 0.15,
   inputDeviceId: '',
   inputChannel: 0,
+  metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
   toolPaths: {}
 })
 
@@ -62,7 +66,24 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
     inputDeviceId:
       typeof record['inputDeviceId'] === 'string' ? record['inputDeviceId'] : '',
     inputChannel: Math.max(0, Math.round(number(record['inputChannel'], 0, 0, 64))),
+    metronome: parseMetronome(record['metronome'], defaults.metronome),
     toolPaths: parseToolPaths(record['toolPaths'])
+  }
+}
+
+function parseMetronome(raw: unknown, defaults: MetronomeSettings): MetronomeSettings {
+  if (typeof raw !== 'object' || raw === null) return defaults
+  const record = raw as Record<string, unknown>
+  return {
+    bpm: number(record['bpm'], defaults.bpm, 20, 400),
+    beatsPerMeasure: Math.round(
+      number(record['beatsPerMeasure'], defaults.beatsPerMeasure, BEATS_MIN, BEATS_MAX)
+    ),
+    accentFirstBeat:
+      typeof record['accentFirstBeat'] === 'boolean'
+        ? record['accentFirstBeat']
+        : defaults.accentFirstBeat,
+    sample: isMetronomeSample(record['sample']) ? record['sample'] : defaults.sample
   }
 }
 
