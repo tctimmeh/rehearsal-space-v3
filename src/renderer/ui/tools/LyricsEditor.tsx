@@ -100,7 +100,9 @@ export function LyricsEditor() {
       className="lyrics"
       style={
         {
-          '--section-color': CHANNEL_SUBJECT_COLOR.vocals,
+          /* Teal against the chords' gold: warm and cool separate at a glance,
+             where two warm colours read as the same thing. */
+          '--section-color': CHANNEL_SUBJECT_COLOR.lyrics,
           '--chord-color': CHANNEL_SUBJECT_COLOR.acoustic
         } as React.CSSProperties
       }
