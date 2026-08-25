@@ -1,16 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { beatOfMeasure, BEATS_MAX, BEATS_MIN } from '@core/metronome/pulse'
-import { audioEngine } from '@renderer/audio/engine'
 import { METRONOME_SAMPLE_LABEL, METRONOME_SAMPLES } from '@core/song/song'
+import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from '@renderer/state/config'
 import { useMetronome } from '@renderer/state/metronome'
-import { Readout } from '../primitives'
+import { Readout, RepeatButton } from '../primitives'
 
 const BPM_MIN = 20
 const BPM_MAX = 300
-/** A nudge of one is for fine work; the coarse step is what taps a tempo in. */
-const COARSE = 5
 
 export function MetronomeGadget() {
   const settings = useConfig((state) => state.config?.metronome)
@@ -26,10 +24,15 @@ export function MetronomeGadget() {
   }, [])
 
   if (settings === undefined) return null
-  const { bpm, beatsPerMeasure, accentFirstBeat, sample } = settings
+  const { bpm, beatsPerMeasure, accentFirstBeat } = settings
 
-  const nudge = (delta: number) =>
-    change({ bpm: Math.min(BPM_MAX, Math.max(BPM_MIN, bpm + delta)) })
+  /* Read from the store rather than from this render: held buttons step
+     faster than React commits, and a step computed from a stale tempo is a
+     step that never happens. */
+  const nudge = (delta: number) => {
+    const current = useConfig.getState().config?.metronome.bpm ?? bpm
+    change({ bpm: Math.min(BPM_MAX, Math.max(BPM_MIN, current + delta)) })
+  }
 
   const lit = running ? beatOfMeasure(beat, beatsPerMeasure) : 0
 
@@ -41,32 +44,28 @@ export function MetronomeGadget() {
       </div>
 
       <div className="gadget__stack">
-        <button
-          type="button"
-          className="raised gadget__btn"
-          aria-label="Faster"
-          onClick={() => nudge(1)}
-          onContextMenu={(event) => {
-            event.preventDefault()
-            nudge(COARSE)
-          }}
-        >
+        <RepeatButton className="raised gadget__btn" aria-label="Faster" onPress={() => nudge(1)}>
           +
-        </button>
-        <button
-          type="button"
-          className="raised gadget__btn"
-          aria-label="Slower"
-          onClick={() => nudge(-1)}
-          onContextMenu={(event) => {
-            event.preventDefault()
-            nudge(-COARSE)
-          }}
-        >
+        </RepeatButton>
+        <RepeatButton className="raised gadget__btn" aria-label="Slower" onPress={() => nudge(-1)}>
           −
-        </button>
+        </RepeatButton>
       </div>
 
+      <MetronomeSetup />
+
+      <button
+        type="button"
+        className={`raised gadget__btn ${running ? '' : 'gadget__btn--go'}`}
+        onClick={toggle}
+        title="Tilde key, anywhere in the app"
+      >
+        {running ? 'Stop' : 'Start'}
+      </button>
+
+      {/* Last in the row: this is the one thing that changes width, and
+          anything after it would move out from under the pointer that just
+          changed it. */}
       <div className="metro__beats" role="group" aria-label="Beat">
         {Array.from({ length: beatsPerMeasure }, (_, index) => (
           <span
@@ -77,52 +76,92 @@ export function MetronomeGadget() {
           />
         ))}
       </div>
+    </>
+  )
+}
 
-      <label className="metro__field">
-        <span className="metro__label">Beats</span>
-        <input
-          className="well input metro__number"
-          type="number"
-          min={BEATS_MIN}
-          max={BEATS_MAX}
-          value={beatsPerMeasure}
-          aria-label="Beats per measure"
-          onChange={(event) => change({ beatsPerMeasure: Number(event.target.value) })}
-        />
-      </label>
+/** The settings that are chosen once and then left alone. */
+function MetronomeSetup() {
+  const settings = useConfig((state) => state.config?.metronome)
+  const change = useMetronome((state) => state.change)
+  const [open, setOpen] = useState(false)
+  const wrap = useRef<HTMLDivElement>(null)
 
-      <label className="metro__check">
-        <input
-          type="checkbox"
-          checked={accentFirstBeat}
-          onChange={(event) => change({ accentFirstBeat: event.target.checked })}
-        />
-        <span>Accent 1</span>
-      </label>
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!wrap.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
 
-      <select
-        className="well input metro__sample"
-        aria-label="Sound"
-        value={sample}
-        onChange={(event) =>
-          change({ sample: event.target.value as (typeof METRONOME_SAMPLES)[number] })
-        }
-      >
-        {METRONOME_SAMPLES.map((name) => (
-          <option key={name} value={name}>
-            {METRONOME_SAMPLE_LABEL[name]}
-          </option>
-        ))}
-      </select>
+  if (settings === undefined) return null
+  const { beatsPerMeasure, accentFirstBeat, sample } = settings
 
+  return (
+    <div className="metro__setup" ref={wrap}>
       <button
         type="button"
-        className={`raised gadget__btn ${running ? '' : 'gadget__btn--go'}`}
-        onClick={toggle}
-        title="Tilde key, anywhere in the app"
+        className="raised gadget__btn"
+        aria-label="Metronome setup"
+        aria-expanded={open}
+        data-engaged={open}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
       >
-        {running ? 'Stop' : 'Start'}
+        ⋯
       </button>
-    </>
+
+      {open ? (
+        <div className="metro__panel">
+          <label className="metro__field">
+            <span className="metro__label">Beats</span>
+            <input
+              className="well input metro__number"
+              type="number"
+              min={BEATS_MIN}
+              max={BEATS_MAX}
+              value={beatsPerMeasure}
+              aria-label="Beats per measure"
+              onChange={(event) => change({ beatsPerMeasure: Number(event.target.value) })}
+            />
+          </label>
+
+          <label className="metro__check">
+            <input
+              type="checkbox"
+              checked={accentFirstBeat}
+              onChange={(event) => change({ accentFirstBeat: event.target.checked })}
+            />
+            <span>Accent first beat</span>
+          </label>
+
+          <label className="metro__field">
+            <span className="metro__label">Sound</span>
+            <select
+              className="well input metro__sample"
+              aria-label="Sound"
+              value={sample}
+              onChange={(event) =>
+                change({ sample: event.target.value as (typeof METRONOME_SAMPLES)[number] })
+              }
+            >
+              {METRONOME_SAMPLES.map((name) => (
+                <option key={name} value={name}>
+                  {METRONOME_SAMPLE_LABEL[name]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+    </div>
   )
 }

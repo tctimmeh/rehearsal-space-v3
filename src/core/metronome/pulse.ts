@@ -48,6 +48,23 @@ export function pulsesBetween(
   return pulses
 }
 
+/**
+ * Where the count stands after a setting is changed mid-click.
+ *
+ * Changing the tempo re-anchors the beats — their spacing has changed, so the
+ * next one has to be placed afresh — but the count carries on, because what is
+ * being counted has not gone anywhere. Only a change to the length of the
+ * measure starts a new one, since a measure of four cannot become a measure of
+ * three halfway through.
+ */
+export function countAfterChange(
+  beatsBefore: number,
+  beatsGone: number,
+  measureChanged: boolean
+): number {
+  return measureChanged ? 0 : beatsBefore + beatsGone
+}
+
 /** Which beat of the measure an index falls on, counting from one. */
 export function beatOfMeasure(index: number, beatsPerMeasure: number): number {
   return (index % clampBeats(beatsPerMeasure)) + 1

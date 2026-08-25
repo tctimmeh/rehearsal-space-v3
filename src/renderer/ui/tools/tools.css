@@ -374,6 +374,31 @@
   background: var(--playhead);
   box-shadow: 0 0 8px rgba(255, 209, 102, 0.75);
 }
+.metro__setup {
+  position: relative;
+  flex: none;
+}
+.metro__panel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 11px 12px;
+  width: 210px;
+  background: var(--panel-2);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  box-shadow:
+    0 18px 34px -12px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 var(--edge-hi);
+}
+.metro__label {
+  width: 46px;
+  flex: none;
+}
 .metro__field,
 .metro__check {
   display: flex;
@@ -389,6 +414,8 @@
   text-align: center;
 }
 .metro__sample {
+  flex: 1;
+  min-width: 0;
   padding: 4px 6px;
   font-size: 12px;
 }

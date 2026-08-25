@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { beatDuration, beatOfMeasure, clampBeats, pulsesBetween } from './pulse'
+import {
+  beatDuration,
+  beatOfMeasure,
+  clampBeats,
+  countAfterChange,
+  pulsesBetween
+} from './pulse'
 
 describe('beatDuration', () => {
   it('is half a second at 120', () => {
@@ -61,5 +67,25 @@ describe('clampBeats', () => {
 describe('beatOfMeasure', () => {
   it('counts from one, the way a musician does', () => {
     expect([0, 1, 2, 3, 4].map((index) => beatOfMeasure(index, 4))).toEqual([1, 2, 3, 4, 1])
+  })
+})
+
+/**
+ * Nudging the tempo used to send the count back to beat one, which is exactly
+ * what you do not want from something you are playing along to.
+ */
+describe('countAfterChange', () => {
+  it('carries the count on through a tempo change', () => {
+    expect(countAfterChange(8, 3, false)).toBe(11)
+  })
+
+  it('starts a new measure when the measure itself changes length', () => {
+    expect(countAfterChange(8, 3, true)).toBe(0)
+  })
+
+  it('keeps the accent where the count says, not where the change happened', () => {
+    const beatsBefore = countAfterChange(6, 2, false)
+    /* Beat 8 of a four-beat measure is a downbeat, whenever the tempo moved. */
+    expect(beatOfMeasure(beatsBefore, 4)).toBe(1)
   })
 })

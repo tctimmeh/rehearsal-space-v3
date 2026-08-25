@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -82,6 +82,14 @@ describe('the beat indicator', () => {
     expect(beats().every((beat) => beat.dataset['lit'] === 'false')).toBe(true)
   })
 
+  it('sits at the end of the row, where growing pushes nothing about', () => {
+    render(<MetronomeGadget />)
+    const row = beats()[0]?.parentElement?.parentElement as HTMLElement
+    const last = row.lastElementChild as HTMLElement
+
+    expect(last.className).toContain('metro__beats')
+  })
+
   it('marks the accented beat only when the accent is on', () => {
     render(<MetronomeGadget />)
     expect(beats()[0]?.dataset['accent']).toBe('true')
@@ -117,6 +125,7 @@ describe('the controls', () => {
     const user = userEvent.setup()
     render(<MetronomeGadget />)
 
+    await user.click(screen.getByRole('button', { name: 'Metronome setup' }))
     await user.selectOptions(screen.getByRole('combobox', { name: 'Sound' }), 'Rim')
 
     expect(useConfig.getState().config?.metronome.sample).toBe('rim')
@@ -131,5 +140,52 @@ describe('the controls', () => {
 
     expect(useMetronome.getState().running).toBe(true)
     expect(screen.getByRole('button', { name: 'Stop' })).toBeDefined()
+  })
+})
+
+/**
+ * Nobody is going to click sixty times to get from 100 to 160.
+ */
+describe('holding the tempo buttons', () => {
+  it('keeps going while held, and stops when let go', async () => {
+    vi.useFakeTimers()
+    render(<MetronomeGadget />)
+    const faster = screen.getByRole('button', { name: 'Faster' })
+
+    fireEvent.pointerDown(faster, { button: 0 })
+    expect(useConfig.getState().config?.metronome.bpm).toBe(101)
+
+    await act(async () => {
+      vi.advanceTimersByTime(420 + 110 * 3)
+    })
+    const held = useConfig.getState().config?.metronome.bpm ?? 0
+    expect(held).toBeGreaterThan(103)
+
+    fireEvent.pointerUp(faster)
+    await act(async () => {
+      vi.advanceTimersByTime(2000)
+    })
+    expect(useConfig.getState().config?.metronome.bpm).toBe(held)
+    vi.useRealTimers()
+  })
+
+  it('winds up rather than crawling', async () => {
+    vi.useFakeTimers()
+    render(<MetronomeGadget />)
+    const faster = screen.getByRole('button', { name: 'Faster' })
+
+    fireEvent.pointerDown(faster, { button: 0 })
+    await act(async () => {
+      vi.advanceTimersByTime(420 + 110 * 6)
+    })
+    const early = useConfig.getState().config?.metronome.bpm ?? 0
+    await act(async () => {
+      vi.advanceTimersByTime(110 * 6)
+    })
+    const later = useConfig.getState().config?.metronome.bpm ?? 0
+
+    /* The same span of time buys more steps once it has wound up. */
+    expect(later - early).toBeGreaterThan(early - 101)
+    vi.useRealTimers()
   })
 })

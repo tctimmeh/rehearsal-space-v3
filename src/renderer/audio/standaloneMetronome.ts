@@ -1,4 +1,10 @@
-import { beatDuration, pulsesBetween, type Pulse } from '@core/metronome/pulse'
+import {
+  beatDuration,
+  clampBeats,
+  countAfterChange,
+  pulsesBetween,
+  type Pulse
+} from '@core/metronome/pulse'
 import type { MetronomeSettings } from '@shared/config'
 import { audioEngine } from './engine'
 
@@ -31,6 +37,8 @@ export class StandaloneMetronome {
   private scheduledTo = 0
   private timer: ReturnType<typeof setInterval> | null = null
   private scheduled: Scheduled[] = []
+  /** Beats counted before the current anchor, so a change does not restart it. */
+  private beatsBefore = 0
   private listeners = new Set<BeatListener>()
   /** Claimed before waiting for the samples, so a stop during that wins. */
   private attempt = 0
@@ -64,27 +72,34 @@ export class StandaloneMetronome {
        manage, rather than a beat-length later. */
     this.startedAt = context.currentTime
     this.scheduledTo = 0
+    this.beatsBefore = 0
     this.timer = setInterval(() => this.schedule(), TICK_MS)
     this.schedule()
   }
 
   /**
-   * A change while running takes effect from the next beat, keeping the count
-   * already under way: this is a thing to play along to, so it must not
-   * stumble because the tempo was nudged.
+   * A change while running takes effect from the next beat, and the count
+   * carries on: this is a thing to play along to, so it must not go back to
+   * beat one because the tempo was nudged or the sound was changed.
    */
   update(settings: MetronomeSettings): void {
-    if (this.timer === null || this.settings === null) {
+    const previous = this.settings
+    if (this.timer === null || previous === null) {
       this.settings = settings
       return
     }
     const context = audioEngine.audioContext
-    const previous = beatDuration(this.settings.bpm)
-    const beatsGone = Math.ceil((context.currentTime - this.startedAt) / previous)
+    const spacing = beatDuration(previous.bpm)
+    const beatsGone = Math.ceil((context.currentTime - this.startedAt) / spacing)
 
     this.dropUnsounded()
+    this.beatsBefore = countAfterChange(
+      this.beatsBefore,
+      beatsGone,
+      clampBeats(settings.beatsPerMeasure) !== clampBeats(previous.beatsPerMeasure)
+    )
     this.settings = settings
-    this.startedAt = this.startedAt + beatsGone * previous
+    this.startedAt = this.startedAt + beatsGone * spacing
     this.scheduledTo = 0
     this.schedule()
   }
@@ -133,7 +148,9 @@ export class StandaloneMetronome {
   private sound(pulse: Pulse, settings: MetronomeSettings): void {
     const context = audioEngine.audioContext
     const sample = audioEngine.clickSample(settings.sample)
-    const accent = settings.accentFirstBeat && pulse.accent
+    const index = this.beatsBefore + pulse.index
+    const onDownbeat = index % clampBeats(settings.beatsPerMeasure) === 0
+    const accent = settings.accentFirstBeat && onDownbeat
     const at = Math.max(context.currentTime, this.startedAt + pulse.at)
 
     if (sample !== undefined) {
@@ -153,7 +170,9 @@ export class StandaloneMetronome {
       }
     }
 
-    for (const listener of [...this.listeners]) listener({ ...pulse, at })
+    for (const listener of [...this.listeners]) {
+      listener({ index, at, accent: onDownbeat })
+    }
   }
 }
 
