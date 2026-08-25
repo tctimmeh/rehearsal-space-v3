@@ -23,12 +23,42 @@
   color: var(--go-text);
 }
 
-/* tuner cents meter */
+/* ---------- tuner ---------- */
+.tuner__note {
+  /* Room for a sharp and an octave, so the meter beside it never shifts. */
+  box-sizing: content-box;
+  min-width: 3.2ch;
+  text-align: center;
+}
+.tuner__note[data-tuned='true'] {
+  color: var(--go);
+}
+.tuner__meter {
+  flex: none;
+}
+.tuner__hz {
+  box-sizing: content-box;
+  min-width: 7ch;
+  color: var(--text-dim);
+}
 .cents {
-  width: 132px;
-  height: 10px;
+  width: 190px;
+  height: 14px;
   position: relative;
   border-radius: 3px;
+}
+.cents[data-fading='true'] {
+  opacity: 0.45;
+}
+/* What counts as in tune, marked out so the needle has somewhere to arrive. */
+.cents__band {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 45%;
+  width: 10%;
+  border-radius: 2px;
+  background: rgba(111, 217, 154, 0.16);
 }
 .cents__center {
   position: absolute;
@@ -40,11 +70,20 @@
 }
 .cents__needle {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: -3px;
+  bottom: -3px;
   width: 3px;
   border-radius: 2px;
   transform: translateX(-50%);
+  background: var(--playhead);
+  transition: left 60ms linear;
+}
+.cents__needle[data-tuned='true'] {
+  background: var(--go);
+  box-shadow: 0 0 8px rgba(111, 217, 154, 0.8);
+}
+.cents__reading {
+  font-variant-numeric: tabular-nums;
 }
 .cents__scale {
   display: flex;

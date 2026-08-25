@@ -5,6 +5,7 @@ import { useSong } from './state/song'
 import { followEngineClock, useTransport } from './state/transport'
 import { followTransportForRecording } from './state/recording'
 import { followMetronomeBeats, useMetronome } from './state/metronome'
+import { followTuner } from './state/tuner'
 import { useTools } from './state/tools'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
@@ -22,6 +23,7 @@ export function App() {
   useEffect(() => followEngineClock(), [])
   useEffect(() => followTransportForRecording(), [])
   useEffect(() => followMetronomeBeats(), [])
+  useEffect(() => followTuner(), [])
   useGlobalSpaceBar()
   useMetronomeHotkey()
   useSaveBeforeUnload()

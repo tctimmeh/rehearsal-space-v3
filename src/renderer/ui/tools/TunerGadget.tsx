@@ -1,34 +1,65 @@
-import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
+import { useEffect } from 'react'
+
+import { IN_TUNE_CENTS, isInTune } from '@core/music/note'
+import { startListening, stopListening, useTuner } from '@renderer/state/tuner'
 import { Readout } from '../primitives'
 
-/** M0 shell only — nothing is listening until M9. */
+/** The meter runs half a semitone either way; beyond that another note is nearer. */
+const RANGE_CENTS = 50
+
 export function TunerGadget() {
-  const note = 'A'
-  const cents = 4
+  const status = useTuner((state) => state.status)
+  const note = useTuner((state) => state.note)
+  const frequency = useTuner((state) => state.frequency)
+  const fading = useTuner((state) => state.fading)
+
+  /* Opening the tool is the whole of the intent: nobody opens a tuner without
+     wanting it to listen. Closing it lets the microphone go. */
+  useEffect(() => {
+    void startListening()
+    return stopListening
+  }, [])
+
+  const cents = note?.cents ?? 0
+  const tuned = note !== null && !fading && isInTune(cents)
+  const offset = Math.max(-RANGE_CENTS, Math.min(RANGE_CENTS, cents))
 
   return (
     <>
-      <Readout size="lg">{note}</Readout>
-      <div>
-        <div className="well cents">
+      <Readout size="lg" className="tuner__note" data-tuned={tuned}>
+        {note === null ? '—' : `${note.name}${note.octave}`}
+      </Readout>
+
+      <div className="tuner__meter">
+        <div className="well cents" data-fading={fading}>
           <span className="cents__center" />
-          <span
-            className="cents__needle"
-            style={{
-              left: `${50 + cents}%`,
-              background: Math.abs(cents) <= 5 ? CHANNEL_SUBJECT_COLOR.drums : CHANNEL_SUBJECT_COLOR.vocals
-            }}
-          />
+          <span className="cents__band" />
+          {note === null ? null : (
+            <span
+              className="cents__needle"
+              data-tuned={tuned}
+              style={{ left: `${50 + offset}%` }}
+            />
+          )}
         </div>
         <div className="cents__scale">
           <span>−50</span>
-          <span>
-            {cents > 0 ? '+' : ''}
-            {cents} cents
+          <span className="cents__reading">
+            {status === 'deaf'
+              ? 'no input'
+              : note === null
+                ? 'listening…'
+                : `${cents > 0 ? '+' : ''}${cents.toFixed(1)} cents`}
           </span>
           <span>+50</span>
         </div>
       </div>
+
+      <Readout className="tuner__hz">
+        {frequency === null ? '—' : `${frequency.toFixed(1)} Hz`}
+      </Readout>
     </>
   )
 }
+
+export const TUNER_IN_TUNE_CENTS = IN_TUNE_CENTS
