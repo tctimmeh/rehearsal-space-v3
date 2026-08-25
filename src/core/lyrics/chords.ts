@@ -1,5 +1,7 @@
 import { Chord, Note } from 'tonal'
 
+import { writableNote } from '../music/spelling'
+
 /**
  * Chord lines are found by looking at them rather than by being marked.
  *
@@ -126,9 +128,6 @@ const stepOf = (semitones: number): string => {
 
 const ROOT = /^([A-G](?:#{1,2}|b{1,2})?)/
 
-/** Correct, and never written: every chart spells these the other way. */
-const UNWRITTEN = new Set(['E#', 'B#', 'Fb', 'Cb'])
-
 /**
  * A chord moved by some number of semitones.
  *
@@ -150,15 +149,9 @@ export function transposeChord(chord: string, semitones: number): string {
       const root = ROOT.exec(part)?.[1]
       if (root === undefined) return part
       const moved = Note.transpose(root, step)
-      return (moved === '' ? root : writable(moved)) + part.slice(root.length)
+      return (moved === '' ? root : writableNote(moved)) + part.slice(root.length)
     })
     .join('/')
-}
-
-function writable(root: string): string {
-  if (!/##|bb/.test(root) && !UNWRITTEN.has(root)) return root
-  const simpler = Note.enharmonic(root)
-  return simpler === '' ? root : simpler
 }
 
 /**

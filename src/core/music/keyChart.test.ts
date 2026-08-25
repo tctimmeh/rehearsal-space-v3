@@ -170,3 +170,39 @@ describe('the pitch that needs six accidentals either way', () => {
     expect(tonicsFor('minor')).not.toContain('D#')
   })
 })
+
+/**
+ * The editor refuses to write C flat when transposing, so a chart that wrote
+ * it would disagree with the song sitting beside it.
+ */
+describe('spelling that agrees with the editor', () => {
+  it('offers B rather than C flat', () => {
+    const borrowed = keyChart('Eb', 'major').borrowed.map((entry) => entry.triad)
+    expect(borrowed).toContain('B')
+    expect(borrowed).not.toContain('Cb')
+  })
+
+  it('offers F rather than E sharp', () => {
+    const chords = keyChart('F#', 'major').diatonic.map((entry) => entry.triad)
+    expect(chords).toContain('Fdim')
+    expect(chords).not.toContain('E#dim')
+  })
+
+  it('never writes one anywhere on any chart it can produce', () => {
+    const unwritable = /(^|[^A-G])(Cb|E#|B#|Fb)([^a-z]|$)|##|bb/
+    for (const mode of ['major', 'minor'] as const) {
+      for (const tonic of tonicsFor(mode)) {
+        const chart = keyChart(tonic, mode)
+        const everything = [
+          ...chart.diatonic,
+          ...chart.borrowed,
+          ...chart.fromHarmonicMinor
+        ].flatMap((entry) => [entry.triad, entry.seventh])
+        const leading = chart.secondaryDominants.flatMap((entry) => [entry.chord, entry.leadsTo])
+        for (const chord of [...everything, ...leading]) {
+          expect(chord, `${tonic} ${mode}: ${chord}`).not.toMatch(unwritable)
+        }
+      }
+    }
+  })
+})

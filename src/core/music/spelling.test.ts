@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { prettyChord, prettyDegree } from './spelling'
+import { prettyChord, prettyDegree, writableChord, writableNote } from './spelling'
 
 describe('prettyChord', () => {
   it('turns accidentals into the signs they are', () => {
@@ -36,5 +36,42 @@ describe('prettyDegree', () => {
     expect(prettyDegree('IV')).toBe('IV')
     expect(prettyDegree('vii°')).toBe('vii°')
     expect(prettyDegree('i')).toBe('i')
+  })
+})
+
+/**
+ * The rule the lyrics editor transposes by, so a chart and the song beside it
+ * never disagree about what a chord is called.
+ */
+describe('writableNote', () => {
+  it('swaps the names no chart has ever said', () => {
+    expect(writableNote('Cb')).toBe('B')
+    expect(writableNote('E#')).toBe('F')
+    expect(writableNote('B#')).toBe('C')
+    expect(writableNote('Fb')).toBe('E')
+  })
+
+  it('swaps a double accidental for the note it means', () => {
+    expect(writableNote('Ebb')).toBe('D')
+    expect(writableNote('F##')).toBe('G')
+  })
+
+  it('leaves an ordinary note exactly as it is', () => {
+    for (const note of ['C', 'F#', 'Bb', 'A', 'Eb']) expect(writableNote(note)).toBe(note)
+  })
+})
+
+describe('writableChord', () => {
+  it('fixes the root and keeps everything hanging off it', () => {
+    expect(writableChord('Cbmaj7')).toBe('Bmaj7')
+    expect(writableChord('E#m7b5')).toBe('Fm7b5')
+  })
+
+  it('fixes the bass of a slash chord too', () => {
+    expect(writableChord('Ab/Cb')).toBe('Ab/B')
+  })
+
+  it('leaves a chord that was already writable alone', () => {
+    expect(writableChord('Am(add4)/F#')).toBe('Am(add4)/F#')
   })
 })

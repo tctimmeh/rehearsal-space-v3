@@ -1,3 +1,35 @@
+import { Note } from 'tonal'
+
+const ROOT = /^([A-G](?:#{1,2}|b{1,2})?)/
+
+/** Correct, and never written: every chart spells these the other way. */
+const UNWRITTEN = new Set(['E#', 'B#', 'Fb', 'Cb'])
+
+/**
+ * A note as it goes on a page.
+ *
+ * E sharp, C flat and anything with a double accidental are all correct — a
+ * key or an interval can land on any of them — and no chart has ever said one.
+ * They are swapped for the note that means the same thing and can be read.
+ */
+export function writableNote(note: string): string {
+  if (!/##|bb/.test(note) && !UNWRITTEN.has(note)) return note
+  const simpler = Note.enharmonic(note)
+  return simpler === '' ? note : simpler
+}
+
+/** The same, for a whole chord symbol, bass note and all. */
+export function writableChord(chord: string): string {
+  return chord
+    .split('/')
+    .map((part) => {
+      const root = ROOT.exec(part)?.[1]
+      if (root === undefined) return part
+      return writableNote(root) + part.slice(root.length)
+    })
+    .join('/')
+}
+
 /**
  * Chords as they are printed rather than as they are typed.
  *

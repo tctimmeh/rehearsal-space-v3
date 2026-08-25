@@ -1,5 +1,7 @@
 import { Key, Note } from 'tonal'
 
+import { writableChord } from './spelling'
+
 export type Mode = 'major' | 'minor'
 
 export interface ChordEntry {
@@ -48,11 +50,16 @@ function numeral(grade: string, chord: string): string {
   return grade
 }
 
+/**
+ * Chords are spelled as they would be written down. A key can land on C flat
+ * or E sharp quite correctly, and the editor refuses to write either, so a
+ * chart that did would disagree with the song beside it.
+ */
 const entries = (grades: string[], triads: string[], sevenths: string[]): ChordEntry[] =>
   triads.map((triad, index) => ({
     degree: numeral(grades[index] ?? '', triad),
-    triad,
-    seventh: sevenths[index] ?? triad
+    triad: writableChord(triad),
+    seventh: writableChord(sevenths[index] ?? triad)
   }))
 
 const majorEntries = (tonic: string): ChordEntry[] => {
@@ -96,14 +103,14 @@ export function keyChart(tonic: string, mode: Mode): KeyChart {
   const dominants =
     mode === 'major'
       ? [...major.secondaryDominants].map((chord, index) => ({
-          chord,
+          chord: chord === '' ? '' : writableChord(chord),
           degree: major.grades[index] ?? '',
-          leadsTo: major.triads[index] ?? ''
+          leadsTo: writableChord(major.triads[index] ?? '')
         }))
       : [...minor.natural.triads].map((leadsTo, index) => ({
           chord: '',
           degree: minor.natural.grades[index] ?? '',
-          leadsTo
+          leadsTo: writableChord(leadsTo)
         }))
 
   return {
