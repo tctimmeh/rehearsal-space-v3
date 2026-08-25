@@ -14,6 +14,13 @@ export interface Take {
 }
 
 /**
+ * More than any interface this app expects. Asking for more than a device has
+ * gets what it has; asking for one gets the first socket only, which is how a
+ * microphone in the second one comes back silent.
+ */
+const WANTED_CHANNELS = 32
+
+/**
  * Captures from an input device into memory.
  *
  * Everything the browser offers to help a phone call — echo cancellation, noise
@@ -39,6 +46,7 @@ export class Recorder {
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         ...(deviceId === undefined || deviceId === '' ? {} : { deviceId: { exact: deviceId } }),
+        channelCount: { ideal: WANTED_CHANNELS },
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false
@@ -53,7 +61,13 @@ export class Recorder {
     this.blocks = []
     this.sampleRate = context.sampleRate
     this.source = context.createMediaStreamSource(this.stream)
-    this.node = new AudioWorkletNode(context, 'rehearsal-recorder')
+    /* Without this the node takes the graph's channel count and quietly drops
+       every input past the first two. */
+    this.node = new AudioWorkletNode(context, 'rehearsal-recorder', {
+      channelCount: Math.max(1, this.source.channelCount),
+      channelCountMode: 'explicit',
+      channelInterpretation: 'discrete'
+    })
     this.node.port.onmessage = (event: MessageEvent<Float32Array[]>) => {
       this.blocks.push(event.data)
     }
@@ -104,4 +118,24 @@ export class Recorder {
 export async function inputDevices(): Promise<MediaDeviceInfo[]> {
   const devices = await navigator.mediaDevices.enumerateDevices()
   return devices.filter((device) => device.kind === 'audioinput')
+}
+
+/**
+ * How many sockets a device actually offers, found by opening it briefly. It
+ * cannot be known any other way: capabilities are only reported for a track
+ * that already exists.
+ */
+export async function countInputs(deviceId: string): Promise<number> {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      ...(deviceId === '' ? {} : { deviceId: { exact: deviceId } }),
+      channelCount: { ideal: WANTED_CHANNELS }
+    }
+  })
+  const track = stream.getAudioTracks()[0]
+  const settings = track?.getSettings() as { channelCount?: number } | undefined
+  const capabilities = track?.getCapabilities?.() as { channelCount?: { max?: number } } | undefined
+  for (const each of stream.getTracks()) each.stop()
+
+  return Math.max(1, capabilities?.channelCount?.max ?? settings?.channelCount ?? 1)
 }

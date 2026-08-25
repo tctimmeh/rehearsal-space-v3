@@ -15,6 +15,8 @@ export interface AppConfig {
   zoomSpeed: number
   /** Which input to record from. Empty means whatever the system offers. */
   inputDeviceId: string
+  /** Which socket of that device: 0 for all of them, otherwise 1-based. */
+  inputChannel: number
   /** Explicit locations for external tools, overriding the search. */
   toolPaths: Partial<Record<ExternalTool, string>>
 }
@@ -34,5 +36,5 @@ export const ZOOM_SPEED_STEP = 0.05
 /** Settings the user can simply set, as against those with their own flow. */
 export type Preferences = Pick<
   AppConfig,
-  'uiScale' | 'showCents' | 'panSpeed' | 'zoomSpeed' | 'inputDeviceId'
+  'uiScale' | 'showCents' | 'panSpeed' | 'zoomSpeed' | 'inputDeviceId' | 'inputChannel'
 >

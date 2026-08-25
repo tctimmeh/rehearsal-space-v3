@@ -161,7 +161,10 @@ Three ways in, all through the job queue so none of them blocks the UI:
   are two things: a download that depends on somebody else's server, and a
   conversion that does not. The file is named after the title, so the channel
   and the song folder are too.
-- **Record** from an input device. Everything the browser offers to help a phone
+- **Record** from an input device, choosing which socket. An interface with two
+  inputs arrives as one stereo device — a guitar in the first and a microphone
+  in the second are the left and right of the same stream, not two devices — so
+  the socket is picked and the take is mono. Everything the browser offers to help a phone
   call — echo cancellation, noise suppression, automatic gain — is refused;
   they exist to make speech intelligible by altering it. A take recorded while
   the song plays is placed where the player *was*, which is a little behind the

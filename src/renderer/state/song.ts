@@ -5,6 +5,7 @@ import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
+import { ALL_INPUTS, pickInput } from '@core/audio/inputChannels'
 import { encodeWav } from '@core/audio/wav'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from './config'
@@ -227,7 +228,12 @@ export const useSong = create<SongState>((set, get) => ({
       useTransport.getState().start,
       takeStartedAt - take.inputLatency
     )
-    const wav = encodeWav(take.channels, take.sampleRate)
+    /* Only the socket the instrument is in, so a two-input interface does not
+       produce a take with the guitar on one side and the room on the other. */
+    const wav = encodeWav(
+      pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS),
+      take.sampleRate
+    )
     await runAdding(set, get, (song) =>
       window.rehearsal.library.addRecording(song.id, wav, startTime, takeName(song))
     )
