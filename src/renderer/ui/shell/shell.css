@@ -731,6 +731,64 @@
 .setting-row--tight {
   margin-top: 8px;
 }
+.meters {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.meters__none {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.meter__name {
+  width: 46px;
+  flex: none;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.meter__track {
+  flex: 1;
+  min-width: 0;
+  height: 9px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.meter__fill {
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  border-radius: 2px;
+  /* Wide enough to see a signal, with the last few decibels marked out: a take
+     that reaches the red is already damaged. */
+  background: linear-gradient(90deg, var(--go-lo) 0%, var(--go) 62%, #e8c260 84%, var(--mute) 97%);
+}
+.meter__clip {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #1a1b1e;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.meter__clip[data-lit='true'] {
+  background: var(--mute);
+  box-shadow: 0 0 5px rgba(226, 86, 79, 0.8);
+}
+/* A channel that will not be recorded is still shown, because seeing which one
+   the guitar is on is the whole point, but it is not the one being set up. */
+.meter[data-recorded='false'] {
+  opacity: 0.4;
+}
+
 .setting-under {
   margin: 5px 0 0 50px;
   font-size: 11px;

@@ -26,6 +26,18 @@ export function pickInput(
 }
 
 /**
+ * What one channel of a capture is called, wherever it is shown.
+ *
+ * A stereo capture is left and right because that is what it is; anything
+ * wider is numbered, since nothing says which socket fed which channel.
+ */
+export function channelName(index: number, count: number): string {
+  if (count <= 1) return 'The only channel'
+  if (count === 2) return index === 0 ? 'Left' : 'Right'
+  return `Channel ${index + 1}`
+}
+
+/**
  * How the channels of a device are offered.
  *
  * They are named after the stream rather than after sockets, because nothing
@@ -34,19 +46,12 @@ export function pickInput(
  * different sound, and are indistinguishable from inside the browser.
  */
 export function inputOptions(count: number): { value: InputChoice; label: string }[] {
-  if (count <= 1) return [{ value: ALL_INPUTS, label: 'The only channel' }]
-  if (count === 2) {
-    return [
-      { value: ALL_INPUTS, label: 'Both together' },
-      { value: 1, label: 'Left only' },
-      { value: 2, label: 'Right only' }
-    ]
-  }
+  if (count <= 1) return [{ value: ALL_INPUTS, label: channelName(0, count) }]
   return [
-    { value: ALL_INPUTS, label: `All ${count} together` },
+    { value: ALL_INPUTS, label: count === 2 ? 'Both together' : `All ${count} together` },
     ...Array.from({ length: count }, (_, index) => ({
       value: index + 1,
-      label: `Channel ${index + 1} only`
+      label: `${channelName(index, count)} only`
     }))
   ]
 }

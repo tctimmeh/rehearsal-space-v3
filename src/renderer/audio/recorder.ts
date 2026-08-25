@@ -131,38 +131,3 @@ export async function inputDevices(): Promise<MediaDeviceInfo[]> {
   )
 }
 
-export interface InputReport {
-  channels: number
-  /** What the device actually opened calls itself, which is the point when
-      none was named. Reported by the track rather than looked up by id: an
-      unconstrained request reports back the id "default", which names nothing. */
-  name: string
-}
-
-/**
- * Opens an input briefly to find out about it. Neither of these can be known
- * any other way: the channel count is only settled once a track exists, and
- * which device "no preference" resolves to is up to the system.
- *
- * The count is what the capture actually negotiated. It says nothing about how
- * many sockets the hardware has — every device on a PulseAudio or PipeWire
- * system reports two channels, a built-in microphone array as much as a
- * two-input interface.
- */
-export async function probeInput(deviceId: string): Promise<InputReport> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      ...(deviceId === '' ? {} : { deviceId: { exact: deviceId } }),
-      channelCount: { ideal: WANTED_CHANNELS }
-    }
-  })
-  const track = stream.getAudioTracks()[0]
-  const settings = track?.getSettings() as { channelCount?: number } | undefined
-  const capabilities = track?.getCapabilities?.() as { channelCount?: { max?: number } } | undefined
-  for (const each of stream.getTracks()) each.stop()
-
-  return {
-    channels: Math.max(1, settings?.channelCount ?? capabilities?.channelCount?.max ?? 1),
-    name: track?.label ?? ''
-  }
-}

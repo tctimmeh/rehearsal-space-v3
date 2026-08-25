@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { ALL_INPUTS, inputOptions } from '@core/audio/inputChannels'
+import { ALL_INPUTS, channelName, inputOptions } from '@core/audio/inputChannels'
 import { useConfig } from '@renderer/state/config'
-import { inputDevices, probeInput, type InputReport } from '@renderer/audio/recorder'
+import { inputDevices } from '@renderer/audio/recorder'
 import { Button, Modal } from '../primitives'
+import { LevelMeter } from './LevelMeter'
+import { useInputMonitor } from './useInputMonitor'
 
 const SYSTEM_DEFAULT = ''
 
 /**
- * Which input to record from.
+ * Which input to record from, and what it is hearing right now.
  *
  * A browser will not say what the inputs are called until it has been allowed
  * to listen once, so before that they are numbered and there is a way to ask.
@@ -18,8 +20,9 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
   const channel = useConfig((state) => state.config?.inputChannel ?? ALL_INPUTS)
   const setPreference = useConfig((state) => state.set)
   const [devices, setDevices] = useState<MediaDeviceInfo[] | null>(null)
-  const [report, setReport] = useState<InputReport | 'looking' | 'unavailable'>('looking')
   const [asking, setAsking] = useState(false)
+
+  const input = useInputMonitor(chosen)
 
   const look = useCallback(async () => {
     try {
@@ -32,23 +35,6 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
   useEffect(() => {
     void look()
   }, [look])
-
-  /* What a device offers, and which one "system default" means, are both only
-     knowable by opening it. */
-  useEffect(() => {
-    let current = true
-    setReport('looking')
-    void probeInput(chosen)
-      .then((found) => {
-        if (current) setReport(found)
-      })
-      .catch(() => {
-        if (current) setReport('unavailable')
-      })
-    return () => {
-      current = false
-    }
-  }, [chosen])
 
   const askForNames = async () => {
     setAsking(true)
@@ -66,16 +52,17 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
   const nameOf = (device: MediaDeviceInfo, index: number) =>
     device.label === '' ? `Device ${index + 1}` : device.label
 
-  const channels = typeof report === 'object' ? report.channels : null
-  const resolved = typeof report === 'object' ? report.name : ''
+  const channels = input.status === 'live' ? input.channels : null
 
   const explainDefault = () => {
-    if (chosen !== SYSTEM_DEFAULT) return report === 'unavailable' ? 'not available right now' : ''
-    if (report === 'looking') return 'finding out which one that is…'
-    if (report === 'unavailable') return 'no input available'
-    return resolved === ''
+    if (chosen !== SYSTEM_DEFAULT) {
+      return input.status === 'unavailable' ? 'not available right now' : ''
+    }
+    if (input.status === 'opening') return 'finding out which one that is…'
+    if (input.status === 'unavailable') return 'no input available'
+    return input.name === ''
       ? 'follows the system setting'
-      : `right now that is ${resolved}, and it follows the system setting`
+      : `right now that is ${input.name}, and it follows the system setting`
   }
 
   const unnamed = (devices ?? []).some((device) => device.label === '')
@@ -133,13 +120,11 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
           {(channels === null
             ? [{ value: ALL_INPUTS, label: 'Looking…' }]
             : inputOptions(channels)
-          ).map(
-            (option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            )
-          )}
+          ).map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -148,6 +133,31 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
           an interface with two sockets arrives as one stereo device: socket 1 is the left
           channel, socket 2 the right
         </p>
+      ) : null}
+
+      <div className="setting-row setting-row--tight">
+        <span className="setting-label">Level</span>
+        <div className="meters">
+          {input.status === 'live' ? (
+            Array.from({ length: input.channels }, (_, index) => (
+              <LevelMeter
+                key={index}
+                monitor={input.monitor}
+                channel={index}
+                name={channelName(index, input.channels)}
+                recorded={channel === ALL_INPUTS || channel === index + 1}
+              />
+            ))
+          ) : (
+            <p className="meters__none">
+              {input.status === 'opening' ? 'opening the device…' : 'nothing to listen to'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {input.status === 'live' ? (
+        <p className="setting-under">play something — a channel with no bar has nothing plugged in</p>
       ) : null}
     </Modal>
   )

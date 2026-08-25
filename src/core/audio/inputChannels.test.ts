@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALL_INPUTS, inputOptions, pickInput } from './inputChannels'
+import { ALL_INPUTS, channelName, inputOptions, pickInput } from './inputChannels'
 
 const guitar = Float32Array.from([1, 1, 1])
 const microphone = Float32Array.from([2, 2, 2])
@@ -52,5 +52,22 @@ describe('inputOptions', () => {
   it('scales to an interface with more channels', () => {
     expect(inputOptions(8)).toHaveLength(9)
     expect(inputOptions(8).at(-1)?.label).toBe('Channel 8 only')
+  })
+})
+
+describe('channelName', () => {
+  it('calls a stereo pair left and right', () => {
+    expect(channelName(0, 2)).toBe('Left')
+    expect(channelName(1, 2)).toBe('Right')
+  })
+
+  it('numbers anything wider, since sockets cannot be known', () => {
+    expect(channelName(2, 4)).toBe('Channel 3')
+  })
+
+  it('agrees with what the picker offers', () => {
+    const labels = inputOptions(2).map((option) => option.label)
+    expect(labels).toContain(`${channelName(0, 2)} only`)
+    expect(labels).toContain(`${channelName(1, 2)} only`)
   })
 })
