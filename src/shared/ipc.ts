@@ -43,6 +43,9 @@ export interface RehearsalApi {
     readAudio(songId: string, file: string): Promise<Uint8Array>
     /** The channel's precomputed waveform. */
     readPeaks(songId: string, channelId: string): Promise<Uint8Array>
+    /** The song's words, as plain text. Empty for a song with none. */
+    readLyrics(songId: string): Promise<string>
+    writeLyrics(songId: string, text: string): Promise<void>
     downloadAudio(songId: string, url: string): Promise<Song>
     separate(songId: string, request: SeparateRequest): Promise<Song>
     addRecording(songId: string, wav: Uint8Array, startTime: number, name: string): Promise<Song>
@@ -84,6 +87,8 @@ export const IPC_CHANNELS = {
   libraryRemoveChannel: 'library:remove-channel',
   libraryReadAudio: 'library:read-audio',
   libraryReadPeaks: 'library:read-peaks',
+  libraryReadLyrics: 'library:read-lyrics',
+  libraryWriteLyrics: 'library:write-lyrics',
   libraryDownloadAudio: 'library:download-audio',
   librarySeparate: 'library:separate',
   libraryAddRecording: 'library:add-recording',

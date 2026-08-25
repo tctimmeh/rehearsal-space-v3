@@ -114,16 +114,94 @@
 }
 
 /* ---------- lyrics editor ---------- */
-.editor {
+.lyrics {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.lyrics__bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+}
+.lyrics__label {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.lyrics__state {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.editor {
+  flex: 1;
+  min-height: 0;
   display: flex;
   border-radius: var(--radius);
   overflow: hidden;
+  /* One line height for the numbers, the coloured copy and the text area
+     alike. Left relative, each would take it from its own font size and the
+     numbers would drift a line out of step every dozen rows. */
+  --editor-line: 22px;
+  --editor-pad: 10px;
+}
+/* The coloured copy and the text area sit exactly on top of each other, so
+   every metric below has to hold for both of them. */
+.editor__pane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.editor__behind,
+.editor__input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: var(--editor-pad) 12px;
+  border: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: var(--editor-line);
+  white-space: pre;
+  tab-size: 4;
+  background: var(--well);
+}
+.editor__behind {
+  overflow: hidden;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+.editor__input {
+  /* Transparent text over the coloured copy: the caret and the selection are
+     the text area's, everything visible is the layer behind. */
+  color: transparent;
+  caret-color: var(--text);
+  background: transparent;
+  resize: none;
+  overflow: auto;
+  outline: none;
+}
+.editor__input::placeholder {
+  color: #3a3c42;
+}
+.editor__input::selection {
+  background: rgba(120, 170, 255, 0.3);
+}
+.editor__line--section {
+  color: var(--section-color);
+}
+.editor__line--chords {
+  color: var(--chord-color);
 }
 .editor__gutter {
   width: 34px;
   flex: none;
-  padding: 10px 0;
+  padding: var(--editor-pad) 0;
+  overflow: hidden;
   background: var(--well);
   border-right: 1px solid var(--hairline);
   font-family: var(--mono);
@@ -133,7 +211,7 @@
 }
 .editor__gutter div {
   padding-right: 8px;
-  line-height: 1.85;
+  line-height: var(--editor-line);
 }
 .editor__text {
   flex: 1;

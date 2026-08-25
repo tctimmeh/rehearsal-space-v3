@@ -8,7 +8,7 @@ import { readConfig, updateConfig } from '../config'
 import { downloadAudio } from '../import/download'
 import { importAudio } from '../import/importAudio'
 import { separateStems } from '../import/separate'
-import { createLibrary } from './library'
+import { createLibrary, writeAtomically } from './library'
 
 /** The library folder is a setting, so it is resolved per call rather than held. */
 const library = async () => createLibrary((await readConfig()).libraryPath)
@@ -86,6 +86,27 @@ export async function readChannelAudio(songId: string, file: string): Promise<Bu
   return readFile(target)
 }
 
+
+const LYRICS_FILE = 'lyrics.txt'
+
+/** The words of a song, as plain text so they can be pasted anywhere. */
+export async function readLyrics(songId: string): Promise<string> {
+  try {
+    return await readFile(join(await songDirectory(songId), LYRICS_FILE), 'utf8')
+  } catch {
+    /* A song nobody has written words for yet. */
+    return ''
+  }
+}
+
+export async function writeLyrics(songId: string, text: string): Promise<void> {
+  const path = join(await songDirectory(songId), LYRICS_FILE)
+  if (text.trim() === '') {
+    await rm(path, { force: true })
+    return
+  }
+  await writeAtomically(path, text)
+}
 
 /** Downloads the audio behind a URL and adds it as a channel. */
 export async function downloadChannel(songId: string, url: string): Promise<Song> {

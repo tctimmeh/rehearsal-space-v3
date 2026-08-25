@@ -8,11 +8,8 @@ import { Button } from '../primitives'
 import { MetronomeGadget } from '../tools/MetronomeGadget'
 import { TunerGadget } from '../tools/TunerGadget'
 import { AlignTool } from '../tools/AlignTool'
-import {
-  ChordChartPlaceholder,
-  LyricsEditorPlaceholder,
-  RhymesPlaceholder
-} from '../tools/StagePlaceholders'
+import { LyricsEditor } from '../tools/LyricsEditor'
+import { ChordChartPlaceholder, RhymesPlaceholder } from '../tools/StagePlaceholders'
 
 const renderGadget = (id: ToolId) => {
   switch (id) {
@@ -28,7 +25,7 @@ const renderGadget = (id: ToolId) => {
 const renderStage = (id: ToolId) => {
   switch (id) {
     case 'lyrics':
-      return <LyricsEditorPlaceholder />
+      return <LyricsEditor />
     case 'chords':
       return <ChordChartPlaceholder />
     case 'align':

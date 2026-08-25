@@ -6,6 +6,7 @@ import { followEngineClock, useTransport } from './state/transport'
 import { followTransportForRecording } from './state/recording'
 import { followMetronomeBeats, useMetronome } from './state/metronome'
 import { followTuner } from './state/tuner'
+import { followSongForLyrics, useLyrics } from './state/lyrics'
 import { useTools } from './state/tools'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
@@ -24,6 +25,7 @@ export function App() {
   useEffect(() => followTransportForRecording(), [])
   useEffect(() => followMetronomeBeats(), [])
   useEffect(() => followTuner(), [])
+  useEffect(() => followSongForLyrics(), [])
   useGlobalSpaceBar()
   useMetronomeHotkey()
   useSaveBeforeUnload()
@@ -110,5 +112,11 @@ function useMetronomeHotkey() {
 
 /** Edits are coalesced, so a pending one has to be written before we go. */
 function useSaveBeforeUnload() {
-  useEffect(() => window.rehearsal.app.onFlushRequest(() => useSong.getState().flush()), [])
+  useEffect(
+    () =>
+      window.rehearsal.app.onFlushRequest(async () => {
+        await Promise.all([useSong.getState().flush(), useLyrics.getState().flush()])
+      }),
+    []
+  )
 }
