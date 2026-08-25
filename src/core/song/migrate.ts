@@ -7,10 +7,23 @@ import {
   type Channel,
   type ChannelOrigin,
   type PitchOffset,
-  type Song
+  type Song,
+  type SongKey
 } from './song'
 
 export class UnreadableSongError extends Error {}
+
+const TONIC = /^[A-G](#|b)?$/
+
+function parseKey(raw: unknown, fallback: SongKey): SongKey {
+  if (!isRecord(raw)) return fallback
+  const tonic = raw['tonic']
+  const mode = raw['mode']
+  return {
+    tonic: typeof tonic === 'string' && TONIC.test(tonic) ? tonic : fallback.tonic,
+    mode: mode === 'minor' ? 'minor' : 'major'
+  }
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -189,6 +202,7 @@ export function migrateSong(raw: unknown, id: string): Song {
       speed: clamped(playback['speed'], 1, 0.5, 1.5),
       pitch: parsePitch(playback['pitch'])
     },
+    key: parseKey(raw['key'], defaults.key),
     openTools: openTools.filter((tool): tool is ToolId => isToolId(tool))
   }
 }

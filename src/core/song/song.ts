@@ -62,8 +62,15 @@ export interface Song {
   channels: Channel[]
   buses: { music: number; click: number }
   playback: { speed: number; pitch: PitchOffset }
+  /** What key the song is in, for the chord chart to open on. */
+  key: SongKey
   /** Song-scoped tools reopen where you left them. */
   openTools: ToolId[]
+}
+
+export interface SongKey {
+  tonic: string
+  mode: 'major' | 'minor'
 }
 
 /**
@@ -145,6 +152,7 @@ export function newSong(id: string, now = new Date()): Song {
        right for headphones is usually too loud in a room. */
     buses: { music: 1, click: 0.5 },
     playback: { speed: 1, pitch: { semitones: 0, cents: 0 } },
+    key: { tonic: 'C', mode: 'major' },
     openTools: []
   }
 }

@@ -29,6 +29,9 @@ const fake = vi.hoisted(() => {
       monitor.stopped += 1
       listeners.clear()
     },
+    listening() {
+      return listeners.size
+    },
     hear(levels: number[]) {
       for (const listener of [...listeners]) listener(levels)
     },
@@ -108,6 +111,16 @@ const meters = () => [...page.querySelectorAll('.meter')] as HTMLElement[]
 const fillOf = (meter: HTMLElement) => meter.querySelector('.meter__fill') as HTMLElement
 
 /**
+ * Waits for the meters to be listening, not merely on the page. A meter
+ * subscribes in an effect, and under load React commits the markup a moment
+ * before it runs them — so a level emitted in between reaches nobody.
+ */
+const metersListening = async (count = 2) => {
+  await waitFor(() => expect(meters()).toHaveLength(count))
+  await waitFor(() => expect(fake.listening()).toBe(count))
+}
+
+/**
  * Nothing reports how many sockets a device has. A laptop's built-in
  * microphone array and a two-input interface both arrive as two channels of
  * different sound, so the picker describes the stream it can see rather than
@@ -181,7 +194,7 @@ describe('the level meters', () => {
 
   it('moves only the channel that sound is arriving on', async () => {
     show()
-    await waitFor(() => expect(meters()).toHaveLength(2))
+    await metersListening()
 
     act(() => fake.hear([1, 0]))
 
@@ -191,7 +204,7 @@ describe('the level meters', () => {
 
   it('reads a quiet signal well up the meter, not as a sliver', async () => {
     show()
-    await waitFor(() => expect(meters()).toHaveLength(2))
+    await metersListening()
 
     act(() => fake.hear([10 ** (-30 / 20), 0]))
 
@@ -212,7 +225,7 @@ describe('the level meters', () => {
 
   it('lights a lamp when the signal is too loud to record cleanly', async () => {
     show()
-    await waitFor(() => expect(meters()).toHaveLength(2))
+    await metersListening()
 
     act(() => fake.hear([0.9, 0]))
     expect(meters()[0]?.querySelector('.meter__clip')?.getAttribute('data-lit')).toBe('false')

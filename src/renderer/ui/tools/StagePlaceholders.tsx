@@ -1,8 +1,3 @@
-
-export function ChordChartPlaceholder() {
-  return <p className="tool-placeholder">Chord and scale charts arrive in M9.</p>
-}
-
 const DEMO_RHYMES = {
   perfect: [
     ['alone', 2],
@@ -19,6 +14,7 @@ const DEMO_RHYMES = {
     ['hold on', 2]
   ]
 } as const
+
 
 export function RhymesPlaceholder() {
   return (

@@ -156,3 +156,25 @@ describe('pitch', () => {
     })
   })
 })
+
+describe('the key a song is in', () => {
+  it('defaults to C major for a song written before there was one', () => {
+    expect(migrateSong({}, 'x').key).toEqual({ tonic: 'C', mode: 'major' })
+  })
+
+  it('keeps what was chosen', () => {
+    expect(migrateSong({ key: { tonic: 'Eb', mode: 'minor' } }, 'x').key).toEqual({
+      tonic: 'Eb',
+      mode: 'minor'
+    })
+  })
+
+  it('refuses a tonic that is not a note', () => {
+    expect(migrateSong({ key: { tonic: 'H', mode: 'major' } }, 'x').key.tonic).toBe('C')
+    expect(migrateSong({ key: { tonic: 42 } }, 'x').key.tonic).toBe('C')
+  })
+
+  it('takes anything that is not minor as major', () => {
+    expect(migrateSong({ key: { tonic: 'G', mode: 'lydian' } }, 'x').key.mode).toBe('major')
+  })
+})

@@ -9,7 +9,8 @@ import { MetronomeGadget } from '../tools/MetronomeGadget'
 import { TunerGadget } from '../tools/TunerGadget'
 import { AlignTool } from '../tools/AlignTool'
 import { LyricsEditor } from '../tools/LyricsEditor'
-import { ChordChartPlaceholder, RhymesPlaceholder } from '../tools/StagePlaceholders'
+import { ChordChart } from '../tools/ChordChart'
+import { RhymesPlaceholder } from '../tools/StagePlaceholders'
 
 const renderGadget = (id: ToolId) => {
   switch (id) {
@@ -27,7 +28,7 @@ const renderStage = (id: ToolId) => {
     case 'lyrics':
       return <LyricsEditor />
     case 'chords':
-      return <ChordChartPlaceholder />
+      return <ChordChart />
     case 'align':
       return <AlignTool />
     default:
