@@ -87,7 +87,15 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const show = () => render(<RecordingModal onDismiss={() => undefined} />)
+/* Scoped to what this render put on the page: a document-wide query can pick
+   up a meter from a render that has not been torn down yet. */
+let page: HTMLElement = document.body
+
+const show = () => {
+  const view = render(<RecordingModal onDismiss={() => undefined} />)
+  page = view.baseElement as HTMLElement
+  return view
+}
 
 const settledChannelPicker = async () => {
   const picker = screen.getByRole('combobox', { name: 'Channels' }) as HTMLSelectElement
@@ -95,7 +103,7 @@ const settledChannelPicker = async () => {
   return picker
 }
 
-const meters = () => [...document.querySelectorAll('.meter')] as HTMLElement[]
+const meters = () => [...page.querySelectorAll('.meter')] as HTMLElement[]
 const fillOf = (meter: HTMLElement) => meter.querySelector('.meter__fill') as HTMLElement
 
 /**

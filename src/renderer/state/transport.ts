@@ -2,6 +2,25 @@ import { create } from 'zustand'
 
 import { audioEngine } from '@renderer/audio/engine'
 
+/**
+ * What the transport just did, for anything that has to act on it.
+ *
+ * Announced rather than called out to: recording responds to the transport,
+ * the transport has no business knowing that recording exists.
+ */
+export type TransportEvent = 'play' | 'pause' | 'stop'
+
+const listeners = new Set<(event: TransportEvent) => void>()
+
+export function onTransportEvent(listener: (event: TransportEvent) => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+const announce = (event: TransportEvent): void => {
+  for (const listener of [...listeners]) listener(event)
+}
+
 export const SPEED_MIN = 0.5
 export const SPEED_MAX = 1.5
 export const SEMITONES_MIN = -12
@@ -44,18 +63,24 @@ export const useTransport = create<TransportState>((set, get) => ({
   cents: 0,
 
   play: () => {
-    void audioEngine.play()
     set({ playing: true })
+    /* Announced when sound actually starts, not when it was asked for: a take
+       that begins while the engine is still getting ready records the wait. */
+    void audioEngine.play().then((started) => {
+      if (started) announce('play')
+    })
   },
   pause: () => {
     audioEngine.pause()
     set({ playing: false, position: audioEngine.position })
+    announce('pause')
   },
   toggle: () => (get().playing ? get().pause() : get().play()),
   /* Stopping returns to the earliest point, which may be before 00:00. */
   stop: () => {
     audioEngine.stop()
     set({ playing: false, position: get().start })
+    announce('stop')
   },
   seek: (position) => {
     const clamped = Math.min(get().end, Math.max(get().start, position))
@@ -95,7 +120,11 @@ export function followEngineClock(): () => void {
   const tick = (): void => {
     frame = requestAnimationFrame(tick)
     if (!useTransport.getState().playing) return
-    useTransport.setState({ position: audioEngine.position })
+    const position = audioEngine.position
+    /* A take can run past the end of the song, and while it does the song is
+       exactly as long as what has been played into it so far. */
+    const grown = position > useTransport.getState().end
+    useTransport.setState(grown ? { position, end: position } : { position })
   }
 
   frame = requestAnimationFrame(tick)

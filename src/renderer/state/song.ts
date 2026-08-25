@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { takeStartTime } from '@core/audio/take'
 import { songBounds } from '@core/song/bounds'
 import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
@@ -34,14 +35,18 @@ interface SongState {
   downloadAudio: (url: string) => Promise<void>
   addMetronome: () => void
   /** True from pressing record until the take has been converted. */
-  recording: boolean
-  startRecording: () => Promise<void>
-  stopRecording: () => Promise<void>
+  /** Opens the input and holds it, ready for a take to start instantly. */
+  armRecording: () => Promise<void>
+  disarmRecording: () => void
+  beginTake: () => void
+  finishTake: () => Promise<void>
   separate: (request: SeparateRequest) => Promise<void>
   /** True while any of importing, downloading or separating is under way. */
   importing: boolean
   /** How far through decoding a song's channels we are, while that is happening. */
   loading: { decoded: number; total: number } | null
+  /** Puts the timeline back to the length of the song's own channels. */
+  refreshBounds: () => void
   /** Writes any pending change now. */
   flush: () => Promise<void>
   dismissError: () => void
@@ -60,8 +65,6 @@ const message = (error: unknown): string =>
 const SAVE_DELAY_MS = 400
 
 const recorder = new Recorder()
-/** Song time the current take belongs at, fixed when recording begins. */
-let takeStartedAt = 0
 
 const takeName = (song: Song): string => {
   const takes = song.channels.filter((channel) => channel.name.startsWith('Take ')).length
@@ -85,10 +88,14 @@ export const useSong = create<SongState>((set, get) => ({
   song: null,
   error: null,
   importing: false,
-  recording: false,
   loading: null,
 
   dismissError: () => set({ error: null }),
+
+  refreshBounds: () => {
+    const song = get().song
+    if (song !== null) applyBounds(song)
+  },
 
   refresh: async () => {
     set({ songs: await window.rehearsal.library.list() })
@@ -197,37 +204,41 @@ export const useSong = create<SongState>((set, get) => ({
     get().update({ channels: [...song.channels, newMetronomeChannel(id, 0)] })
   },
 
-  startRecording: async () => {
-    const song = get().song
-    if (song === null || get().recording) return
+  armRecording: async () => {
+    if (get().song === null) return
     try {
-      /* The song time this take belongs at is decided now, before any of the
-         waiting: what the player is responding to is what they can hear, which
-         is already behind the playhead. */
-      takeStartedAt = Math.max(
-        useTransport.getState().start,
-        useTransport.getState().playing ? audioEngine.position - audioEngine.audibleDelay : 0
-      )
-      await recorder.start(audioEngine.audioContext, useConfig.getState().config?.inputDeviceId)
-      set({ recording: true, error: null })
+      await recorder.open(audioEngine.audioContext, useConfig.getState().config?.inputDeviceId)
+      set({ error: null })
     } catch (error) {
-      set({ error: `Could not start recording: ${message(error)}` })
+      set({ error: `Could not open the input: ${message(error)}` })
+      throw error
     }
   },
 
-  stopRecording: async () => {
-    if (!get().recording) return
-    const take = recorder.stop()
-    set({ recording: false })
+  disarmRecording: () => {
+    recorder.close()
+  },
+
+  beginTake: () => {
+    recorder.beginTake((contextTime) => audioEngine.songTimeAt(contextTime))
+  },
+
+  finishTake: async () => {
+    const take = recorder.endTake()
     if (take === null) {
       set({ error: 'The recording captured nothing.' })
       return
     }
 
-    const startTime = Math.max(
-      useTransport.getState().start,
-      takeStartedAt - take.inputLatency
-    )
+    const transport = useTransport.getState()
+    const startTime = takeStartTime({
+      songTimeAtFirstSample: take.songTimeAtFirstSample,
+      audibleDelay: audioEngine.audibleDelay,
+      inputLatency: take.inputLatency,
+      speed: transport.speed,
+      earliest: transport.start
+    })
+
     /* Only the socket the instrument is in, so a two-input interface does not
        produce a take with the guitar on one side and the room on the other. */
     const wav = encodeWav(
@@ -422,9 +433,17 @@ function applySongState(song: Song): void {
 function applyBounds(song: Song): void {
   const transport = useTransport.getState()
   const [start, end] = songBounds(song)
-  if (start === transport.start && end === transport.end) return
 
-  transport.setBounds(start, end)
+  /* While a take is running the song reaches wherever the playhead has got to.
+     Saving an unrelated edit mid-take must not shorten the timeline under it,
+     and must never drag the playhead back to where the channels happen to
+     stop — the whole point is to be recording past that. */
+  const openEnded = audioEngine.isOpenEnded
+  const reach = openEnded ? Math.max(end, transport.end) : end
+  if (start === transport.start && reach === transport.end) return
+
+  transport.setBounds(start, reach)
+  if (openEnded) return
 
   /* Only move the playhead if the song no longer reaches it. */
   const position = audioEngine.position

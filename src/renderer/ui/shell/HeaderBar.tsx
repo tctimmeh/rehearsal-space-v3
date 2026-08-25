@@ -16,6 +16,8 @@ import { KebabIcon, PauseIcon, PlayIcon, RecordIcon, StopIcon } from '../icons/u
 import { IconButton, Knob, Tabs } from '../primitives'
 import { SettingsModal } from './SettingsModal'
 import { RecordingModal } from './RecordingModal'
+import { useRecording } from '@renderer/state/recording'
+import type { RecordPhase } from '@core/record/arming'
 import { ToolsModal } from './ToolsModal'
 
 const formatSpeed = (speed: number) => `${Math.round(speed * 100)}%`
@@ -26,11 +28,19 @@ const signed = (value: number, unit: string) =>
 const formatSemitones = (semitones: number) => signed(semitones, 'st')
 const formatCents = (cents: number) => signed(cents, '¢')
 
+/** Armed says what will happen; recording says what is happening. */
+const RECORD_LABELS: Record<RecordPhase, string> = {
+  off: 'Arm recording',
+  armed: 'Armed — starts with the player',
+  recording: 'Recording — click to finish the take'
+}
+
 export function HeaderBar() {
   const { view, setView } = useView()
   const song = useSong((state) => state.song)
   const loading = useSong((state) => state.loading)
-  const recording = useSong((state) => state.recording)
+  const phase = useRecording((state) => state.phase)
+  const toggleRecording = useRecording((state) => state.toggle)
   const update = useSong((state) => state.update)
   const { playing, speed, semitones, cents, toggle, stop, setSpeed, setSemitones, setCents } =
     useTransport()
@@ -73,14 +83,11 @@ export function HeaderBar() {
           {playing ? <PauseIcon /> : <PlayIcon />}
         </IconButton>
         <IconButton
-          label={recording ? 'Stop recording' : 'Record'}
-          className={recording ? 'icon-btn--recording' : ''}
-          engaged={recording}
+          label={RECORD_LABELS[phase]}
+          className={`icon-btn--record-${phase}`}
+          engaged={phase === 'recording'}
           disabled={song === null || loading !== null}
-          onClick={() => {
-            const store = useSong.getState()
-            void (recording ? store.stopRecording() : store.startRecording())
-          }}
+          onClick={toggleRecording}
         >
           <RecordIcon />
         </IconButton>

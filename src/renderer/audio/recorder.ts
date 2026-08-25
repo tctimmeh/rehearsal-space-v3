@@ -11,6 +11,18 @@ export interface Take {
   sampleRate: number
   /** What the input added between the sound happening and it arriving. */
   inputLatency: number
+  /**
+   * Where in the song the first captured sample belongs, worked out the moment
+   * it arrived. It cannot be worked out later: stopping moves the clock's
+   * anchors, so by the time a take is handed over there is nothing left to
+   * convert its timestamps against.
+   */
+  songTimeAtFirstSample: number
+}
+
+interface Block {
+  at: number
+  channels: Float32Array[]
 }
 
 /**
@@ -32,15 +44,25 @@ export class Recorder {
   private stream: MediaStream | null = null
   private node: AudioWorkletNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
-  private blocks: Float32Array[][] = []
+  private blocks: Block[] = []
+  private capturing = false
+  private placeInSong: ((contextTime: number) => number) | null = null
+  private songTimeAtFirstSample = 0
   private sampleRate = 48000
   private static moduleLoaded: Promise<void> | null = null
 
-  get recording(): boolean {
+  get isOpen(): boolean {
     return this.node !== null
   }
 
-  async start(context: AudioContext, deviceId?: string): Promise<void> {
+  /**
+   * Opens the device and leaves it running with nothing being kept.
+   *
+   * Arming does this, so that starting a take is only a flag: opening a device
+   * takes a few hundred milliseconds, which is exactly the drift that arming
+   * exists to remove.
+   */
+  async open(context: AudioContext, deviceId?: string): Promise<void> {
     if (this.node !== null) return
 
     this.stream = await navigator.mediaDevices.getUserMedia({
@@ -68,48 +90,80 @@ export class Recorder {
       channelCountMode: 'explicit',
       channelInterpretation: 'discrete'
     })
-    this.node.port.onmessage = (event: MessageEvent<Float32Array[]>) => {
+    this.node.port.onmessage = (event: MessageEvent<Block>) => {
+      if (!this.capturing) return
+      if (this.blocks.length === 0 && this.placeInSong !== null) {
+        this.songTimeAtFirstSample = this.placeInSong(event.data.at)
+      }
       this.blocks.push(event.data)
     }
     this.source.connect(this.node)
     /* Not connected onward: a take must not be heard back through the mix. */
+
+    /* Armed and started in the same breath: the player did not wait for the
+       device, so the take begins the moment the device is ready. */
+    if (this.capturing) this.node.port.postMessage({ capturing: true })
   }
 
-  /** Stops, and hands back everything captured since it started. */
-  stop(): Take | null {
-    const stream = this.stream
-    this.node?.port.close()
-    this.node?.disconnect()
-    this.source?.disconnect()
-    for (const track of stream?.getTracks() ?? []) track.stop()
+  /**
+   * Begins keeping what arrives, whether or not the device has finished
+   * opening. Waiting for it here would silently drop the start of a take.
+   */
+  beginTake(placeInSong: (contextTime: number) => number): void {
+    this.blocks = []
+    this.placeInSong = placeInSong
+    this.songTimeAtFirstSample = 0
+    this.capturing = true
+    this.node?.port.postMessage({ capturing: true })
+  }
+
+  /** Stops keeping, and hands back everything since the take began. */
+  endTake(): Take | null {
+    if (!this.capturing) return null
+    this.capturing = false
+    this.node?.port.postMessage({ capturing: false })
+
+    const blocks = this.blocks
+    this.blocks = []
+    if (blocks.length === 0) return null
 
     /* Chromium reports this and the type definitions do not know about it. */
-    const settings = stream?.getAudioTracks()[0]?.getSettings() as
+    const settings = this.stream?.getAudioTracks()[0]?.getSettings() as
       | { latency?: number }
       | undefined
     const inputLatency = Number(settings?.latency ?? 0) || 0
-    const sampleRate = this.sampleRate
-    const blocks = this.blocks
 
-    this.node = null
-    this.source = null
-    this.stream = null
-    this.blocks = []
-
-    if (blocks.length === 0) return null
-    const channelCount = blocks[0]?.length ?? 1
-    const frames = blocks.reduce((total, block) => total + (block[0]?.length ?? 0), 0)
+    const channelCount = blocks[0]?.channels.length ?? 1
+    const frames = blocks.reduce((total, block) => total + (block.channels[0]?.length ?? 0), 0)
 
     const channels = Array.from({ length: channelCount }, () => new Float32Array(frames))
     let offset = 0
     for (const block of blocks) {
       for (let channel = 0; channel < channelCount; channel += 1) {
-        channels[channel]?.set(block[channel] ?? new Float32Array(0), offset)
+        channels[channel]?.set(block.channels[channel] ?? new Float32Array(0), offset)
       }
-      offset += block[0]?.length ?? 0
+      offset += block.channels[0]?.length ?? 0
     }
 
-    return { channels, sampleRate, inputLatency }
+    return {
+      channels,
+      sampleRate: this.sampleRate,
+      inputLatency,
+      songTimeAtFirstSample: this.songTimeAtFirstSample
+    }
+  }
+
+  /** Lets the device go. Disarming does this; a take must be ended first. */
+  close(): void {
+    this.capturing = false
+    this.node?.port.close()
+    this.node?.disconnect()
+    this.source?.disconnect()
+    for (const track of this.stream?.getTracks() ?? []) track.stop()
+    this.node = null
+    this.source = null
+    this.stream = null
+    this.blocks = []
   }
 
 }

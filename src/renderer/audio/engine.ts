@@ -84,6 +84,10 @@ export class AudioEngine {
   private rate = 1
 
   private start = 0
+  /* While a take is being laid down the song has no end: it is as long as the
+     performance turns out to be, which for the first channel of a new song is
+     all there is. */
+  private openEnded = false
   private end = 0
   private endTimer: ReturnType<typeof setTimeout> | null = null
   private onEnded: (() => void) | null = null
@@ -129,8 +133,17 @@ export class AudioEngine {
     /* While getting ready the playhead stays put: it has not started yet, and
        a playhead that moves without sound is just a lie about where you are. */
     if (!this.playing || this.starting || this.context === null) return this.anchorSong
-    const elapsed = this.context.currentTime - this.anchorContext
-    return Math.min(this.end, this.anchorSong + elapsed * this.rate)
+    return this.songTimeAt(this.context.currentTime)
+  }
+
+  /**
+   * Song time at a moment on the graph's own clock. A take's first sample is
+   * timestamped that way, and has to be turned back into a place in the song.
+   */
+  songTimeAt(contextTime: number): number {
+    if (this.context === null) return this.anchorSong
+    const reached = this.anchorSong + (contextTime - this.anchorContext) * this.rate
+    return this.openEnded ? reached : Math.min(this.end, reached)
   }
 
   get isPlaying(): boolean {
@@ -154,7 +167,22 @@ export class AudioEngine {
 
   /** True once the song has run past its last channel. */
   get finished(): boolean {
-    return this.playing && this.position >= this.end
+    return this.playing && !this.openEnded && this.position >= this.end
+  }
+
+  /**
+   * Lets the playhead run past the end of the song, and stops it being sent
+   * back to the top when it gets there.
+   */
+  get isOpenEnded(): boolean {
+    return this.openEnded
+  }
+
+  setOpenEnded(open: boolean): void {
+    if (open === this.openEnded) return
+    this.openEnded = open
+    if (open) this.clearEndTimer()
+    else if (this.playing) this.scheduleEnd()
   }
 
   /**
@@ -233,6 +261,11 @@ export class AudioEngine {
     return this.stretchLoading
   }
 
+  private clampToSong(songTime: number): number {
+    const atLeast = Math.max(this.start, songTime)
+    return this.openEnded ? atLeast : Math.min(this.end, atLeast)
+  }
+
   setBounds(start: number, end: number): void {
     this.start = start
     this.end = end
@@ -250,6 +283,7 @@ export class AudioEngine {
    */
   private scheduleEnd(): void {
     this.clearEndTimer()
+    if (this.openEnded) return
     const remaining = (this.end - this.position) / this.rate + END_GRACE_S
     if (remaining <= 0) return
     this.endTimer = setTimeout(() => {
@@ -385,8 +419,14 @@ export class AudioEngine {
     }
   }
 
-  async play(): Promise<void> {
-    if (this.playing) return
+  /**
+   * Resolves true once sound is actually running, which is not the same moment
+   * as being asked. The first play of a session waits for a WASM module to
+   * load, and anything that has to line up with the song — a take above all —
+   * has to start then rather than when the button was pressed.
+   */
+  async play(): Promise<boolean> {
+    if (this.playing) return false
     const context = this.ensureContext()
 
     /*
@@ -409,11 +449,14 @@ export class AudioEngine {
 
     this.starting = false
     /* Stopped, paused, or asked to start again while we were getting ready. */
-    if (!this.playing || attempt !== this.playAttempt) return
+    if (!this.playing || attempt !== this.playAttempt) return false
 
-    /* Starting at the very end would play nothing; go back to the beginning. */
-    const from = this.anchorSong >= this.end ? this.start : this.anchorSong
+    /* Starting at the very end would play nothing; go back to the beginning.
+       Unless the end is where the recording is meant to go. */
+    const from =
+      this.anchorSong >= this.end && !this.openEnded ? this.start : this.anchorSong
     this.restartSources(from)
+    return true
   }
 
   pause(): void {
@@ -440,7 +483,7 @@ export class AudioEngine {
     if (this.playing) {
       this.restartSources(songTime)
     } else {
-      this.anchorSong = Math.min(this.end, Math.max(this.start, songTime))
+      this.anchorSong = this.clampToSong(songTime)
       this.stopSources()
     }
   }
@@ -493,7 +536,7 @@ export class AudioEngine {
     if (context === null) return
 
     this.stopSources()
-    this.anchorSong = Math.min(this.end, Math.max(this.start, atSongTime))
+    this.anchorSong = this.clampToSong(atSongTime)
     this.anchorContext = context.currentTime
 
     for (const loaded of this.channels.values()) {

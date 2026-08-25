@@ -233,9 +233,19 @@
   line-height: 1.6;
 }
 
+/* Armed is a promise rather than a state: the button is lit but the take has
+   not started, and will not until the player is engaged. */
+.icon-btn--record-armed {
+  color: var(--mute);
+  border-color: #55201d;
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 0 0 1px rgba(226, 86, 79, 0.45);
+}
+
 /* Recording is the one thing in the app that keeps announcing itself. */
-.icon-btn--recording,
-.icon-btn--recording[data-engaged='true'] {
+.icon-btn--record-recording,
+.icon-btn--record-recording[data-engaged='true'] {
   color: #fff1f0;
   background: linear-gradient(180deg, var(--mute), var(--mute-lo));
   border-color: #6d1a16;
