@@ -16,6 +16,8 @@ export function MetronomeGadget() {
   const beat = useMetronome((state) => state.beat)
   const toggle = useMetronome((state) => state.toggle)
   const change = useMetronome((state) => state.change)
+  const tap = useMetronome((state) => state.tap)
+  const tapping = useMetronome((state) => state.tapping)
 
   /* Fetch the sounds now rather than when start is pressed: on a cold app that
      wait is a second of a metronome that says it is running and is not. */
@@ -39,7 +41,9 @@ export function MetronomeGadget() {
   return (
     <>
       <div className="metro__tempo">
-        <Readout size="lg">{bpm}</Readout>
+        <Readout size="lg" className="metro__bpm">
+          {bpm}
+        </Readout>
         <span className="metro__unit">bpm</span>
       </div>
 
@@ -51,6 +55,15 @@ export function MetronomeGadget() {
           −
         </RepeatButton>
       </div>
+
+      <button
+        type="button"
+        className="raised gadget__btn metro__tap"
+        onClick={tap}
+        title="Tap in time to set the tempo"
+      >
+        {tapping > 0 ? `Tap ${tapping}` : 'Tap'}
+      </button>
 
       <MetronomeSetup />
 

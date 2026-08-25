@@ -104,6 +104,27 @@ export class StandaloneMetronome {
     this.schedule()
   }
 
+  /**
+   * Takes the tempo from a tap and puts the beat where the tapping was.
+   *
+   * Setting the tempo alone would leave the clicks landing between the taps
+   * that produced them, which is what makes a tap tempo feel broken. The count
+   * starts again from the last tap for the same reason: what was just tapped
+   * out is the new one.
+   */
+  tapTo(settings: MetronomeSettings, anchorAt: number): void {
+    this.settings = settings
+    if (this.timer === null) return
+
+    this.dropUnsounded()
+    this.startedAt = anchorAt
+    this.beatsBefore = 0
+    /* The tap is already in the past. Without this every beat since would be
+       scheduled at once, all landing on the same instant. */
+    this.scheduledTo = Math.max(0, audioEngine.audioContext.currentTime - anchorAt)
+    this.schedule()
+  }
+
   stop(): void {
     this.attempt += 1
     if (this.timer !== null) clearInterval(this.timer)

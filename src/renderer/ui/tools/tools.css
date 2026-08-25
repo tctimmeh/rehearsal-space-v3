@@ -345,6 +345,18 @@
   align-items: baseline;
   gap: 5px;
 }
+.metro__bpm {
+  /* Room for three digits, so 99 and 100 are the same width and nothing to the
+     right of the readout moves as the tempo crosses it. Measured against the
+     content box: with the border-box default the padding eats the minimum and
+     it has no effect at all. */
+  box-sizing: content-box;
+  min-width: 3ch;
+}
+.metro__tap {
+  /* Likewise: "Tap 4" must not be wider than "Tap". */
+  min-width: 58px;
+}
 .metro__unit {
   font-size: 10px;
   color: var(--text-faint);

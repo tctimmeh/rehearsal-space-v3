@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import type { Pulse } from '@core/metronome/pulse'
+import { collectTap, TAP_TIMEOUT_S, tempoFromTaps } from '@core/metronome/tap'
 import { standaloneMetronome } from '@renderer/audio/standaloneMetronome'
 import { useConfig } from '@renderer/state/config'
 import { useTools } from '@renderer/state/tools'
@@ -8,11 +9,15 @@ import type { MetronomeSettings } from '@shared/config'
 
 interface MetronomeState {
   running: boolean
+  /** How many taps are in the count being tapped out, for the button to show. */
+  tapping: number
   /** Beat now sounding, counting from zero; -1 before the first one. */
   beat: number
   toggle: () => void
   stop: () => void
   change: (patch: Partial<MetronomeSettings>) => void
+  /** Takes the tempo from being tapped out. */
+  tap: () => void
 }
 
 const settings = (): MetronomeSettings =>
@@ -30,8 +35,13 @@ const settings = (): MetronomeSettings =>
  * is where it comes back — including which sound, which is a matter of taste
  * that nobody wants to set twice.
  */
+/** The taps being reckoned from. Not state: nothing on screen reads them. */
+let taps: number[] = []
+let forgetTaps: ReturnType<typeof setTimeout> | null = null
+
 export const useMetronome = create<MetronomeState>((set, get) => ({
   running: false,
+  tapping: 0,
   beat: -1,
 
   toggle: () => {
@@ -46,6 +56,23 @@ export const useMetronome = create<MetronomeState>((set, get) => ({
   stop: () => {
     standaloneMetronome.stop()
     set({ running: false, beat: -1 })
+  },
+
+  tap: () => {
+    const at = standaloneMetronome.clock.currentTime
+    taps = collectTap(taps, at)
+    set({ tapping: taps.length })
+
+    if (forgetTaps !== null) clearTimeout(forgetTaps)
+    forgetTaps = setTimeout(() => set({ tapping: 0 }), TAP_TIMEOUT_S * 1000)
+
+    const bpm = tempoFromTaps(taps)
+    if (bpm === null) return
+
+    const next = { ...settings(), bpm }
+    void useConfig.getState().set({ metronome: next })
+    standaloneMetronome.tapTo(next, at)
+    if (get().running) set({ beat: 0 })
   },
 
   change: (patch) => {

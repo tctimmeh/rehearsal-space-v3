@@ -9,6 +9,8 @@ import { useMetronome } from '@renderer/state/metronome'
 import { installBridge } from '@renderer/testing/bridge'
 import { MetronomeGadget } from './MetronomeGadget'
 
+const clock = vi.hoisted(() => ({ currentTime: 0 }))
+
 vi.mock('@renderer/audio/engine', () => ({
   audioEngine: { clicksReady: () => Promise.resolve() }
 }))
@@ -16,9 +18,10 @@ vi.mock('@renderer/audio/standaloneMetronome', () => ({
   standaloneMetronome: {
     start: vi.fn(async () => undefined),
     update: vi.fn(),
+    tapTo: vi.fn(),
     stop: vi.fn(),
     listen: () => () => undefined,
-    clock: { currentTime: 0, outputLatency: 0, baseLatency: 0 }
+    clock
   }
 }))
 
@@ -37,6 +40,8 @@ const config = (metronome: Partial<AppConfig['metronome']> = {}): AppConfig => (
 
 beforeEach(() => {
   installBridge()
+  clock.currentTime = 0
+  useMetronome.setState({ tapping: 0 })
   useMetronome.setState({ running: false, beat: -1 })
   useConfig.setState({
     config: config(),
@@ -187,5 +192,68 @@ describe('holding the tempo buttons', () => {
     /* The same span of time buys more steps once it has wound up. */
     expect(later - early).toBeGreaterThan(early - 101)
     vi.useRealTimers()
+  })
+})
+
+/**
+ * Tapping a tempo in is how anybody who plays with other people finds one.
+ */
+describe('tapping a tempo', () => {
+  const tapAt = async (user: ReturnType<typeof userEvent.setup>, seconds: number[]) => {
+    for (const at of seconds) {
+      clock.currentTime = at
+      await user.click(screen.getByRole('button', { name: /^Tap/ }))
+    }
+  }
+
+  it('says nothing from one tap, since one tap is not a tempo', async () => {
+    const user = userEvent.setup()
+    render(<MetronomeGadget />)
+
+    await tapAt(user, [1])
+
+    expect(useConfig.getState().config?.metronome.bpm).toBe(100)
+  })
+
+  it('takes the tempo from four taps in time', async () => {
+    const user = userEvent.setup()
+    render(<MetronomeGadget />)
+
+    await tapAt(user, [1, 1.5, 2, 2.5])
+
+    expect(useConfig.getState().config?.metronome.bpm).toBe(120)
+  })
+
+  it('counts the taps so far, so a tap that registered can be seen to have', async () => {
+    const user = userEvent.setup()
+    render(<MetronomeGadget />)
+
+    await tapAt(user, [1, 1.5])
+
+    expect(screen.getByRole('button', { name: 'Tap 2' })).toBeDefined()
+  })
+
+  it('starts a fresh count after a pause too long to be a beat', async () => {
+    const user = userEvent.setup()
+    render(<MetronomeGadget />)
+
+    await tapAt(user, [1, 1.5, 2])
+    await tapAt(user, [20, 21])
+
+    /* The 19-second pause is not a beat: this is 60 bpm, not something slower. */
+    expect(useConfig.getState().config?.metronome.bpm).toBe(60)
+  })
+
+  it('puts the beat where the tapping was', async () => {
+    const { standaloneMetronome } = await import('@renderer/audio/standaloneMetronome')
+    const user = userEvent.setup()
+    render(<MetronomeGadget />)
+
+    await tapAt(user, [1, 1.5, 2])
+
+    expect(standaloneMetronome.tapTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bpm: 120 }),
+      2
+    )
   })
 })
