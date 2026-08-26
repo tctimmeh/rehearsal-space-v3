@@ -31,12 +31,12 @@ export function steadyHz(recent: readonly number[]): number | null {
 /**
  * How far the shown pitch moves toward a new reading each time one arrives.
  *
- * Readings land twenty times a second, so a third of the way each time settles
- * in about half a second — slow enough that a wavering string reads as one
- * pitch, quick enough that turning a peg is followed rather than reported
- * afterwards.
+ * Readings land twenty times a second. A sixth of the way each time settles in
+ * about two thirds of a second — slow enough that a wavering string reads as
+ * one pitch and the needle sits still enough to tune against, quick enough
+ * that turning a peg is followed rather than reported afterwards.
  */
-const SETTLE = 0.3
+const SETTLE = 0.15
 
 /** Beyond this the string has been changed, not merely wavered. */
 const JUMP_CENTS = 40

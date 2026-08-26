@@ -57,13 +57,19 @@ describe('easing the needle', () => {
     expect(cents(shown, 111)).toBeCloseTo(0, 1)
   })
 
-  it('takes about half a second at the rate readings arrive', () => {
-    /* Twenty a second, so ten readings is half a second. */
+  it('follows a peg being turned inside a second', () => {
+    /* Readings arrive twenty a second, so twenty of them is one second, and
+       110 to 112 is a move of about thirty cents. */
     let shown = 110
-    for (let reading = 0; reading < 10; reading += 1) shown = glideHz(shown, 112)
+    for (let reading = 0; reading < 20; reading += 1) shown = glideHz(shown, 112)
 
-    /* Within a couple of cents of a sixteen-cent move. */
     expect(Math.abs(cents(shown, 112))).toBeLessThan(2)
+  })
+
+  it('is still well short after one reading, which is the point of it', () => {
+    const moved = glideHz(110, 112)
+
+    expect(Math.abs(cents(moved, 112))).toBeGreaterThan(10)
   })
 
   it('smooths a wavering string more than it delays it', () => {
