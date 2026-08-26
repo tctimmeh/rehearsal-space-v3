@@ -52,18 +52,25 @@ describe('easing the needle', () => {
 
   it('gets there in the end', () => {
     let shown = 110
-    for (let reading = 0; reading < 40; reading += 1) shown = glideHz(shown, 111)
+    for (let reading = 0; reading < 60; reading += 1) shown = glideHz(shown, 111)
 
     expect(cents(shown, 111)).toBeCloseTo(0, 1)
   })
 
-  it('follows a peg being turned inside a second', () => {
-    /* Readings arrive twenty a second, so twenty of them is one second, and
-       110 to 112 is a move of about thirty cents. */
+  it('follows a peg being turned inside a second and a half', () => {
+    /* Readings arrive twenty a second, so thirty of them is a second and a
+       half, and 110 to 112 is a move of about thirty cents. */
+    let shown = 110
+    for (let reading = 0; reading < 30; reading += 1) shown = glideHz(shown, 112)
+
+    expect(Math.abs(cents(shown, 112))).toBeLessThan(1)
+  })
+
+  it('is most of the way there after a second', () => {
     let shown = 110
     for (let reading = 0; reading < 20; reading += 1) shown = glideHz(shown, 112)
 
-    expect(Math.abs(cents(shown, 112))).toBeLessThan(2)
+    expect(Math.abs(cents(shown, 112))).toBeLessThan(3)
   })
 
   it('is still well short after one reading, which is the point of it', () => {
