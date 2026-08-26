@@ -87,7 +87,7 @@ describe('listening', () => {
 })
 
 /** Readings arrive twenty a second; the needle waits for a few that agree. */
-const settleOn = (hz: number, readings = 20) => {
+const settleOn = (hz: number, readings = 40) => {
   for (let reading = 0; reading < readings; reading += 1) service.hear(hz)
 }
 
