@@ -155,3 +155,49 @@ button {
   background: var(--hairline);
   box-shadow: 1px 0 0 var(--edge-hi);
 }
+
+/* ---------- scrollbars ---------- */
+/*
+ * The browser draws these in its own light grey, which lands on a near-black
+ * well like a strip of somebody else's window. They follow the material rule
+ * instead: the track is part of whatever it sits in, and the thumb is a thing
+ * to take hold of, so it is raised.
+ *
+ * Drawn with the older pseudo-elements deliberately. Setting `scrollbar-color`
+ * switches the browser to its own scrollbar and makes it ignore every rule
+ * below — including the one that removes the stepper arrows.
+ */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* The little stepper arrows at each end: nobody clicks them, and they are the
+   one part the browser still draws in its own light grey. */
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+::-webkit-scrollbar-thumb {
+  /* Drawn inside a transparent border so it reads as a bar floating in the
+     channel rather than as a filled gutter. */
+  background: var(--raise-hi);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3e46;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #474c55;
+  background-clip: padding-box;
+}
