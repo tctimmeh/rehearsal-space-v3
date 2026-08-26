@@ -44,7 +44,6 @@ export function HeaderBar() {
   const update = useSong((state) => state.update)
   const { playing, speed, semitones, cents, toggle, stop, setSpeed, setSemitones, setCents } =
     useTransport()
-  const showCentsPreference = useConfig((state) => state.config?.showCents ?? false)
 
   /* Tempo and pitch are part of the song, so they come back on next load. */
   const changeSpeed = (next: number) => {
@@ -59,11 +58,6 @@ export function HeaderBar() {
     setCents(next)
     update({ playback: { speed, pitch: { semitones, cents: next } } })
   }
-
-  /* The toggle reveals the fine control, but a cent offset already in use is
-     never hidden — that would leave the song detuned with nothing on screen
-     saying so. Zero it (double-click the knob) and it puts itself away. */
-  const showCents = showCentsPreference || cents !== 0
 
   return (
     <header className="bar">
@@ -82,6 +76,7 @@ export function HeaderBar() {
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
         </IconButton>
+        <span className="transport__sep" />
         <IconButton
           label={RECORD_LABELS[phase]}
           className={`icon-btn--record-${phase}`}
@@ -115,19 +110,16 @@ export function HeaderBar() {
           format={formatSemitones}
           travel={264}
         />
-        <CentsToggle on={showCentsPreference} inUse={cents !== 0} />
-        {showCents ? (
-          <Knob
-            label="Cents"
-            value={cents}
-            min={CENTS_MIN}
-            max={CENTS_MAX}
-            step={1}
-            defaultValue={0}
-            onChange={changeCents}
-            format={formatCents}
-          />
-        ) : null}
+        <Knob
+          label="Cents"
+          value={cents}
+          min={CENTS_MIN}
+          max={CENTS_MAX}
+          step={1}
+          defaultValue={0}
+          onChange={changeCents}
+          format={formatCents}
+        />
       </div>
 
       <SongIdentity />
@@ -215,24 +207,6 @@ function SongIdentity() {
   )
 }
 
-function CentsToggle({ on, inUse }: { on: boolean; inUse: boolean }) {
-  const setPreference = useConfig((state) => state.set)
-  const label = inUse && !on ? 'Cents in use' : on ? 'Hide cents' : 'Fine tune in cents'
-
-  return (
-    <button
-      type="button"
-      className="raised cents-toggle"
-      data-engaged={on}
-      title={label}
-      aria-label={label}
-      aria-pressed={on}
-      onClick={() => void setPreference({ showCents: !on })}
-    >
-      ¢
-    </button>
-  )
-}
 
 type Dialog = 'settings' | 'recording' | 'tools' | null
 

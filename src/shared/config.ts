@@ -15,9 +15,6 @@ export interface AppConfig {
   lastSongId: string | null
   /** Renderer zoom. This is a tool read from a music stand, so it starts above 1. */
   uiScale: number
-  /** Reveals the cents knob beside the pitch knob. Off by default: most
-      practice is in whole semitones. */
-  showCents: boolean
   /** Fraction of the visible window a wheel notch pans in the alignment tool. */
   panSpeed: number
   /** Fraction of a doubling a wheel notch zooms by. Every notch moves. */
@@ -56,7 +53,6 @@ export const ZOOM_SPEED_DEFAULT = 0.15
 export type Preferences = Pick<
   AppConfig,
   | 'uiScale'
-  | 'showCents'
   | 'panSpeed'
   | 'zoomSpeed'
   | 'inputDeviceId'

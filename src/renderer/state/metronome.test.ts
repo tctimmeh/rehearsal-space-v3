@@ -39,7 +39,6 @@ beforeEach(() => {
       libraryPath: '/songs',
       lastSongId: null,
       uiScale: 1.2,
-      showCents: false,
       panSpeed: 0.1,
       zoomSpeed: 0.15,
       inputDeviceId: '',

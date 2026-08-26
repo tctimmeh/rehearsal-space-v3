@@ -33,6 +33,15 @@
   gap: 5px;
   flex: none;
 }
+/* Recording is a different kind of act from playing, so it stands apart. */
+.transport__sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: var(--hairline);
+  box-shadow: 1px 0 0 var(--edge-hi);
+  flex: none;
+}
 .knobs {
   display: flex;
   gap: 13px;
@@ -566,19 +575,6 @@
   opacity: 1;
 }
 
-/* Reveals the cents knob. Small, because it is reached for rarely. */
-.cents-toggle {
-  width: 22px;
-  height: 30px;
-  flex: none;
-  border-radius: var(--radius);
-  font-size: 12px;
-  color: var(--text-faint);
-  align-self: center;
-}
-.cents-toggle:hover {
-  color: var(--text);
-}
 
 .toast[data-state='failed'] {
   border-color: #5a2320;

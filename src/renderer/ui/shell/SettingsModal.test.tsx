@@ -19,7 +19,6 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   libraryPath: '/songs',
   lastSongId: null,
   uiScale: UI_SCALE_DEFAULT,
-  showCents: false,
   panSpeed: PAN_SPEED_DEFAULT,
   zoomSpeed: ZOOM_SPEED_DEFAULT,
   inputDeviceId: '',

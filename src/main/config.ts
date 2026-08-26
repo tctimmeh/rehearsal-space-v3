@@ -32,7 +32,6 @@ export const defaultConfig = (): AppConfig => ({
   libraryPath: join(app.getPath('music'), 'Rehearsal Space'),
   lastSongId: null,
   uiScale: UI_SCALE_DEFAULT,
-  showCents: false,
   panSpeed: PAN_SPEED_DEFAULT,
   zoomSpeed: ZOOM_SPEED_DEFAULT,
   inputDeviceId: '',
@@ -60,8 +59,6 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
       typeof record['uiScale'] === 'number' && Number.isFinite(record['uiScale'])
         ? clamp(record['uiScale'], UI_SCALE_MIN, UI_SCALE_MAX)
         : defaults.uiScale,
-    showCents:
-      typeof record['showCents'] === 'boolean' ? record['showCents'] : defaults.showCents,
     panSpeed: number(record['panSpeed'], defaults.panSpeed, PAN_SPEED_MIN, PAN_SPEED_MAX),
     zoomSpeed: number(record['zoomSpeed'], defaults.zoomSpeed, ZOOM_SPEED_MIN, ZOOM_SPEED_MAX),
     inputDeviceId:
