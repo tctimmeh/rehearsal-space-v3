@@ -98,7 +98,8 @@ describe('the needle', () => {
 
   /* Nothing should leave a tuner blank in front of somebody holding a guitar. */
   it('shows something even for a note that never settles', () => {
-    const wandering = Array.from({ length: 40 }, (_, step) => at(step * 1.5))
+    /* Three seconds of it — the longest the tuner may stay blank. */
+    const wandering = Array.from({ length: 60 }, (_, step) => at(step * 1.5))
 
     expect(feed(wandering).hz).not.toBeNull()
   })
@@ -116,7 +117,7 @@ describe('a note that will not settle', () => {
     Array.from({ length: howMany }, (_, step) => at(from + step * 1.5))
 
   it('is shown anyway when there is nothing else to show', () => {
-    expect(feed(wandering(40)).hz).not.toBeNull()
+    expect(feed(wandering(60)).hz).not.toBeNull()
   })
 
   it('keeps up to date even so, rather than sticking on an old reading', () => {
@@ -134,7 +135,7 @@ describe('a note that will not settle', () => {
     expect(Math.abs(1200 * Math.log2(after / at(40)))).toBeLessThan(12)
   })
 
-  it('does not disturb a reading that is already there', () => {
+  it('is not disturbed by a note that is merely restless', () => {
     let seed = 3
     const scatter = (howMany: number) =>
       Array.from({ length: howMany }, () => {
@@ -144,9 +145,26 @@ describe('a note that will not settle', () => {
 
     const holding = feed(scatter(40))
     const before = holding.hz as number
-    const after = feed(wandering(30, 12), holding).hz as number
+
+    /* Wandering, but never far from where it started. */
+    const restless = Array.from({ length: 40 }, (_, step) => at(7 * Math.sin(step / 2)))
+    const after = feed(restless, holding).hz as number
 
     expect(Math.abs(1200 * Math.log2(after / before))).toBeLessThan(3)
+  })
+
+  /* The other half of the bargain: a string that plainly moved is followed at
+     once, rather than waiting out a window that exists to settle arguments. */
+  it('follows a peg without waiting', () => {
+    const holding = feed(Array.from({ length: 40 }, () => at(0)))
+
+    /* Twelve readings — six tenths of a second — into a wind of three cents a
+       reading, while a window long enough to settle an argument is still
+       filling. */
+    const wind = Array.from({ length: 12 }, (_, step) => at(4 + step * 3))
+    const turning = feed(wind, holding)
+
+    expect(1200 * Math.log2((turning.hz as number) / 110)).toBeGreaterThan(10)
   })
 })
 
@@ -189,5 +207,41 @@ describe('the chaos of a pluck', () => {
     const after = feed([...attack, ...scatter(0, 40)], holding).hz as number
 
     expect(Math.abs(1200 * Math.log2(after / 110))).toBeLessThan(2)
+  })
+})
+
+/**
+ * A tuner is used with a hand on a peg, and a hand on a peg wants the needle
+ * now, not once the tuner has finished deliberating.
+ */
+describe('a string being wound', () => {
+  const at = (cents: number) => 110 * 2 ** (cents / 1200)
+  const cents = (hz: number) => 1200 * Math.log2(hz / 110)
+  const feed = (readings: number[], from = newNeedle()) =>
+    readings.reduce((needle, reading) => moveNeedle(needle, reading), from)
+
+  const settledAt = (pitch: number) => feed(Array.from({ length: 40 }, () => at(pitch)))
+  const wind = (from: number, per: number, howMany: number) =>
+    Array.from({ length: howMany }, (_, step) => at(from + step * per))
+
+  it('is followed while it moves, not after it stops', () => {
+    const turning = feed(wind(4, 3, 20), settledAt(0))
+
+    /* Twenty readings in, the string is at 61 cents. */
+    expect(cents(turning.hz as number)).toBeGreaterThan(45)
+  })
+
+  it('is settled on almost as soon as the hand comes off', () => {
+    const wound = feed(wind(4, 3, 20), settledAt(0))
+    const held = feed(Array.from({ length: 8 }, () => at(61)), wound)
+
+    expect(Math.abs(cents(held.hz as number) - 61)).toBeLessThan(2)
+  })
+
+  it('goes back to deliberating once the string has arrived', () => {
+    const wound = feed(wind(4, 3, 20), settledAt(0))
+    const held = feed(Array.from({ length: 8 }, () => at(61)), wound)
+
+    expect(held.chasing).toBe(false)
   })
 })
