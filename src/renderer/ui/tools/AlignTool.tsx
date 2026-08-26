@@ -59,6 +59,10 @@ export function AlignTool() {
   /* Where a middle-button drag took hold, and where the view was then. */
   const grab = useRef<{ x: number; centre: number } | null>(null)
   const [grabbing, setGrabbing] = useState(false)
+  /* Held in a ref as well as in state: the first move of a drag arrives before
+     a re-render would have told the handler that a drag had started. */
+  const scrubbing = useRef(false)
+  const [showScrub, setShowScrub] = useState(false)
 
   const against = audio.find((c) => c.id === againstId) ?? audio[0] ?? null
   const click = clicks.find((c) => c.id === clickId) ?? clicks[0] ?? null
@@ -186,6 +190,7 @@ export function AlignTool() {
         className="align__strip well"
         ref={strip}
         data-grabbing={grabbing}
+        data-scrubbing={showScrub}
         onPointerDown={(event) => {
           if ((event.target as HTMLElement).closest('.align__handle') !== null) return
 
@@ -205,9 +210,24 @@ export function AlignTool() {
             return
           }
           if (event.button !== 0) return
+
+          /* Scrubbing: the playhead follows for as long as the button is
+             down, so a spot can be hunted for by ear rather than found in
+             one go. */
+          scrubbing.current = true
+          setShowScrub(true)
+          try {
+            event.currentTarget.setPointerCapture(event.pointerId)
+          } catch {
+            /* No capture; the scrub still works within the strip. */
+          }
           seek(timeAt(event.clientX))
         }}
         onPointerMove={(event) => {
+          if (scrubbing.current) {
+            seek(timeAt(event.clientX))
+            return
+          }
           const held = grab.current
           const box = strip.current?.getBoundingClientRect()
           if (held === null || box === undefined || box.width === 0) return
@@ -215,7 +235,16 @@ export function AlignTool() {
           setCentre(clampViewCentre(held.centre - moved, visible, [songStart, songEnd]))
         }}
         onPointerUp={(event) => {
-          if (grab.current === null) return
+          scrubbing.current = false
+          setShowScrub(false)
+          if (grab.current === null) {
+            try {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            } catch {
+              /* Never captured. */
+            }
+            return
+          }
           grab.current = null
           setGrabbing(false)
           try {
@@ -223,6 +252,12 @@ export function AlignTool() {
           } catch {
             /* Never captured. */
           }
+        }}
+        onPointerCancel={() => {
+          scrubbing.current = false
+          setShowScrub(false)
+          grab.current = null
+          setGrabbing(false)
         }}
         onPointerLeave={() => {
           if (grab.current === null) return

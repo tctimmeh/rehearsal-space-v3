@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type Song } from '@core/song/song'
 import { useAlign } from '@renderer/state/align'
 import { useSong } from '@renderer/state/song'
+import { useTransport } from '@renderer/state/transport'
 import { installBridge } from '@renderer/testing/bridge'
 import { AlignTool } from './AlignTool'
 
@@ -105,5 +106,74 @@ describe('which click track the tool shows', () => {
     render(<AlignTool />)
 
     expect(screen.getByText(/Add a click track from the mixer/)).toBeTruthy()
+  })
+})
+
+/**
+ * Finding a spot means hunting for it by ear, which is a drag rather than a
+ * series of guesses.
+ */
+describe('moving the playhead', () => {
+  const strip = () => document.querySelector('.align__strip') as HTMLElement
+
+  const dragAcross = (from: number, to: number) => {
+    const element = strip()
+    fireEvent.pointerDown(element, { button: 0, clientX: from, pointerId: 1 })
+    fireEvent.pointerMove(element, { clientX: (from + to) / 2, pointerId: 1 })
+    fireEvent.pointerMove(element, { clientX: to, pointerId: 1 })
+    fireEvent.pointerUp(element, { pointerId: 1 })
+  }
+
+  beforeEach(() => {
+    /* jsdom has neither pointer capture nor layout. */
+    HTMLElement.prototype.setPointerCapture = vi.fn()
+    HTMLElement.prototype.releasePointerCapture = vi.fn()
+    /* The strip has no width in jsdom, so it is given one. */
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      right: 1000,
+      width: 1000,
+      top: 0,
+      bottom: 200,
+      height: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    } as DOMRect)
+  })
+
+  it('follows the pointer while the button is down', () => {
+    const seeks: number[] = []
+    /* Before rendering: the tool reads the seek it is given at render time. */
+    useTransport.setState({ seek: (position: number) => seeks.push(position) })
+    render(<AlignTool />)
+
+    dragAcross(100, 700)
+
+    expect(seeks).toHaveLength(3)
+    expect(seeks[2]).toBeGreaterThan(seeks[0] as number)
+  })
+
+  it('stops following once the button is up', () => {
+    const seeks: number[] = []
+    useTransport.setState({ seek: (position: number) => seeks.push(position) })
+    render(<AlignTool />)
+    dragAcross(100, 700)
+    seeks.length = 0
+
+    fireEvent.pointerMove(strip(), { clientX: 900, pointerId: 1 })
+
+    expect(seeks).toEqual([])
+  })
+
+  it('leaves the handles to do their own dragging', () => {
+    const seeks: number[] = []
+    useTransport.setState({ seek: (position: number) => seeks.push(position) })
+    render(<AlignTool />)
+    const handle = document.querySelector('.align__handle') as HTMLElement
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 400, pointerId: 1 })
+
+    expect(seeks).toEqual([])
   })
 })

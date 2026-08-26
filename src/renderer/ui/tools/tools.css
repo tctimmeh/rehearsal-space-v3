@@ -506,6 +506,9 @@
   padding-bottom: 7px;
 }
 
+.align__strip[data-scrubbing='true'] {
+  cursor: ew-resize;
+}
 .align__strip[data-grabbing='true'] {
   cursor: grabbing;
 }
