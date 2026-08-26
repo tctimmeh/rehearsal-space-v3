@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:tuner": "vitest run --config vitest.replay.config.ts",
     "pack": "npm run build && electron-builder --linux AppImage"
   },
   "devDependencies": {
