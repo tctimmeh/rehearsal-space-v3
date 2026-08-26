@@ -15,7 +15,8 @@ interface LyricsState {
   error: string | null
   load: (songId: string) => Promise<void>
   edit: (text: string) => void
-  transpose: (semitones: number) => void
+  /** The words with every chord moved, for the editor to type in. */
+  transposed: (semitones: number) => string
   flush: () => Promise<void>
 }
 
@@ -47,9 +48,7 @@ export const useLyrics = create<LyricsState>((set, get) => ({
     timer = setTimeout(() => void get().flush(), SAVE_DELAY_MS)
   },
 
-  transpose: (semitones) => {
-    get().edit(transposeLyrics(get().text, semitones))
-  },
+  transposed: (semitones) => transposeLyrics(get().text, semitones),
 
   /**
    * Writes are queued behind each other rather than raced. Two overlapping

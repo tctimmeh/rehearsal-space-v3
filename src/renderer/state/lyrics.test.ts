@@ -133,13 +133,23 @@ describe('changing song', () => {
 })
 
 describe('transposing', () => {
-  it('moves the chords in place and marks the song unsaved', async () => {
+  it('hands back the words with the chords moved, leaving the words alone', async () => {
     onDisk.set('a-song', ['C       Am', 'Counted every mile'].join('\n'))
     await useLyrics.getState().load('a-song')
 
-    useLyrics.getState().transpose(2)
+    expect(useLyrics.getState().transposed(2)).toBe(
+      ['D       Bm', 'Counted every mile'].join('\n')
+    )
+  })
 
-    expect(useLyrics.getState().text).toBe(['D       Bm', 'Counted every mile'].join('\n'))
-    expect(useLyrics.getState().saved).toBe(false)
+  /* The editor types it in rather than setting it, so that it can be undone. */
+  it('changes nothing by itself', async () => {
+    onDisk.set('a-song', 'C       Am')
+    await useLyrics.getState().load('a-song')
+
+    useLyrics.getState().transposed(2)
+
+    expect(useLyrics.getState().text).toBe('C       Am')
+    expect(useLyrics.getState().saved).toBe(true)
   })
 })

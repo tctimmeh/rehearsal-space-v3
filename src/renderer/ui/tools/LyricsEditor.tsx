@@ -43,6 +43,41 @@ function Coloured({ line }: { line: string }) {
 const TAB_STOP = 4
 
 /**
+ * Types text into a field as though a person had typed it.
+ *
+ * Setting the value instead — which is what React does when the text comes
+ * from state — replaces the whole thing, and a text area whose value is
+ * replaced loses two things a writer needs: where it was scrolled to, and
+ * every undo it had. Going through the editing command keeps both, and the
+ * change comes back through onChange like any other keystroke.
+ *
+ * The command is old and deprecated and there is still no replacement for it.
+ */
+function typeInto(field: HTMLTextAreaElement, text: string): boolean {
+  field.focus()
+  try {
+    return document.execCommand('insertText', false, text)
+  } catch {
+    return false
+  }
+}
+
+/** The same, for text that replaces everything: transposing rewrites the lot. */
+function retypeAll(field: HTMLTextAreaElement, text: string): boolean {
+  const { selectionStart, selectionEnd, scrollTop, scrollLeft } = field
+  field.focus()
+  field.setSelectionRange(0, field.value.length)
+  if (!typeInto(field, text)) return false
+  field.setSelectionRange(
+    Math.min(selectionStart, text.length),
+    Math.min(selectionEnd, text.length)
+  )
+  field.scrollTop = scrollTop
+  field.scrollLeft = scrollLeft
+  return true
+}
+
+/**
  * The words of a song, as plain text.
  *
  * A real text area rather than something clever: it is what gives keyboard
@@ -56,7 +91,7 @@ export function LyricsEditor() {
   const saved = useLyrics((state) => state.saved)
   const error = useLyrics((state) => state.error)
   const edit = useLyrics((state) => state.edit)
-  const transpose = useLyrics((state) => state.transpose)
+  const transposeText = useLyrics((state) => state.transposed)
 
   const input = useRef<HTMLTextAreaElement>(null)
   const behind = useRef<HTMLPreElement>(null)
@@ -85,6 +120,8 @@ export function LyricsEditor() {
       lendCursor((word) => {
         const field = input.current
         if (field === null) return
+        if (typeInto(field, word)) return
+
         const current = useLyrics.getState().text
         const at = field.selectionStart
         const end = field.selectionEnd
@@ -104,13 +141,23 @@ export function LyricsEditor() {
     const field = event.currentTarget
     const at = field.selectionStart
     const column = at - (text.lastIndexOf('\n', at - 1) + 1)
-    const spaces = TAB_STOP - (column % TAB_STOP)
-    const next = `${text.slice(0, at)}${' '.repeat(spaces)}${text.slice(field.selectionEnd)}`
-    edit(next)
+    const spaces = ' '.repeat(TAB_STOP - (column % TAB_STOP))
+
+    if (typeInto(field, spaces)) return
+    /* No editing command: keep the tab working, undo or no undo. */
+    edit(`${text.slice(0, at)}${spaces}${text.slice(field.selectionEnd)}`)
     requestAnimationFrame(() => {
-      field.selectionStart = at + spaces
-      field.selectionEnd = at + spaces
+      field.selectionStart = at + spaces.length
+      field.selectionEnd = at + spaces.length
     })
+  }
+
+  /* Through the field rather than through state, so a transposition can be
+     undone like any other edit and the view stays where it was. */
+  const move = (semitones: number) => {
+    const next = transposeText(semitones)
+    const field = input.current
+    if (field === null || !retypeAll(field, next)) edit(next)
   }
 
   if (song === null) return <p className="stage-empty">No song loaded.</p>
@@ -129,10 +176,10 @@ export function LyricsEditor() {
     >
       <div className="lyrics__bar">
         <span className="lyrics__label">Transpose</span>
-        <Button onClick={() => transpose(-1)} title="Every chord down a semitone">
+        <Button onClick={() => move(-1)} title="Every chord down a semitone">
           −
         </Button>
-        <Button onClick={() => transpose(1)} title="Every chord up a semitone">
+        <Button onClick={() => move(1)} title="Every chord up a semitone">
           +
         </Button>
         <span className="lyrics__state">

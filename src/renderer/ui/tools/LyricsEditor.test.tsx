@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong } from '@core/song/song'
-import { useLyrics } from '@renderer/state/lyrics'
+import { insertIntoLyrics, useLyrics } from '@renderer/state/lyrics'
 import { useSong } from '@renderer/state/song'
 import { installBridge } from '@renderer/testing/bridge'
 import { LyricsEditor } from './LyricsEditor'
@@ -189,5 +189,76 @@ describe('the kinds of line in a real song', () => {
     expect(after[2]).toBe(
       '- Storm winds blowing and we only know to run  ("only know to run" is awkward)'
     )
+  })
+})
+
+/**
+ * Setting the value of a text area replaces the whole thing, and a text area
+ * whose value is replaced loses where it was scrolled to and every undo it
+ * had. Edits go through the editing command so that neither happens.
+ */
+describe('how edits reach the field', () => {
+  let typed: { text: string }[] = []
+
+  beforeEach(() => {
+    typed = []
+    /* jsdom has no editing command, so stand one in that does what the real
+       one does: change the field and let it be heard as an ordinary edit. */
+    document.execCommand = vi.fn((command: string, _ui?: boolean, value?: string) => {
+      if (command !== 'insertText') return false
+      const field = document.querySelector('.editor__input') as HTMLTextAreaElement
+      const before = field.value.slice(0, field.selectionStart)
+      const after = field.value.slice(field.selectionEnd)
+      typed.push({ text: value ?? '' })
+      fireEvent.change(field, { target: { value: `${before}${value ?? ''}${after}` } })
+      return true
+    }) as typeof document.execCommand
+  })
+
+  it('types a rhyme in rather than replacing the words around it', () => {
+    render(<LyricsEditor />)
+    const field = screen.getByRole('textbox', { name: 'Lyrics' }) as HTMLTextAreaElement
+    field.setSelectionRange(9, 9)
+
+    act(() => {
+      insertIntoLyrics('bemoan')
+    })
+
+    expect(typed).toEqual([{ text: 'bemoan' }])
+    expect(useLyrics.getState().text.startsWith('[Verse 1]bemoan')).toBe(true)
+  })
+
+  it('types the spaces a tab stands for', async () => {
+    const user = userEvent.setup()
+    useLyrics.setState({ text: 'C' })
+    render(<LyricsEditor />)
+    const field = screen.getByRole('textbox', { name: 'Lyrics' }) as HTMLTextAreaElement
+    field.setSelectionRange(1, 1)
+
+    await user.tab()
+    fireEvent.keyDown(field, { key: 'Tab' })
+
+    expect(typed).toEqual([{ text: '   ' }])
+  })
+
+  it('types a transposition in, so it can be undone like anything else', async () => {
+    const user = userEvent.setup()
+    render(<LyricsEditor />)
+
+    await user.click(screen.getByRole('button', { name: '+' }))
+
+    expect(typed).toHaveLength(1)
+    expect(typed[0]?.text.split('\n')[1]).toBe('C#      A#m')
+  })
+
+  it('keeps the view where it was while transposing', async () => {
+    const user = userEvent.setup()
+    render(<LyricsEditor />)
+    const field = screen.getByRole('textbox', { name: 'Lyrics' }) as HTMLTextAreaElement
+    field.scrollTop = 120
+
+    await user.click(screen.getByRole('button', { name: '+' }))
+
+    expect(field.scrollTop).toBe(120)
   })
 })
