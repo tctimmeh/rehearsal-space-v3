@@ -2,8 +2,7 @@ import { create } from 'zustand'
 
 export const VIEWS = [
   { id: 'library', label: 'Library' },
-  { id: 'player', label: 'Player' },
-  { id: 'setup', label: 'Setup' }
+  { id: 'player', label: 'Player' }
 ] as const
 
 export type ViewId = (typeof VIEWS)[number]['id']

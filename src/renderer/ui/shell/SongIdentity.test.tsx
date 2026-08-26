@@ -1,0 +1,116 @@
+// @vitest-environment jsdom
+import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { newSong, type Song } from '@core/song/song'
+import { useSong } from '@renderer/state/song'
+import { installBridge } from '@renderer/testing/bridge'
+import { HeaderBar } from './HeaderBar'
+
+const loaded = (): Song => ({
+  ...newSong('comeback-season'),
+  id: 'comeback-season',
+  title: 'Comeback Season',
+  artist: 'The Lowlifes'
+})
+
+beforeEach(() => {
+  installBridge()
+  useSong.setState({ song: loaded(), songs: [], error: null, importing: false })
+})
+
+afterEach(() => {
+  cleanup()
+  useSong.setState({ song: null })
+  vi.clearAllMocks()
+})
+
+const open = async (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: 'Song name and artist' }))
+
+const value = (element: HTMLElement) => (element as HTMLInputElement).value
+
+/**
+ * The name and the artist used to be fields in a view of their own. There is
+ * only one place a song says what it is called, so that is where it is named.
+ */
+describe('the song name in the header', () => {
+  it('shows what the song is called', () => {
+    render(<HeaderBar />)
+
+    expect(screen.getByText('Comeback Season')).toBeTruthy()
+    expect(screen.getByText('The Lowlifes')).toBeTruthy()
+  })
+
+  it('says so plainly when there is no artist', () => {
+    useSong.setState({ song: { ...loaded(), artist: '' } })
+    render(<HeaderBar />)
+
+    expect(screen.getByText('No artist')).toBeTruthy()
+  })
+
+  it('opens on the name, ready to type', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+
+    await open(user)
+
+    expect(value(screen.getByLabelText('Name'))).toBe('Comeback Season')
+    expect(document.activeElement).toBe(screen.getByLabelText('Name'))
+  })
+
+  it('keeps every character typed into the name', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+    await open(user)
+
+    const field = screen.getByLabelText('Name')
+    await user.clear(field)
+    await user.type(field, 'Coast Road')
+
+    expect(useSong.getState().song?.title).toBe('Coast Road')
+    expect(value(field)).toBe('Coast Road')
+  })
+
+  it('keeps every character typed into the artist', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+    await open(user)
+
+    const field = screen.getByLabelText('Artist')
+    await user.clear(field)
+    await user.type(field, 'Somebody Else')
+
+    expect(useSong.getState().song?.artist).toBe('Somebody Else')
+    expect(value(field)).toBe('Somebody Else')
+  })
+
+  it('shows the new name behind it as it is typed', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+    await open(user)
+
+    await user.type(screen.getByLabelText('Name'), '!')
+
+    expect(screen.getByText('Comeback Season!')).toBeTruthy()
+  })
+
+  it('closes on Escape', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+    await open(user)
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByLabelText('Name')).toBeNull()
+  })
+
+  it('offers nothing to rename when no song is loaded', () => {
+    useSong.setState({ song: null })
+    render(<HeaderBar />)
+
+    expect(screen.getByText('No song loaded')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Song name and artist' })).toBeNull()
+  })
+})

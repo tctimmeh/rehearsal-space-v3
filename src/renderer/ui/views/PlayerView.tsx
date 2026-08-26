@@ -68,7 +68,7 @@ export function PlayerView() {
         </div>
       </div>
 
-      {song === null ? null : <MixerDock song={song} />}
+      {song === null ? null : <MixerDock />}
     </>
   )
 }

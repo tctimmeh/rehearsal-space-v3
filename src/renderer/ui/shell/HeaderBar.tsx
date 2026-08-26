@@ -130,13 +130,88 @@ export function HeaderBar() {
         ) : null}
       </div>
 
-      <div className="song-id">
-        <div className="song-id__title">{song?.title ?? 'No song loaded'}</div>
-        <div className="song-id__artist">{song === null ? '' : song.artist || 'No artist'}</div>
-      </div>
+      <SongIdentity />
 
       <AppMenu />
     </header>
+  )
+}
+
+/**
+ * The song's name and artist, which are also where they are changed.
+ *
+ * They used to be fields in a view of their own. There is only one place a
+ * song says what it is called, so that is the place to rename it.
+ */
+function SongIdentity() {
+  const song = useSong((state) => state.song)
+  const update = useSong((state) => state.update)
+  const [open, setOpen] = useState(false)
+  const wrap = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!wrap.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  if (song === null) {
+    return (
+      <div className="song-id">
+        <div className="song-id__title">No song loaded</div>
+        <div className="song-id__artist" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="song-id song-id--editable" ref={wrap}>
+      <button
+        type="button"
+        className="song-id__face"
+        aria-label="Song name and artist"
+        aria-expanded={open}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+      >
+        <span className="song-id__title">{song.title}</span>
+        <span className="song-id__artist">{song.artist || 'No artist'}</span>
+      </button>
+
+      {open ? (
+        <div className="menu song-id__panel">
+          <label className="field">
+            <span>Name</span>
+            <input
+              className="well input"
+              aria-label="Name"
+              value={song.title}
+              autoFocus
+              onChange={(event) => void update({ title: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>Artist</span>
+            <input
+              className="well input"
+              aria-label="Artist"
+              value={song.artist}
+              placeholder="No artist"
+              onChange={(event) => void update({ artist: event.target.value })}
+            />
+          </label>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

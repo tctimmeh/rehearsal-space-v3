@@ -13,7 +13,6 @@ import { useJobs } from './state/jobs'
 import { DropTarget, HeaderBar, ScrubBar, ToastStack } from './ui/shell'
 import { LibraryView } from './ui/views/LibraryView'
 import { PlayerView } from './ui/views/PlayerView'
-import { SetupView } from './ui/views/SetupView'
 
 export function App() {
   const view = useView((state) => state.view)
@@ -37,7 +36,6 @@ export function App() {
       {error === null ? null : <ErrorBanner message={error} />}
       {view === 'library' ? <LibraryView /> : null}
       {view === 'player' ? <PlayerView /> : null}
-      {view === 'setup' ? <SetupView /> : null}
       <ToastStack />
       <DropTarget />
     </div>
