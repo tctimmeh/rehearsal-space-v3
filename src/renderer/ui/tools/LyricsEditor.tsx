@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 
 import { classifyLine, piecesOf } from '@core/lyrics/chords'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
-import { useLyrics } from '@renderer/state/lyrics'
+import { lendCursor, useLyrics } from '@renderer/state/lyrics'
 import { useSong } from '@renderer/state/song'
 import { Button } from '../primitives'
 
@@ -77,6 +77,26 @@ export function LyricsEditor() {
   }
 
   useEffect(follow, [text])
+
+  /* While the editor is open, anything that has a word to offer — the rhymes
+     drawer — can put it where the caret is. */
+  useEffect(
+    () =>
+      lendCursor((word) => {
+        const field = input.current
+        if (field === null) return
+        const current = useLyrics.getState().text
+        const at = field.selectionStart
+        const end = field.selectionEnd
+        edit(`${current.slice(0, at)}${word}${current.slice(end)}`)
+        requestAnimationFrame(() => {
+          field.focus()
+          field.selectionStart = at + word.length
+          field.selectionEnd = at + word.length
+        })
+      }),
+    [edit]
+  )
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== 'Tab') return

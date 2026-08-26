@@ -1,6 +1,7 @@
 import type { Song, SongSummary } from '@core/song/song'
 import type { AppConfig, Preferences } from './config'
 import type { SeparateRequest } from './stems'
+import type { RhymeLookup } from '@core/rhymes/rhymes'
 import type { Job } from './jobs'
 import type { ExternalTool, ToolStatus } from './tools'
 
@@ -58,6 +59,10 @@ export interface RehearsalApi {
     /** The queue is pushed from main whenever it changes. Returns an unsubscribe. */
     onChanged(handler: (jobs: Job[]) => void): () => void
   }
+  rhymes: {
+    /** Rhymes for a word, or the reason there are none. */
+    find(word: string): Promise<RhymeLookup>
+  }
   tools: {
     /** Cached for the session; pass true after installing something. */
     status(refresh?: boolean): Promise<ToolStatus[]>
@@ -88,6 +93,7 @@ export const IPC_CHANNELS = {
   libraryReadAudio: 'library:read-audio',
   libraryReadPeaks: 'library:read-peaks',
   libraryReadLyrics: 'library:read-lyrics',
+  rhymesFind: 'rhymes:find',
   libraryWriteLyrics: 'library:write-lyrics',
   libraryDownloadAudio: 'library:download-audio',
   librarySeparate: 'library:separate',

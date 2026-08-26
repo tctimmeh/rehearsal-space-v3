@@ -83,6 +83,30 @@ function cancelPending(): void {
 const message = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
+/**
+ * Where a word goes when something outside the editor offers one.
+ *
+ * The editor lends its cursor while it is open. Nothing else knows where the
+ * caret is, and a word appended to the end of the file instead would be worse
+ * than no word at all.
+ */
+let writeAtCursor: ((text: string) => void) | null = null
+
+export function lendCursor(write: (text: string) => void): () => void {
+  writeAtCursor = write
+  return () => {
+    if (writeAtCursor === write) writeAtCursor = null
+  }
+}
+
+export const editorIsOpen = (): boolean => writeAtCursor !== null
+
+export function insertIntoLyrics(text: string): boolean {
+  if (writeAtCursor === null) return false
+  writeAtCursor(text)
+  return true
+}
+
 /** Follows whichever song is loaded, saving the last one's words before leaving. */
 export function followSongForLyrics(): () => void {
   let current: string | null = null

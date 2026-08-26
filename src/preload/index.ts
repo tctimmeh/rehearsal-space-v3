@@ -48,6 +48,9 @@ const api: RehearsalApi = {
     addRecording: (songId, wav, startTime, name) =>
       ipcRenderer.invoke(IPC_CHANNELS.libraryAddRecording, songId, wav, startTime, name)
   },
+  rhymes: {
+    find: (word) => ipcRenderer.invoke(IPC_CHANNELS.rhymesFind, word)
+  },
   jobs: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.jobsList),
     log: (id) => ipcRenderer.invoke(IPC_CHANNELS.jobsLog, id),

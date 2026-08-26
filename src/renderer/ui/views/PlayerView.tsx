@@ -10,7 +10,7 @@ import { TunerGadget } from '../tools/TunerGadget'
 import { AlignTool } from '../tools/AlignTool'
 import { LyricsEditor } from '../tools/LyricsEditor'
 import { ChordChart } from '../tools/ChordChart'
-import { RhymesPlaceholder } from '../tools/StagePlaceholders'
+import { RhymesDrawer } from '../tools/RhymesDrawer'
 
 const renderGadget = (id: ToolId) => {
   switch (id) {
@@ -61,7 +61,7 @@ export function PlayerView() {
             )}
             {drawerTool === null ? null : (
               <Drawer title={TOOL_META[drawerTool].label} onClose={() => closeTool(drawerTool)}>
-                <RhymesPlaceholder />
+                <RhymesDrawer />
               </Drawer>
             )}
           </div>

@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } fr
 
 import { migrateSong } from '@core/song/migrate'
 import type { Preferences } from '../../shared/config'
+import { lookUpRhymes } from '../rhymes/datamuse'
 import { IPC_CHANNELS } from '../../shared/ipc'
 import type { SeparateRequest } from '../../shared/stems'
 import { isExternalTool } from '../../shared/tools'
@@ -128,6 +129,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.libraryReadPeaks, (_event, songId: string, channelId: string) =>
     readChannelPeaks(songId, channelId)
   )
+
+  ipcMain.handle(IPC_CHANNELS.rhymesFind, (_event, word: string) => lookUpRhymes(word))
 
   ipcMain.handle(IPC_CHANNELS.libraryReadLyrics, (_event, songId: string) => readLyrics(songId))
 
