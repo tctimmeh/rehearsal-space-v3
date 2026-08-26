@@ -1,8 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
-/** Enough for the longest thing any of these menus says. */
-const MENU_WIDTH = 214
 const GAP = 7
 const EDGE = 8
 
@@ -33,12 +31,18 @@ export function StripMenu({
   const button = useRef<HTMLButtonElement>(null)
   const list = useRef<HTMLDivElement>(null)
 
+  /*
+   * Measured after the list exists rather than assumed, so it can be as wide
+   * as its longest item and no wider. This runs before the frame is painted,
+   * so the list is never seen in the place it was first put.
+   */
   useLayoutEffect(() => {
     if (!open) return
     const rect = button.current?.getBoundingClientRect()
     if (rect === undefined) return
+    const width = list.current?.offsetWidth ?? 0
     setAt({
-      left: Math.min(rect.left, window.innerWidth - MENU_WIDTH - EDGE),
+      left: Math.max(EDGE, Math.min(rect.left, window.innerWidth - width - EDGE)),
       bottom: window.innerHeight - rect.top + GAP
     })
   }, [open])
@@ -88,7 +92,7 @@ export function StripMenu({
               ref={list}
               className="menu strip-menu__list"
               role="menu"
-              style={{ left: at.left, bottom: at.bottom, width: MENU_WIDTH }}
+              style={{ left: at.left, bottom: at.bottom }}
             >
               {children(() => setOpen(false))}
             </div>,

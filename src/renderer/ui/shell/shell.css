@@ -805,11 +805,17 @@
   position: relative;
   flex: none;
 }
-/* Placed by measurement, outside the strips, which scroll and would cut it. */
+/* Placed by measurement, outside the strips, which scroll and would cut it.
+   As wide as its longest item: these menus say short things. */
 .strip-menu__list {
   position: fixed;
   top: auto;
   right: auto;
+  width: max-content;
+  max-width: 280px;
+}
+.strip-menu__list .menu__item {
+  white-space: nowrap;
 }
 .strip__more {
   font-size: 12px;
