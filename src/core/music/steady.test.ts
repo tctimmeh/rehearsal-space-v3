@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { addReading, steadyHz } from './steady'
+import { addReading, glideHz, steadyHz } from './steady'
 
 const runOf = (...values: number[]) => values.reduce<number[]>(addReading, [])
 
@@ -29,5 +29,59 @@ describe('steadying a reading', () => {
 
   it('remembers only the recent past', () => {
     expect(runOf(1, 2, 3, 4, 5, 6, 7)).toEqual([3, 4, 5, 6, 7])
+  })
+})
+
+/**
+ * A plucked note is never quite still, and a needle that answers every flicker
+ * of it cannot be tuned against.
+ */
+describe('easing the needle', () => {
+  const cents = (from: number, to: number) => 1200 * Math.log2(to / from)
+
+  it('starts wherever the first reading is', () => {
+    expect(glideHz(null, 110)).toBe(110)
+  })
+
+  it('moves part of the way toward a reading, not all of it', () => {
+    const moved = glideHz(110, 111)
+
+    expect(moved).toBeGreaterThan(110)
+    expect(moved).toBeLessThan(111)
+  })
+
+  it('gets there in the end', () => {
+    let shown = 110
+    for (let reading = 0; reading < 40; reading += 1) shown = glideHz(shown, 111)
+
+    expect(cents(shown, 111)).toBeCloseTo(0, 1)
+  })
+
+  it('takes about half a second at the rate readings arrive', () => {
+    /* Twenty a second, so ten readings is half a second. */
+    let shown = 110
+    for (let reading = 0; reading < 10; reading += 1) shown = glideHz(shown, 112)
+
+    /* Within a couple of cents of a sixteen-cent move. */
+    expect(Math.abs(cents(shown, 112))).toBeLessThan(2)
+  })
+
+  it('smooths a wavering string more than it delays it', () => {
+    const wobble = [110, 110.4, 109.7, 110.3, 109.8, 110.2, 109.9]
+    let shown: number | null = null
+    const shownAt = wobble.map((reading) => (shown = glideHz(shown, reading)))
+
+    const spread = (values: number[]) => Math.max(...values) - Math.min(...values)
+    expect(spread(shownAt.slice(1))).toBeLessThan(spread(wobble) / 2)
+  })
+
+  it('goes at once when the string has been changed rather than wavered', () => {
+    /* A whole tone away is a different note, not a wobble. */
+    expect(glideHz(110, 123.47)).toBe(123.47)
+  })
+
+  it('never drifts the wrong way', () => {
+    expect(glideHz(110, 109)).toBeLessThan(110)
+    expect(glideHz(110, 111)).toBeGreaterThan(110)
   })
 })

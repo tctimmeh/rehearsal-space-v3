@@ -27,3 +27,34 @@ export function steadyHz(recent: readonly number[]): number | null {
   if (sorted.length % 2 === 1) return sorted[middle] as number
   return ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2
 }
+
+/**
+ * How far the shown pitch moves toward a new reading each time one arrives.
+ *
+ * Readings land twenty times a second, so a third of the way each time settles
+ * in about half a second — slow enough that a wavering string reads as one
+ * pitch, quick enough that turning a peg is followed rather than reported
+ * afterwards.
+ */
+const SETTLE = 0.3
+
+/** Beyond this the string has been changed, not merely wavered. */
+const JUMP_CENTS = 40
+
+/**
+ * Eases the shown pitch toward the reading rather than snapping to it.
+ *
+ * The middle reading throws out the wild ones; this smooths what is left,
+ * which is the string itself moving — a plucked note is never quite still, and
+ * a needle that answers every flicker of it cannot be tuned against.
+ *
+ * The easing is done in cents rather than in hertz, because a needle moves in
+ * cents: the same drift near the bottom of a bass is a fraction of the hertz
+ * it is at the top of a fiddle.
+ */
+export function glideHz(shown: number | null, target: number): number {
+  if (shown === null || shown <= 0 || target <= 0) return target
+  const distance = 1200 * Math.log2(target / shown)
+  if (Math.abs(distance) >= JUMP_CENTS) return target
+  return shown * 2 ** ((distance * SETTLE) / 1200)
+}

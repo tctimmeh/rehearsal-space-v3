@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 import { noteFromFrequency, type NoteReading } from '@core/music/note'
-import { addReading, steadyHz } from '@core/music/steady'
+import { addReading, glideHz, steadyHz } from '@core/music/steady'
 import { tuner } from '@renderer/audio/tuner'
 import { useConfig } from '@renderer/state/config'
 
@@ -43,6 +43,7 @@ export async function startListening(): Promise<void> {
   const config = useConfig.getState().config
   recent = []
   heardAt = 0
+  shown = null
   try {
     await tuner.start(config?.inputDeviceId ?? '', config?.inputChannel ?? 0)
     useTuner.setState({ status: 'listening' })
@@ -58,6 +59,8 @@ export function stopListening(): void {
 
 let recent: number[] = []
 let heardAt = 0
+/** What the needle is showing, which eases toward what is heard. */
+let shown: number | null = null
 
 export function followTuner(): () => void {
   return tuner.listen(({ frequency, level }) => {
@@ -67,9 +70,10 @@ export function followTuner(): () => void {
       recent = addReading(recent, frequency)
       heardAt = now
       const steady = steadyHz(recent)
+      if (steady !== null) shown = glideHz(shown, steady)
       useTuner.setState({
-        note: steady === null ? null : noteFromFrequency(steady),
-        frequency: steady,
+        note: shown === null ? null : noteFromFrequency(shown),
+        frequency: shown,
         fading: false,
         level
       })
@@ -77,7 +81,11 @@ export function followTuner(): () => void {
     }
 
     const gone = now - heardAt > HOLD_MS
-    if (gone) recent = []
+    if (gone) {
+      recent = []
+      /* A note that has died away is not where the next one starts from. */
+      shown = null
+    }
     useTuner.setState({
       level,
       fading: !gone && heardAt !== 0,

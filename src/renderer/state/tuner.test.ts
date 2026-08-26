@@ -99,8 +99,24 @@ describe('what it reports', () => {
     await startListening()
 
     for (const hz of [109.6, 110.4, 110, 109.8, 110.2]) service.hear(hz)
+    const easing = useTuner.getState().frequency as number
+    for (let reading = 0; reading < 25; reading += 1) service.hear(110)
 
+    /* It arrives, having taken its time rather than snapping about. */
     expect(useTuner.getState().frequency).toBeCloseTo(110, 1)
+    expect(Math.abs(easing - 110)).toBeGreaterThan(0)
+  })
+
+  it('does not answer every flicker of the string', async () => {
+    await startListening()
+    const shown: number[] = []
+    for (const hz of [110, 110.5, 109.5, 110.4, 109.6, 110.3]) {
+      service.hear(hz)
+      shown.push(useTuner.getState().frequency as number)
+    }
+
+    const spread = (values: number[]) => Math.max(...values) - Math.min(...values)
+    expect(spread(shown.slice(1))).toBeLessThan(spread([110, 110.5, 109.5, 110.4]) / 2)
   })
 
   it('is not thrown by one window that heard an octave up', async () => {
