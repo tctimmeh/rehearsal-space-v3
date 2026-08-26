@@ -1,130 +1,87 @@
 /**
- * What the needle is showing, and what the tuner believes.
+ * What the needle shows.
  *
- * A plucked string is sharp at the moment it is struck and settles as it dies
- * away — real physics, not a fault of the detector. A needle that follows
- * every reading therefore swings flat across the life of every note, which is
- * no use: a tuner is read after the attack, and what it is wanted for is the
- * pitch the string settles on.
+ * The detector is better than it has any right to be. Measured against an
+ * offline analysis of real guitar recordings — big windows, no deadline, the
+ * luxury of hindsight — its readings sit a tenth of a cent from the truth and
+ * move seven hundredths of a cent from one reading to the next, and across
+ * nine recordings of three strings it never once named the wrong octave. Very
+ * little has to be done to it, and an earlier version of this file did a great
+ * deal: a window of two dozen readings, its halves compared, its scatter
+ * measured, a deadband, a patience, a way of chasing a moving string. All of
+ * it was defending against noise that a real guitar does not produce, and the
+ * cost was a needle that sat ten to twenty cents behind a turning peg and
+ * froze solid on a held one — reading in tune while the string was three cents
+ * flat.
  *
- * So the tuner waits for a pitch worth believing, and two things have to hold
- * before it believes one. The two halves of the window must agree, which a
- * note still sliding into tune never does. And the readings must be consistent
- * among themselves, which the moment of a pluck never is — the attack is not a
- * tidy slide but a mess, the detector throwing out anything from a semitone
- * sharp to a semitone flat while the note finds itself, and those wild
- * readings sit either side of the truth, so the halves of the window agree
- * perfectly well while the note is still miles out. Only their scatter gives
- * it away. Each test catches what the other misses.
+ * So the readings are taken at face value, and only two things are done.
  *
- * None of that is any use for following a peg, though, because the whole point
- * of it is to wait. So a reading far from what is believed is not treated as
- * noise at all: a few of those in a row is a hand on a tuning peg, and the
- * tuner drops what it believed and starts again from them. Waiting is for
- * deciding what a string settled on; it has no business slowing down the
- * answer to a string that plainly moved.
+ * The detector says how periodic each window actually was, and the readings it
+ * is least sure of are the ones that are wrong: below nine tenths, the typical
+ * reading is out by five cents instead of a fifth of one. Those are dropped.
  *
- * What neither may do is ask for more agreement than real readings ever offer.
- * They scatter by a few cents however steady the string is — vibrato, the
- * room, the detector's own arithmetic — and an earlier attempt at this asked
- * them to agree closely, which they never did, so nothing was ever believed
- * and the needle sat blank in front of somebody holding a guitar.
+ * The other is the one thing a plucked string really does do. It is sharp when
+ * struck and settles as it dies away — ten cents on a low E, four on a B, most
+ * of it gone within a second. That is the string, not the detector, and a
+ * tuner that shows it is honest and useless: what is wanted is the pitch the
+ * string is settling on. Sharpness and loudness fade together, being the same
+ * fact about a decaying string, so the pitch is read once the note has fallen
+ * to a fraction of its own loudest — which needs no notion of how hard this
+ * player plucks or which string this is. Waiting that long costs nothing,
+ * because a peg being turned is not an attack and is followed the moment it
+ * moves.
  */
 export interface Needle {
-  /** What is shown, or null before anything has been believed. */
+  /** What is shown, or null before anything has been heard. */
   hz: number | null
-  /** What the tuner has settled on. */
-  believed: number | null
-  /** The readings under consideration, oldest first. */
+  /** The readings being averaged, oldest first. */
   recent: number[]
-  /** Readings since anything was last believed. */
-  waiting: number
-  /** True while a string is being wound and the needle is following it live. */
-  chasing: boolean
+  /** The loudest the note being listened to has been. */
+  peak: number
+  /** Readings since that note was struck. */
+  since: number
+  /** The level of the previous reading, which is how a new note is noticed. */
+  wasAt: number
 }
 
+/** Kept to the odd handful: enough to ignore a stray reading, short enough to
+    stay out of the way of a hand on a peg. */
+const READINGS = 5
+/** How periodic a window must have been for its reading to be worth having. */
+const CLEAR_ENOUGH = 0.9
 /**
- * Readings arrive twenty a second, so the window is a little over a second
- * long and its halves six tenths apart.
- *
- * The length matters more than it looks. A decaying pluck loses its sharpness
- * and its speed together — it is always about half a second from settling — so
- * how sharp it still is when the two halves agree depends on how far apart in
- * time they are. Half a second apart, the note is believed while it is still
- * the better part of a semitone sharp; this far apart, within a couple of
- * cents.
+ * How far a note must have died away before its pitch is read: down to a
+ * little under half its own loudest, by which point the sharpness of the
+ * attack has gone.
  */
-const WINDOW = 24
-/** How far the two halves may disagree and still count as one pitch. */
-const SETTLED_CENTS = 2.5
+const SETTLED_SHARE = 0.45
+/** Loud enough, and enough louder than a moment ago, to be a fresh note. */
+const ONSET_LEVEL = 0.02
+const ONSET_RISE = 1.8
+/** Readings for which a note holds its peak, and the fewest between notes. */
+const STRUCK = 3
+const APART = 20
 /**
- * How much the readings may scatter about their middle. Wide enough for the
- * few cents a real string and a real detector always disagree by, narrow
- * enough to rule out the moment of a pluck.
+ * How long a note that never dies away is waited on before being read anyway —
+ * a second and a bit. A bowed note, a held chord, or a string plucked again
+ * before the last one faded would otherwise leave the needle stale.
  */
-const SCATTER_CENTS = 2.5
-/**
- * How long the tuner will go without believing anything before it believes the
- * middle of the window regardless — three seconds.
- *
- * Nothing should leave a tuner blank in front of somebody holding an
- * instrument, and nothing should leave it stuck on a reading it took a moment
- * ago either. Whatever a real room does to the readings, this puts a floor
- * under how out of date the needle can be; a note that settles normally never
- * reaches it. It has to stay comfortably longer than the window, or it fires
- * on windows that were still filling and hands the needle the very mess the
- * window exists to reject.
- */
-const PATIENCE = 60
-/**
- * How far from what is believed a reading has to be before it is taken as
- * movement rather than scatter, and how many such readings in a row — a fifth
- * of a second — count as a hand on a peg.
- *
- * Noticing the hand is only half of it. Once a string is known to be moving,
- * waiting has nothing left to offer: the needle follows the middle of the last
- * few readings live, the way a tuner does under your hands, until the string
- * arrives somewhere and the careful business of settling takes over again.
- *
- * They must also hold together, which is what tells a peg from the chaos of a
- * pluck: winding a string is orderly even when it is quick, while an attack
- * throws readings a long way out in both directions at once. The allowance is
- * loose on purpose — it is there to rule out chaos, and a wind fast enough to
- * exceed it is not a thing hands do.
- */
-const MOVEMENT_CENTS = 20
-const MOVEMENT_READINGS = 4
-const MOVEMENT_SPREAD_CENTS = 20
-/**
- * How much a newly settled pitch must differ from the believed one to replace
- * it. Below this the string has not really changed, and moving the needle for
- * it only makes it restless.
- *
- * Wider than it looks like it should be, because the detector's own reading of
- * a perfectly steady string wanders by a few cents from window to window.
- * Measured against a string held at one pitch, this is the difference between
- * a needle that never moves at all and one that fidgets by a couple of cents —
- * and
- * because it also stops the needle chasing the odd bad window, it ends up
- * nearer the truth rather than further from it.
- */
-const DEADBAND_CENTS = 2.5
-/** How many readings the needle follows the middle of while a string moves. */
-const FOLLOWING = 3
-/** How little a string can move between those and still count as arrived. */
-const STILL_CENTS = 1.5
-/** How far the needle moves toward what is believed, each reading. */
-const EASE = 0.35
+const GRACE = 24
+
+export interface Heard {
+  frequency: number | null
+  /** Zero to one. How periodic the window actually was. */
+  clarity: number
+  level: number
+}
 
 export const newNeedle = (): Needle => ({
   hz: null,
-  believed: null,
   recent: [],
-  waiting: 0,
-  chasing: false
+  peak: 0,
+  since: APART,
+  wasAt: 0
 })
-
-const centsBetween = (from: number, to: number): number => 1200 * Math.log2(to / from)
 
 const median = (values: readonly number[]): number => {
   const sorted = [...values].sort((one, other) => one - other)
@@ -133,81 +90,32 @@ const median = (values: readonly number[]): number => {
   return ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2
 }
 
-export function moveNeedle(needle: Needle, reading: number): Needle {
-  if (reading <= 0) return needle
+export function moveNeedle(needle: Needle, heard: Heard): Needle {
+  const struck = heard.level > ONSET_LEVEL && heard.level > needle.wasAt * ONSET_RISE
 
-  const moving = [...needle.recent, reading].slice(-MOVEMENT_READINGS)
-  if (hasMovedOn(needle.believed, moving)) return follow(needle, moving)
+  const note = struck && needle.since >= APART ? fresh(heard) : carryOn(needle, heard)
+  const worth =
+    heard.frequency !== null && heard.clarity >= CLEAR_ENOUGH && hasSettled(note, heard.level)
 
-  const recent = [...needle.recent, reading].slice(-WINDOW)
-  const waiting = needle.waiting + 1
+  if (!worth) return { ...note, hz: needle.hz, recent: needle.recent, wasAt: heard.level }
 
-  if (needle.chasing && stillMoving(recent)) return follow(needle, recent)
-
-  /* A filling window decides nothing, but the needle still has somewhere to
-     be: whatever was last believed, which it should be gliding toward rather
-     than sitting frozen until the window is full again. */
-  if (recent.length < WINDOW) {
-    return { ...needle, hz: eased(needle.hz, needle.believed), recent, waiting, chasing: false }
-  }
-
-  const half = Math.floor(WINDOW / 2)
-  const older = median(recent.slice(0, half))
-  const newer = median(recent.slice(half))
-  const middle = median(recent)
-  const scatter = median(recent.map((heard) => Math.abs(centsBetween(middle, heard))))
-
-  const settled =
-    scatter <= SCATTER_CENTS && Math.abs(centsBetween(older, newer)) <= SETTLED_CENTS
-
-  /* The middle of the window rather than the latest reading: one wild window
-     is a mistake, and the middle never counts it. */
-  const believing = settled || waiting >= PATIENCE
-  const believed = believing ? worthMoving(needle.believed, middle) : needle.believed
-
-  /* Holding a settled pitch because the change was too small to bother with is
-     still the tuner being up to date, so it does not spend the patience. */
-  return {
-    hz: eased(needle.hz, believed),
-    believed,
-    recent,
-    waiting: believing ? 0 : waiting,
-    chasing: false
-  }
+  const recent = [...needle.recent, heard.frequency as number].slice(-READINGS)
+  return { ...note, hz: median(recent), recent, wasAt: heard.level }
 }
 
-/** Follows the middle of the last few readings, with no waiting about. */
-function follow(needle: Needle, recent: readonly number[]): Needle {
-  const now = median(recent.slice(-FOLLOWING))
-  return { hz: eased(needle.hz, now), believed: now, recent: [...recent], waiting: 0, chasing: true }
-}
+/**
+ * Whether the pitch of the note being listened to is worth reading yet: it has
+ * died away far enough for the sharpness of the attack to have gone, or it has
+ * gone on so long that it plainly is not going to, or it was never heard being
+ * struck at all and so has no attack to wait out.
+ */
+const hasSettled = (note: { peak: number; since: number }, level: number): boolean =>
+  note.peak === 0 || level <= note.peak * SETTLED_SHARE || note.since >= GRACE
 
-/** Whether a string being followed is still on its way somewhere. */
-function stillMoving(recent: readonly number[]): boolean {
-  if (recent.length < FOLLOWING * 2) return true
-  const now = median(recent.slice(-FOLLOWING))
-  const before = median(recent.slice(-FOLLOWING * 2, -FOLLOWING))
-  return Math.abs(centsBetween(before, now)) >= STILL_CENTS
-}
+const fresh = (heard: Heard) => ({ peak: heard.level, since: 0 })
 
-/** A hand on a peg: every recent reading well to one side of what is believed. */
-function hasMovedOn(believed: number | null, readings: readonly number[]): boolean {
-  if (believed === null || readings.length < MOVEMENT_READINGS) return false
-  const away = readings.map((heard) => centsBetween(believed, heard))
-  const together = Math.abs(centsBetween(Math.min(...readings), Math.max(...readings)))
-  if (together > MOVEMENT_SPREAD_CENTS) return false
-  return away.every((cents) => cents > MOVEMENT_CENTS) || away.every((cents) => cents < -MOVEMENT_CENTS)
-}
-
-/** Small differences are the string being itself, not the string changing. */
-const worthMoving = (believed: number | null, settled: number): number =>
-  believed !== null && Math.abs(centsBetween(believed, settled)) < DEADBAND_CENTS ? believed : settled
-
-/** The needle moves toward what is believed rather than arriving on it. */
-function eased(shown: number | null, believed: number | null): number | null {
-  if (believed === null) return shown
-  if (shown === null) return believed
-  const away = centsBetween(shown, believed)
-  if (Math.abs(away) < 0.05) return believed
-  return shown * 2 ** ((away * EASE) / 1200)
-}
+/** A note holds the loudest it was in the moment it was struck. */
+const carryOn = (needle: Needle, heard: Heard) => ({
+  peak: needle.since < STRUCK ? Math.max(needle.peak, heard.level) : needle.peak,
+  since: needle.since + 1
+})

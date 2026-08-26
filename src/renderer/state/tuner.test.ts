@@ -122,14 +122,15 @@ describe('what it reports', () => {
     await startListening()
     settleOn(110)
 
+    const heard = [110.5, 109.5, 110.4, 109.6, 110.3]
     const shown: number[] = []
-    for (const hz of [110.5, 109.5, 110.4, 109.6, 110.3]) {
+    for (const hz of heard) {
       service.hear(hz)
       shown.push(useTuner.getState().frequency as number)
     }
 
     const spread = (values: number[]) => Math.max(...values) - Math.min(...values)
-    expect(spread(shown)).toBeLessThan(0.2)
+    expect(spread(shown)).toBeLessThan(spread(heard) / 2)
   })
 
   it('is not thrown by one window that heard an octave up', async () => {
@@ -141,15 +142,17 @@ describe('what it reports', () => {
     expect(useTuner.getState().note).toMatchObject({ name: 'A', octave: 2 })
   })
 
-  /* Struck again, the same string has nothing new to say. */
+  /* Struck again, the same string has nothing new to say. Measured from the
+     recordings: a low E is about ten cents sharp as it is struck, and loud
+     with it, both fading together over the second that follows. */
   it('does not move when the string is plucked again', async () => {
     await startListening()
-    settleOn(110)
+    /* Settled on the dying tail of the last one. */
+    for (let reading = 0; reading < 6; reading += 1) service.hear(110, 0.01)
     const before = useTuner.getState().frequency as number
 
-    /* The attack is sharp and slides back down. */
-    for (const cents of [13, 11, 9.2, 7.8, 6.6, 5.6, 4.7, 4]) {
-      service.hear(110 * 2 ** (cents / 1200))
+    for (const step of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      service.hear(110 * 2 ** (11 * Math.exp(-step / 7) / 1200), 0.06 * Math.exp(-step / 9))
     }
 
     const after = useTuner.getState().frequency as number

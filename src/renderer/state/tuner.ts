@@ -61,12 +61,12 @@ let heardAt = 0
 let needle = newNeedle()
 
 export function followTuner(): () => void {
-  return tuner.listen(({ frequency, level }) => {
+  return tuner.listen(({ frequency, clarity, level }) => {
     const now = Date.now()
 
     if (frequency !== null) {
       heardAt = now
-      needle = moveNeedle(needle, frequency)
+      needle = moveNeedle(needle, { frequency, clarity, level })
       useTuner.setState({
         note: needle.hz === null ? null : noteFromFrequency(needle.hz),
         frequency: needle.hz,
