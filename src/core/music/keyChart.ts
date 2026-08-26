@@ -1,6 +1,6 @@
 import { Key, Note } from 'tonal'
 
-import { writableChord } from './spelling'
+import { writableChord, writableNote } from './spelling'
 
 export type Mode = 'major' | 'minor'
 
@@ -100,18 +100,7 @@ export function keyChart(tonic: string, mode: Mode): KeyChart {
     (candidate) => !diatonic.some((held) => samePitch(held.triad, candidate.triad))
   )
 
-  const dominants =
-    mode === 'major'
-      ? [...major.secondaryDominants].map((chord, index) => ({
-          chord: chord === '' ? '' : writableChord(chord),
-          degree: major.grades[index] ?? '',
-          leadsTo: writableChord(major.triads[index] ?? '')
-        }))
-      : [...minor.natural.triads].map((leadsTo, index) => ({
-          chord: '',
-          degree: minor.natural.grades[index] ?? '',
-          leadsTo: writableChord(leadsTo)
-        }))
+  const dominants = leadingChords(diatonic)
 
   return {
     tonic,
@@ -124,7 +113,7 @@ export function keyChart(tonic: string, mode: Mode): KeyChart {
     parallel: { tonic, mode: mode === 'major' ? 'minor' : 'major' },
     diatonic,
     borrowed,
-    secondaryDominants: dominants.filter((entry) => entry.chord !== ''),
+    secondaryDominants: dominants,
     fromHarmonicMinor:
       mode === 'minor'
         ? harmonicEntries(tonic).filter(
@@ -133,6 +122,38 @@ export function keyChart(tonic: string, mode: Mode): KeyChart {
         : []
   }
 }
+
+/**
+ * The chord that leads to each degree, as though that degree were home.
+ *
+ * The dominant seventh a fifth above it — the one thing outside a key that
+ * songs reach for more than any other. Two degrees are left out: a diminished
+ * chord is no home to arrive at, and the tonic's own dominant is the key's
+ * dominant rather than a chord borrowed to reach anywhere.
+ *
+ * A dominant that happens to be diatonic is kept, because it still leads:
+ * G7 belongs to A minor and going to C is exactly what it does.
+ *
+ * Worked out rather than looked up, because a minor key needs these more than
+ * a major one does and the library only offers them for major.
+ */
+function leadingChords(
+  diatonic: ChordEntry[]
+): { degree: string; chord: string; leadsTo: string }[] {
+  return diatonic.flatMap((entry, degree) => {
+    if (degree === 0) return []
+    if (/dim|o$|m7b5/.test(entry.triad)) return []
+    const root = ROOT_OF.exec(entry.triad)?.[1]
+    if (root === undefined) return []
+
+    const fifthAbove = Note.transpose(root, '5P')
+    if (fifthAbove === '') return []
+
+    return [{ degree: entry.degree, chord: `${writableNote(fifthAbove)}7`, leadsTo: entry.triad }]
+  })
+}
+
+const ROOT_OF = /^([A-G](?:#{1,2}|b{1,2})?)/
 
 const PITCHES = 12
 

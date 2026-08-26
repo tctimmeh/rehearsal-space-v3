@@ -111,6 +111,34 @@ describe('the chart', () => {
     )
   })
 
+  it('offers what leads to each degree in a minor key, not an empty heading', () => {
+    useSong.setState({ song: inKey('A', 'minor') })
+    render(<ChordChart />)
+
+    expect(chipsUnder(/Leading to each degree/)).toEqual(
+      expect.arrayContaining(['G7 → C', 'A7 → Dm', 'C7 → F'])
+    )
+  })
+
+  it('shows no group with nothing under it, in any key', () => {
+    for (const [tonic, mode] of [
+      ['C', 'major'],
+      ['A', 'minor'],
+      ['E♭', 'major'],
+      ['F♯', 'minor']
+    ] as const) {
+      cleanup()
+      useSong.setState({ song: inKey(tonic.replace('♭', 'b').replace('♯', '#'), mode) })
+      render(<ChordChart />)
+
+      for (const heading of document.querySelectorAll('.chart__group-name')) {
+        const group = heading.parentElement as HTMLElement
+        expect(group.querySelectorAll('.chart__chip').length, heading.textContent ?? '')
+          .toBeGreaterThan(0)
+      }
+    }
+  })
+
   it('offers what harmonic minor adds, but only in a minor key', () => {
     render(<ChordChart />)
     expect(screen.queryByRole('heading', { name: /harmonic minor/i })).toBeNull()

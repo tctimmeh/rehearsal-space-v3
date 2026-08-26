@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
+import { Key } from 'tonal'
+
 import { describeSignature, keyChart, tonicsFor } from './keyChart'
+import { writableChord } from './spelling'
 
 const triadsOf = (tonic: string, mode: 'major' | 'minor') =>
   keyChart(tonic, mode).diatonic.map((entry) => entry.triad)
@@ -204,5 +207,76 @@ describe('spelling that agrees with the editor', () => {
         }
       }
     }
+  })
+})
+
+/**
+ * These were empty in every minor key: the branch that should have worked them
+ * out set each one to nothing and then filtered the nothings away.
+ */
+describe('what leads to each degree of a minor key', () => {
+  it('offers them at all', () => {
+    expect(keyChart('A', 'minor').secondaryDominants.length).toBeGreaterThan(0)
+  })
+
+  it('gives the dominant a fifth above each degree', () => {
+    const leading = keyChart('A', 'minor').secondaryDominants
+    expect(leading.find((entry) => entry.leadsTo === 'Dm')?.chord).toBe('A7')
+    expect(leading.find((entry) => entry.leadsTo === 'C')?.chord).toBe('G7')
+    expect(leading.find((entry) => entry.leadsTo === 'F')?.chord).toBe('C7')
+  })
+
+  it('leaves out the one that leads home, which the key already answers for', () => {
+    /* E7 to Am is the key's own dominant, and is offered as what harmonic
+       minor adds rather than as a chord borrowed to reach somewhere. */
+    const chart = keyChart('A', 'minor')
+    expect(chart.secondaryDominants.some((entry) => entry.leadsTo === 'Am')).toBe(false)
+    expect(chart.fromHarmonicMinor.map((entry) => entry.seventh)).toContain('E7')
+  })
+
+  it('keeps a dominant that happens to belong to the key, since it still leads', () => {
+    /* G7 is the bVII of A minor, and going to C is exactly what it does. */
+    expect(
+      keyChart('A', 'minor').secondaryDominants.find((entry) => entry.leadsTo === 'C')?.chord
+    ).toBe('G7')
+  })
+
+  it('leaves out the diminished degree, which is no home to arrive at', () => {
+    const leading = keyChart('A', 'minor').secondaryDominants
+    expect(leading.some((entry) => entry.leadsTo.includes('dim'))).toBe(false)
+  })
+
+  it('works in a flat minor key too', () => {
+    const leading = keyChart('C', 'minor').secondaryDominants
+    expect(leading.find((entry) => entry.leadsTo === 'Eb')?.chord).toBe('Bb7')
+    expect(leading.find((entry) => entry.leadsTo === 'Fm')?.chord).toBe('C7')
+    expect(leading.find((entry) => entry.leadsTo === 'Ab')?.chord).toBe('Eb7')
+  })
+
+  it('is never empty, in any key the app offers', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      for (const tonic of tonicsFor(mode)) {
+        expect(keyChart(tonic, mode).secondaryDominants.length, `${tonic} ${mode}`)
+          .toBeGreaterThan(0)
+      }
+    }
+  })
+})
+
+describe('the same reckoning in a major key', () => {
+  it('agrees with the library, which offers these for major only', () => {
+    for (const tonic of tonicsFor('major')) {
+      const mine = keyChart(tonic, 'major').secondaryDominants.map((entry) => entry.chord)
+      const theirs = [...Key.majorKey(tonic).secondaryDominants]
+        .filter((chord) => chord !== '')
+        .map(writableChord)
+      expect(mine, tonic).toEqual(theirs)
+    }
+  })
+
+  it('leaves out the dominant the key already contains', () => {
+    /* G7 is the V of C major; it is not also a chord borrowed to reach C. */
+    const leading = keyChart('C', 'major').secondaryDominants
+    expect(leading.some((entry) => entry.leadsTo === 'C')).toBe(false)
   })
 })

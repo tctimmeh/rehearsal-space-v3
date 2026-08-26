@@ -84,18 +84,20 @@ export function ChordChart() {
           />
         )}
 
-        <div className="chart__group">
-          <h4 className="chart__group-name">Leading to each degree</h4>
-          <p className="chart__group-note">the dominant of each chord, borrowed for a bar</p>
-          <div className="chart__chips">
-            {chart.secondaryDominants.map((entry) => (
-              <span key={entry.chord} className="raised chart__chip">
-                {prettyChord(entry.chord)}
-                <span className="chart__chip-note">→ {prettyChord(entry.leadsTo)}</span>
-              </span>
-            ))}
+        {chart.secondaryDominants.length === 0 ? null : (
+          <div className="chart__group">
+            <h4 className="chart__group-name">Leading to each degree</h4>
+            <p className="chart__group-note">the dominant of each chord, borrowed for a bar</p>
+            <div className="chart__chips">
+              {chart.secondaryDominants.map((entry) => (
+                <span key={entry.chord} className="raised chart__chip">
+                  {prettyChord(entry.chord)}
+                  <span className="chart__chip-note">→ {prettyChord(entry.leadsTo)}</span>
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
