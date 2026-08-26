@@ -1,100 +1,88 @@
 import { describe, expect, it } from 'vitest'
 
-import { addReading, glideHz, steadyHz } from './steady'
-
-const runOf = (...values: number[]) => values.reduce<number[]>(addReading, [])
-
-describe('steadying a reading', () => {
-  it('says nothing before anything has been heard', () => {
-    expect(steadyHz([])).toBeNull()
-  })
-
-  it('answers with the one reading there is', () => {
-    expect(steadyHz(runOf(110))).toBe(110)
-  })
-
-  it('settles a wavering string', () => {
-    expect(steadyHz(runOf(109.8, 110.1, 110, 109.9, 110.2))).toBeCloseTo(110, 6)
-  })
-
-  it('ignores a window that heard an octave up', () => {
-    /* An average would land near 154, which is not a note anybody played. */
-    expect(steadyHz(runOf(110, 110, 220, 110, 110))).toBe(110)
-  })
-
-  it('follows a peg being turned rather than holding on to the old pitch', () => {
-    const turning = runOf(110, 111, 113, 116, 119, 122, 125)
-    expect(steadyHz(turning)).toBeGreaterThan(115)
-  })
-
-  it('remembers only the recent past', () => {
-    expect(runOf(1, 2, 3, 4, 5, 6, 7)).toEqual([3, 4, 5, 6, 7])
-  })
-})
+import { moveNeedle, newNeedle } from './steady'
 
 /**
- * A plucked note is never quite still, and a needle that answers every flicker
- * of it cannot be tuned against.
+ * A plucked string is sharp at the moment it is struck and settles as it dies
+ * away. A needle that follows every reading swings flat across the life of
+ * every note; what a tuner wants is the pitch the string settles on.
  */
-describe('easing the needle', () => {
-  const cents = (from: number, to: number) => 1200 * Math.log2(to / from)
+describe('the needle', () => {
+  const centsApart = (from: number, to: number) => 1200 * Math.log2(to / from)
+  const at = (cents: number) => 110 * 2 ** (cents / 1200)
 
-  it('starts wherever the first reading is', () => {
-    expect(glideHz(null, 110)).toBe(110)
+  const feed = (readings: number[], from = newNeedle()) =>
+    readings.reduce((needle, reading) => moveNeedle(needle, reading), from)
+
+  const settled = (readings: number[]) => feed(readings)
+
+  it('shows nothing until a pitch has held still', () => {
+    expect(moveNeedle(newNeedle(), 110).hz).toBeNull()
+    expect(feed(Array(8).fill(110)).hz).toBeNull()
   })
 
-  it('moves part of the way toward a reading, not all of it', () => {
-    const moved = glideHz(110, 111)
-
-    expect(moved).toBeGreaterThan(110)
-    expect(moved).toBeLessThan(111)
+  it('shows a pitch once it has', () => {
+    expect(feed(Array(10).fill(110)).hz).toBeCloseTo(110, 4)
   })
 
-  it('gets there in the end', () => {
-    let shown = 110
-    for (let reading = 0; reading < 60; reading += 1) shown = glideHz(shown, 111)
-
-    expect(cents(shown, 111)).toBeCloseTo(0, 1)
+  /* The pitch is sliding through the attack, so no run of readings settles. */
+  it('stays blank through the slide of a pluck', () => {
+    const attack = [14, 12, 10.4, 8.9, 7.6, 6.5, 5.6, 4.8, 4.1, 3.5, 3].map(at)
+    expect(feed(attack).hz).toBeNull()
   })
 
-  it('follows a peg being turned inside a second and a half', () => {
-    /* Readings arrive twenty a second, so thirty of them is a second and a
-       half, and 110 to 112 is a move of about thirty cents. */
-    let shown = 110
-    for (let reading = 0; reading < 30; reading += 1) shown = glideHz(shown, 112)
+  it('settles on where the string ended up, not where it started', () => {
+    const slide = [14, 12, 10.4, 8.9, 7.6, 6.5, 5.6, 4.8, 4.1, 3.5, 3, 2.6].map(at)
+    const needle = feed([...slide, ...Array(16).fill(at(0.2))])
 
-    expect(Math.abs(cents(shown, 112))).toBeLessThan(1)
+    expect(needle.hz).not.toBeNull()
+    expect(Math.abs(centsApart(110, needle.hz as number))).toBeLessThan(2)
   })
 
-  it('is most of the way there after a second', () => {
-    let shown = 110
-    for (let reading = 0; reading < 20; reading += 1) shown = glideHz(shown, 112)
+  /* The whole point: the same string struck again says nothing new. */
+  it('does not move when the string is plucked again', () => {
+    const holding = feed(Array(12).fill(110))
+    const before = holding.hz as number
 
-    expect(Math.abs(cents(shown, 112))).toBeLessThan(3)
+    const reattack = [13, 11, 9.2, 7.8, 6.6, 5.6, 4.7, 4].map(at)
+    const after = feed(reattack, holding).hz as number
+
+    expect(Math.abs(centsApart(before, after))).toBeLessThan(1)
   })
 
-  it('is still well short after one reading, which is the point of it', () => {
-    const moved = glideHz(110, 112)
+  it('follows a peg once the new pitch has held still', () => {
+    const holding = feed(Array(12).fill(110))
+    /* Ten readings to believe it, then a few more to arrive: about a second. */
+    const turned = feed(Array(20).fill(at(25)), holding)
 
-    expect(Math.abs(cents(moved, 112))).toBeGreaterThan(10)
+    expect(Math.abs(centsApart(at(25), turned.hz as number))).toBeLessThan(1)
   })
 
-  it('smooths a wavering string more than it delays it', () => {
-    const wobble = [110, 110.4, 109.7, 110.3, 109.8, 110.2, 109.9]
-    let shown: number | null = null
-    const shownAt = wobble.map((reading) => (shown = glideHz(shown, reading)))
+  it('takes another string the same way, once it has held still', () => {
+    const holding = feed(Array(12).fill(110))
 
-    const spread = (values: number[]) => Math.max(...values) - Math.min(...values)
-    expect(spread(shownAt.slice(1))).toBeLessThan(spread(wobble) / 2)
+    expect(moveNeedle(holding, 146.83).hz).toBeCloseTo(110, 4)
+    /* Within a cent of the new string, having taken about a second. */
+    const moved = feed(Array(24).fill(146.83), holding).hz as number
+    expect(Math.abs(centsApart(146.83, moved))).toBeLessThan(1)
   })
 
-  it('goes at once when the string has been changed rather than wavered', () => {
-    /* A whole tone away is a different note, not a wobble. */
-    expect(glideHz(110, 123.47)).toBe(123.47)
+  /* One window hearing an octave is a mistake, not a new string. */
+  it('is not moved by a single wild reading', () => {
+    const holding = feed(Array(12).fill(110))
+
+    const after = feed([220, 110, 110], holding)
+
+    expect(after.hz).toBeCloseTo(110, 4)
   })
 
-  it('never drifts the wrong way', () => {
-    expect(glideHz(110, 109)).toBeLessThan(110)
-    expect(glideHz(110, 111)).toBeGreaterThan(110)
+  it('eases across a waver rather than answering it', () => {
+    const holding = feed(Array(12).fill(110))
+    const shown = [110.15, 109.85, 110.1, 109.9].map((reading) => {
+      const next = moveNeedle(holding, reading)
+      return next.hz as number
+    })
+
+    for (const value of shown) expect(Math.abs(centsApart(110, value))).toBeLessThan(1)
   })
 })

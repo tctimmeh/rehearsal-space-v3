@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 import { noteFromFrequency, type NoteReading } from '@core/music/note'
-import { addReading, glideHz, steadyHz } from '@core/music/steady'
+import { moveNeedle, newNeedle } from '@core/music/steady'
 import { tuner } from '@renderer/audio/tuner'
 import { useConfig } from '@renderer/state/config'
 
@@ -41,9 +41,8 @@ export const useTuner = create<TunerState>(() => ({
  */
 export async function startListening(): Promise<void> {
   const config = useConfig.getState().config
-  recent = []
   heardAt = 0
-  shown = null
+  needle = newNeedle()
   try {
     await tuner.start(config?.inputDeviceId ?? '', config?.inputChannel ?? 0)
     useTuner.setState({ status: 'listening' })
@@ -57,23 +56,20 @@ export function stopListening(): void {
   useTuner.setState({ status: 'off', note: null, frequency: null, fading: false, level: 0 })
 }
 
-let recent: number[] = []
 let heardAt = 0
-/** What the needle is showing, which eases toward what is heard. */
-let shown: number | null = null
+/** What the needle is showing, and what it is thinking of showing instead. */
+let needle = newNeedle()
 
 export function followTuner(): () => void {
   return tuner.listen(({ frequency, level }) => {
     const now = Date.now()
 
     if (frequency !== null) {
-      recent = addReading(recent, frequency)
       heardAt = now
-      const steady = steadyHz(recent)
-      if (steady !== null) shown = glideHz(shown, steady)
+      needle = moveNeedle(needle, frequency)
       useTuner.setState({
-        note: shown === null ? null : noteFromFrequency(shown),
-        frequency: shown,
+        note: needle.hz === null ? null : noteFromFrequency(needle.hz),
+        frequency: needle.hz,
         fading: false,
         level
       })
@@ -81,11 +77,8 @@ export function followTuner(): () => void {
     }
 
     const gone = now - heardAt > HOLD_MS
-    if (gone) {
-      recent = []
-      /* A note that has died away is not where the next one starts from. */
-      shown = null
-    }
+    /* A note that has died away is not where the next one starts from. */
+    if (gone) needle = newNeedle()
     useTuner.setState({
       level,
       fading: !gone && heardAt !== 0,
