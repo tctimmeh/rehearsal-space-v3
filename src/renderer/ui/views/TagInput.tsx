@@ -37,12 +37,24 @@ export function TagInput({
     field.current?.focus()
   }, [])
 
+  /*
+   * Below the field if it fits, above it if not. A song at the foot of the
+   * window had its suggestions drawn past the bottom edge, where they could be
+   * seen but not reached.
+   *
+   * Measured after the list exists, and before the frame is painted, so it is
+   * never seen in the place it was first put.
+   */
   useLayoutEffect(() => {
     const rect = field.current?.getBoundingClientRect()
     if (rect === undefined) return
+    const height = list.current?.offsetHeight ?? 0
+    const fitsBelow = rect.bottom + GAP + height + EDGE <= window.innerHeight
+    const top = fitsBelow ? rect.bottom + GAP : rect.top - GAP - height
+
     setAt({
-      left: Math.min(rect.left, window.innerWidth - LIST_WIDTH - EDGE),
-      top: rect.bottom + GAP
+      left: Math.max(EDGE, Math.min(rect.left, window.innerWidth - LIST_WIDTH - EDGE)),
+      top: Math.max(EDGE, top)
     })
   }, [offered.length])
 
