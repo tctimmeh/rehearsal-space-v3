@@ -65,7 +65,7 @@ describe('the settings knobs', () => {
     render(<SettingsModal onDismiss={() => undefined} />)
 
     expect(document.querySelectorAll('.setting-note')).toHaveLength(1)
-    expect(screen.getByText(/Wheel in the alignment tool/)).toBeTruthy()
+    expect(screen.getByText(/Mouse wheel sensitivity/)).toBeTruthy()
   })
 
   it('shows each setting on a knob, reading what it is set to', () => {

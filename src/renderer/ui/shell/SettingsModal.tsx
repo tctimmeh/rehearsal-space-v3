@@ -66,7 +66,7 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
 
       <section className="setting-section">
         <div className="section-head">
-          <h4>Wheel in the alignment tool</h4>
+          <h4>Mouse wheel sensitivity</h4>
         </div>
         <div className="setting-row setting-row--knobs">
           <Knob
