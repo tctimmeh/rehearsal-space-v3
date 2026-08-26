@@ -3,10 +3,13 @@ import { join } from 'node:path'
 import { app } from 'electron'
 
 import {
+  PAN_SPEED_DEFAULT,
   PAN_SPEED_MAX,
   PAN_SPEED_MIN,
+  UI_SCALE_DEFAULT,
   UI_SCALE_MAX,
   UI_SCALE_MIN,
+  ZOOM_SPEED_DEFAULT,
   ZOOM_SPEED_MAX,
   ZOOM_SPEED_MIN,
   type AppConfig
@@ -28,12 +31,10 @@ const configPath = (): string => join(app.getPath('userData'), 'config.json')
 export const defaultConfig = (): AppConfig => ({
   libraryPath: join(app.getPath('music'), 'Rehearsal Space'),
   lastSongId: null,
-  uiScale: 1.2,
+  uiScale: UI_SCALE_DEFAULT,
   showCents: false,
-  /* A tenth of the window per notch, and about 11% closer or wider. Settled
-     by using it. */
-  panSpeed: 0.1,
-  zoomSpeed: 0.15,
+  panSpeed: PAN_SPEED_DEFAULT,
+  zoomSpeed: ZOOM_SPEED_DEFAULT,
   inputDeviceId: '',
   inputChannel: 0,
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
