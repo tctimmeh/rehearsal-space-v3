@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NumberField } from './NumberField'
+import { installPointerCapture } from '@renderer/testing/pointer'
 
 const show = (props: Partial<Parameters<typeof NumberField>[0]> = {}) => {
   const onChange = vi.fn()
   render(<NumberField label="Beats" value={4} min={1} max={16} onChange={onChange} {...props} />)
   return onChange
 }
+
+beforeEach(installPointerCapture)
 
 afterEach(() => {
   cleanup()

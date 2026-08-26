@@ -8,6 +8,7 @@ import { useConfig } from '@renderer/state/config'
 import { useMetronome } from '@renderer/state/metronome'
 import { installBridge } from '@renderer/testing/bridge'
 import { MetronomeGadget } from './MetronomeGadget'
+import { installPointerCapture } from '@renderer/testing/pointer'
 
 const clock = vi.hoisted(() => ({ currentTime: 0 }))
 
@@ -38,6 +39,7 @@ const config = (metronome: Partial<AppConfig['metronome']> = {}): AppConfig => (
 })
 
 beforeEach(() => {
+  installPointerCapture()
   installBridge()
   clock.currentTime = 0
   useMetronome.setState({ tapping: 0 })

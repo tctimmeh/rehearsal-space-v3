@@ -8,6 +8,7 @@ import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
 import { installBridge } from '@renderer/testing/bridge'
 import { AlignTool } from './AlignTool'
+import { installPointerCapture } from '@renderer/testing/pointer'
 
 vi.mock('./usePeaks', () => ({ usePeaks: () => null }))
 
@@ -126,8 +127,7 @@ describe('moving the playhead', () => {
 
   beforeEach(() => {
     /* jsdom has neither pointer capture nor layout. */
-    HTMLElement.prototype.setPointerCapture = vi.fn()
-    HTMLElement.prototype.releasePointerCapture = vi.fn()
+    installPointerCapture()
     /* The strip has no width in jsdom, so it is given one. */
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       left: 0,

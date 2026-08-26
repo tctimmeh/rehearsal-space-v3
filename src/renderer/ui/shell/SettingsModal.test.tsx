@@ -14,6 +14,7 @@ import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { installBridge } from '@renderer/testing/bridge'
 import { SettingsModal } from './SettingsModal'
+import { installPointerCapture } from '@renderer/testing/pointer'
 
 const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   libraryPath: '/songs',
@@ -31,6 +32,7 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
 const kept: Record<string, unknown>[] = []
 
 beforeEach(() => {
+  installPointerCapture()
   installBridge()
   kept.length = 0
   useSong.setState({ songs: [], song: null })
