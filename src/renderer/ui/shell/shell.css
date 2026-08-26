@@ -725,6 +725,10 @@
 .setting-row--tight {
   margin-top: 8px;
 }
+/* Two knobs of the same kind, side by side and evenly spread. */
+.setting-row--knobs {
+  gap: 22px;
+}
 .meters {
   flex: 1;
   min-width: 0;

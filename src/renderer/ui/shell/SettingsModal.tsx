@@ -43,7 +43,6 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
   return (
     <Modal
       title="Settings"
-      size="wide"
       onDismiss={onDismiss}
       footer={<Button onClick={onDismiss}>Done</Button>}
     >
@@ -62,16 +61,14 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
             onChange={turn('uiScale')}
             format={percent}
           />
-          <span className="setting-note">Everything scales together</span>
         </div>
       </section>
 
       <section className="setting-section">
         <div className="section-head">
-          <h4>Wheel</h4>
-          <span className="setting-note">In the alignment tool</span>
+          <h4>Wheel in the alignment tool</h4>
         </div>
-        <div className="setting-row">
+        <div className="setting-row setting-row--knobs">
           <Knob
             label="Pan"
             value={config.panSpeed}
@@ -82,9 +79,6 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
             onChange={turn('panSpeed')}
             format={percent}
           />
-          <span className="setting-note">of the window per notch, holding shift</span>
-        </div>
-        <div className="setting-row setting-row--tight">
           <Knob
             label="Zoom"
             value={config.zoomSpeed}
@@ -95,9 +89,6 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
             onChange={turn('zoomSpeed')}
             format={percent}
           />
-          <span className="setting-note">
-            {`${Math.round((2 ** config.zoomSpeed - 1) * 100)}% closer or wider per notch`}
-          </span>
         </div>
       </section>
 

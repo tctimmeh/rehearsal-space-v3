@@ -54,6 +54,20 @@ const knob = (name: string) => screen.getByRole('slider', { name })
 
 /** The same control as the tempo and pitch knobs in the header. */
 describe('the settings knobs', () => {
+  it('puts the two wheel settings side by side', () => {
+    render(<SettingsModal onDismiss={() => undefined} />)
+    const row = knob('Pan').closest('.setting-row')
+
+    expect(row?.contains(knob('Zoom'))).toBe(true)
+  })
+
+  it('says what each knob is for without a line of prose beside it', () => {
+    render(<SettingsModal onDismiss={() => undefined} />)
+
+    expect(document.querySelectorAll('.setting-note')).toHaveLength(1)
+    expect(screen.getByText(/Wheel in the alignment tool/)).toBeTruthy()
+  })
+
   it('shows each setting on a knob, reading what it is set to', () => {
     render(<SettingsModal onDismiss={() => undefined} />)
 
@@ -62,20 +76,25 @@ describe('the settings knobs', () => {
     expect(knob('Zoom').getAttribute('aria-valuetext')).toBe('15%')
   })
 
-  it('turns with the wheel, a step at a time', () => {
+  it('moves one point of what it reads per notch of the wheel', () => {
     render(<SettingsModal onDismiss={() => undefined} />)
 
     fireEvent.wheel(knob('Size'), { deltaY: -100 })
 
-    expect(useConfig.getState().config?.uiScale).toBeCloseTo(1.25, 3)
+    expect(knob('Size').getAttribute('aria-valuetext')).toBe('121%')
   })
 
-  it('turns the other way too', () => {
+  it('moves one point the other way too, on every knob here', () => {
     render(<SettingsModal onDismiss={() => undefined} />)
 
-    fireEvent.wheel(knob('Zoom'), { deltaY: 100 })
-
-    expect(useConfig.getState().config?.zoomSpeed).toBeCloseTo(0.1, 3)
+    for (const [name, was] of [
+      ['Size', '119%'],
+      ['Pan', '9%'],
+      ['Zoom', '14%']
+    ] as const) {
+      fireEvent.wheel(knob(name), { deltaY: 100 })
+      expect(knob(name).getAttribute('aria-valuetext')).toBe(was)
+    }
   })
 
   it('goes no further than the setting allows', () => {
