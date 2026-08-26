@@ -1,4 +1,5 @@
 import { isToolId, type ToolId } from '../tools'
+import { parseTags } from './tags'
 import { CHANNEL_SUBJECTS, type ChannelSubject } from './channelSubject'
 import {
   METRONOME_SAMPLES,
@@ -203,6 +204,7 @@ export function migrateSong(raw: unknown, id: string): Song {
       pitch: parsePitch(playback['pitch'])
     },
     key: parseKey(raw['key'], defaults.key),
+    tags: parseTags(raw['tags']),
     openTools: openTools.filter((tool): tool is ToolId => isToolId(tool))
   }
 }

@@ -1,27 +1,39 @@
 import { useMemo, useState } from 'react'
 
-import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import type { SongSummary } from '@core/song/song'
+import { addTag, knownTags, matchesTags, removeTag } from '@core/song/tags'
 import { useSong } from '@renderer/state/song'
 import { useView } from '@renderer/state/view'
-import { SubjectIcon } from '../icons/subjectIcons'
 import { Button, Modal } from '../primitives'
+import { TagInput } from './TagInput'
 
 type SortKey = 'title' | 'artist'
 
 export function LibraryView() {
-  const { songs, song, create, load, remove } = useSong()
+  const { songs, song, create, load, remove, tagSong } = useSong()
   const setView = useView((state) => state.setView)
   const [sort, setSort] = useState<SortKey>('title')
   /* An id, so the dialog cannot show a title that has since changed. */
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  /* Which song is having a tag typed into it, and what is being filtered by. */
+  const [taggingId, setTaggingId] = useState<string | null>(null)
+  const [filter, setFilter] = useState<string[]>([])
 
-  const sorted = useMemo(() => {
+  const known = useMemo(() => knownTags(songs), [songs])
+
+  const shown = useMemo(() => {
     const byTitle = (a: SongSummary, b: SongSummary) => a.title.localeCompare(b.title)
-    return [...songs].sort((a, b) =>
-      sort === 'title' ? byTitle(a, b) : a.artist.localeCompare(b.artist) || byTitle(a, b)
+    return [...songs]
+      .filter((entry) => matchesTags(entry.tags, filter))
+      .sort((a, b) =>
+        sort === 'title' ? byTitle(a, b) : a.artist.localeCompare(b.artist) || byTitle(a, b)
+      )
+  }, [songs, sort, filter])
+
+  const toggleFilter = (tag: string) =>
+    setFilter((chosen) =>
+      chosen.includes(tag) ? chosen.filter((held) => held !== tag) : [...chosen, tag]
     )
-  }, [songs, sort])
 
   const deleting = songs.find((entry) => entry.id === deletingId) ?? null
 
@@ -42,6 +54,28 @@ export function LibraryView() {
         <Button variant="primary" onClick={() => void newSong()}>
           New song
         </Button>
+
+        {known.length === 0 ? null : (
+          <div className="library__filter" role="group" aria-label="Filter by tag">
+            {known.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="raised tag tag--filter"
+                data-engaged={filter.includes(tag)}
+                aria-pressed={filter.includes(tag)}
+                onClick={() => toggleFilter(tag)}
+              >
+                {tag}
+              </button>
+            ))}
+            {filter.length === 0 ? null : (
+              <button type="button" className="library__filter-clear" onClick={() => setFilter([])}>
+                Show all
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="library__head">
@@ -53,40 +87,70 @@ export function LibraryView() {
             Artist
           </button>
         </span>
-        <span className="col-channels">Channels</span>
-        <span className="col-lyrics">Has</span>
+        <span className="col-tags">Tags</span>
         <span className="col-actions" />
       </div>
 
       <div className="library__rows">
-        {sorted.length === 0 ? (
+        {shown.length === 0 ? (
           <p className="library__empty">
-            The library is empty. Make a song and start filling it in.
+            {songs.length === 0
+              ? 'The library is empty. Make a song and start filling it in.'
+              : 'No song has all of those tags.'}
           </p>
         ) : (
-          sorted.map((summary) => (
-            <div
-              key={summary.id}
-              className="song-row"
-              data-loaded={summary.id === song?.id}
-              style={{ '--loaded-accent': CHANNEL_SUBJECT_COLOR.vocals } as React.CSSProperties}
-            >
+          shown.map((summary) => (
+            <div key={summary.id} className="song-row" data-loaded={summary.id === song?.id}>
               <button
                 type="button"
-                className="song-row__open"
+                className="song-row__open col-name"
                 onClick={() => void openSong(summary.id)}
               >
-                <span className="col-name">
-                  <span className="song-row__title">{summary.title}</span>
-                  <span className="song-row__artist">{summary.artist || 'No artist'}</span>
-                </span>
-                <span className="col-channels song-row__channels">
-                  {summary.channelCount} {summary.channelCount === 1 ? 'channel' : 'channels'}
-                </span>
-                <span className="col-lyrics song-row__icons">
-                  {summary.hasLyrics ? <SubjectIcon subject="lyrics" size={16} /> : null}
-                </span>
+                <span className="song-row__title">{summary.title}</span>
+                <span className="song-row__artist">{summary.artist || 'No artist'}</span>
               </button>
+
+              <span className="col-tags song-row__tags">
+                {summary.tags.map((tag) => (
+                  <span key={tag} className="raised tag">
+                    <button
+                      type="button"
+                      className="tag__name"
+                      title={`Show only songs tagged "${tag}"`}
+                      onClick={() => toggleFilter(tag)}
+                    >
+                      {tag}
+                    </button>
+                    <button
+                      type="button"
+                      className="tag__remove"
+                      aria-label={`Remove "${tag}" from ${summary.title}`}
+                      onClick={() => void tagSong(summary.id, removeTag(summary.tags, tag))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+
+                {taggingId === summary.id ? (
+                  <TagInput
+                    known={known}
+                    alreadyOn={summary.tags}
+                    onAdd={(tag) => void tagSong(summary.id, addTag(summary.tags, tag))}
+                    onDone={() => setTaggingId(null)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="raised tag tag--add"
+                    aria-label={`Add a tag to ${summary.title}`}
+                    onClick={() => setTaggingId(summary.id)}
+                  >
+                    +
+                  </button>
+                )}
+              </span>
+
               <span className="col-actions">
                 <Button className="song-row__delete" onClick={() => setDeletingId(summary.id)}>
                   Delete

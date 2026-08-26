@@ -178,3 +178,18 @@ describe('the key a song is in', () => {
     expect(migrateSong({ key: { tonic: 'G', mode: 'lydian' } }, 'x').key.mode).toBe('major')
   })
 })
+
+describe('the tags on a song', () => {
+  it('has none for a song written before there were any', () => {
+    expect(migrateSong({}, 'x').tags).toEqual([])
+  })
+
+  it('keeps what was there, tidied and in order', () => {
+    expect(migrateSong({ tags: ['  gig ', 'acoustic'] }, 'x').tags).toEqual(['acoustic', 'gig'])
+  })
+
+  it('drops anything in the file that is not a tag', () => {
+    expect(migrateSong({ tags: ['gig', 7, null] }, 'x').tags).toEqual(['gig'])
+    expect(migrateSong({ tags: 'gig' }, 'x').tags).toEqual([])
+  })
+})

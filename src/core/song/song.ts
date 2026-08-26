@@ -64,6 +64,8 @@ export interface Song {
   playback: { speed: number; pitch: PitchOffset }
   /** What key the song is in, for the chord chart to open on. */
   key: SongKey
+  /** The user's own words for what this song is: "gig", "half finished". */
+  tags: string[]
   /** Song-scoped tools reopen where you left them. */
   openTools: ToolId[]
 }
@@ -92,6 +94,7 @@ export interface SongSummary {
   artist: string
   channelCount: number
   hasLyrics: boolean
+  tags: string[]
 }
 
 export const DEFAULT_SONG_TITLE = 'New Song'
@@ -153,6 +156,7 @@ export function newSong(id: string, now = new Date()): Song {
     buses: { music: 1, click: 0.5 },
     playback: { speed: 1, pitch: { semitones: 0, cents: 0 } },
     key: { tonic: 'C', mode: 'major' },
+    tags: [],
     openTools: []
   }
 }
@@ -162,5 +166,6 @@ export const summarise = (song: Song, hasLyrics: boolean): SongSummary => ({
   title: song.title,
   artist: song.artist,
   channelCount: song.channels.length,
-  hasLyrics
+  hasLyrics,
+  tags: song.tags
 })

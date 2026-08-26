@@ -265,7 +265,8 @@ describe('the library list', () => {
     title,
     artist,
     channelCount: 0,
-    hasLyrics: true
+    hasLyrics: true,
+    tags: []
   })
 
   it('follows a change that renames no file, such as the artist', async () => {

@@ -45,6 +45,8 @@ interface SongState {
   importing: boolean
   /** How far through decoding a song's channels we are, while that is happening. */
   loading: { decoded: number; total: number } | null
+  /** Adds or removes a tag on any song in the library, loaded or not. */
+  tagSong: (songId: string, tags: string[]) => Promise<void>
   /** Puts the timeline back to the length of the song's own channels. */
   refreshBounds: () => void
   /** Writes any pending change now. */
@@ -91,6 +93,23 @@ export const useSong = create<SongState>((set, get) => ({
   loading: null,
 
   dismissError: () => set({ error: null }),
+
+  tagSong: async (songId, tags) => {
+    const loaded = get().song
+    /* The song being tagged is usually not the one that is open, so this goes
+       through the file rather than through the loaded song. */
+    if (loaded !== null && loaded.id === songId) {
+      get().update({ tags })
+      return
+    }
+    try {
+      const song = await window.rehearsal.library.load(songId)
+      await window.rehearsal.library.save({ ...song, tags })
+      await get().refresh()
+    } catch (error) {
+      set({ error: `Could not save the tags: ${message(error)}` })
+    }
+  },
 
   refreshBounds: () => {
     const song = get().song
