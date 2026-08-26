@@ -367,11 +367,15 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(139, 149, 165, 0.32);
+  background: rgba(139, 149, 165, 0.3);
   pointer-events: none;
 }
+/* The first beat of a measure, which has to be tellable from the rest at a
+   glance: a shade of grey apart was not enough, so it is drawn heavier. */
 .align__beat[data-accent='true'] {
-  background: rgba(139, 149, 165, 0.62);
+  width: 3px;
+  margin-left: -1px;
+  background: rgba(160, 170, 186, 0.8);
 }
 
 .align__handle {
