@@ -332,9 +332,6 @@
   align-items: flex-end;
   gap: 10px;
 }
-.align__spacer {
-  flex: 1;
-}
 .align__picker {
   display: flex;
   flex-direction: column;

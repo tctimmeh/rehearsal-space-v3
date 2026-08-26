@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type Song } from '@core/song/song'
@@ -94,13 +93,11 @@ describe('which click track the tool shows', () => {
     await waitFor(() => expect(chosenClick()).toBe('click-2'))
   })
 
-  it('shows the one made from its own New button', async () => {
-    const user = userEvent.setup()
+  /* Click tracks are added from the mixer; the tool only lines them up. */
+  it('offers no way to make one, since the mixer is where they come from', () => {
     render(<AlignTool />)
 
-    await user.click(screen.getByRole('button', { name: 'New' }))
-
-    await waitFor(() => expect(useAlign.getState().clickId).toBe('click-2'))
+    expect(screen.queryByRole('button', { name: 'New' })).toBeNull()
   })
 
   it('says where a click track comes from when the song has none', () => {

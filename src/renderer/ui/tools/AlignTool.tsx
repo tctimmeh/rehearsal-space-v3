@@ -14,7 +14,6 @@ import { useAlign } from '@renderer/state/align'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
-import { Button } from '../primitives'
 import { Waveform } from './Waveform'
 import { usePeaks } from './usePeaks'
 
@@ -36,7 +35,6 @@ const SAMPLES: MetronomeSample[] = ['tick', 'chirp', 'cymbal', 'rim', 'kit']
 export function AlignTool() {
   const song = useSong((state) => state.song)
   const update = useSong((state) => state.update)
-  const addMetronome = useSong((state) => state.addMetronome)
   const position = useTransport((state) => state.position)
   const seek = useTransport((state) => state.seek)
   const songStart = useTransport((state) => state.start)
@@ -133,15 +131,6 @@ export function AlignTool() {
           onChange={setClickId}
           empty="None yet"
         />
-        <Button
-          onClick={() => {
-            /* Made here, and shown here: the same as adding one from the mixer. */
-            const added = addMetronome()
-            if (added !== null) useAlign.getState().align(added)
-          }}
-        >
-          New
-        </Button>
         {click === null ? null : (
           <>
             <span className="align__divider" />
@@ -194,14 +183,6 @@ export function AlignTool() {
             </button>
           </>
         )}
-        <span className="align__spacer" />
-        <Button disabled={visible <= MIN_SPAN} onClick={() => zoomBy(1 / BUTTON_FACTOR, middle)}>
-          Closer
-        </Button>
-        <Button disabled={visible >= maxSpan} onClick={() => zoomBy(BUTTON_FACTOR, middle)}>
-          Wider
-        </Button>
-        <span className="setting-note num">{formatSpan(visible)}</span>
       </div>
 
       <div
@@ -343,9 +324,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   )
 }
-
-const formatSpan = (seconds: number): string =>
-  seconds < 1 ? `${Math.round(seconds * 1000)}ms` : `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`
 
 const inView = (time: number, from: number, to: number): boolean => time >= from && time <= to
 
