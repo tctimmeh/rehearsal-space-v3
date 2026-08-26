@@ -264,7 +264,7 @@ function ChannelStrip({
           {(close) => (
             <>
               <StripMenuItem
-                label="Rename, change instrument…"
+                label="Edit…"
                 onClick={() => {
                   close()
                   onEdit()

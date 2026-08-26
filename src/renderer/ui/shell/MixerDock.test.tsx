@@ -69,7 +69,7 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>, channelName: s
 
 const openEditor = async (user: ReturnType<typeof userEvent.setup>, channelName: string) => {
   await openMenu(user, channelName)
-  await user.click(screen.getByRole('menuitem', { name: /Rename/ }))
+  await user.click(screen.getByRole('menuitem', { name: /Edit/ }))
   return screen.getByRole('dialog')
 }
 
@@ -156,7 +156,7 @@ describe('the channel menu', () => {
 
     await openMenu(user, 'Bass take2')
 
-    expect(screen.getByRole('menuitem', { name: /Rename/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /Edit/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /Split into stems/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /Delete channel/ })).toBeTruthy()
   })
@@ -190,7 +190,7 @@ describe('the channel menu', () => {
     dock()
 
     await openMenu(user, 'Bass take2')
-    await user.click(screen.getByRole('menuitem', { name: /Rename/ }))
+    await user.click(screen.getByRole('menuitem', { name: /Edit/ }))
 
     expect(screen.queryByRole('menuitem', { name: /Delete channel/ })).toBeNull()
   })
