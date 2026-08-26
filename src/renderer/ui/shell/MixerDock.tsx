@@ -152,7 +152,6 @@ export function MixerDock() {
 
       {stems === null ? null : (
         <StemsDialog
-          channel={stems}
           busy={importing}
           onDismiss={() => setStemsId(null)}
           onSeparate={(model: DemucsModel, chosen, muteSource) => {

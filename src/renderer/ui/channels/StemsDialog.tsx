@@ -2,7 +2,6 @@ import { useState } from 'react'
 
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import { guessSubject } from '@core/song/guessSubject'
-import type { AudioChannel } from '@core/song/song'
 import { DEMUCS_MODELS, stemsOf, type DemucsModel } from '@shared/stems'
 import { SubjectIcon } from '../icons/subjectIcons'
 import { Button, Modal } from '../primitives'
@@ -10,14 +9,13 @@ import { Button, Modal } from '../primitives'
 const DEFAULT_MODEL: DemucsModel = 'htdemucs_6s'
 
 interface StemsDialogProps {
-  channel: AudioChannel
   busy: boolean
   onSeparate: (model: DemucsModel, stems: string[], muteSource: boolean) => void
   onDismiss: () => void
 }
 
 /** Everything separation is about to do to the song, before it does it. */
-export function StemsDialog({ channel, busy, onSeparate, onDismiss }: StemsDialogProps) {
+export function StemsDialog({ busy, onSeparate, onDismiss }: StemsDialogProps) {
   /* Six stems, all of them: the reason to reach for this is usually to get at
      a part, and it is quicker to untick one than to hunt for the one wanted. */
   const [model, setModel] = useState<DemucsModel>(DEFAULT_MODEL)
@@ -42,7 +40,6 @@ export function StemsDialog({ channel, busy, onSeparate, onDismiss }: StemsDialo
   return (
     <Modal
       title="Separate stems"
-      subtitle={`${channel.name} · adds new channels, keeps the original`}
       onDismiss={onDismiss}
       footer={
         <>
@@ -106,7 +103,7 @@ export function StemsDialog({ channel, busy, onSeparate, onDismiss }: StemsDialo
           onClick={() => setMuteSource((was) => !was)}
         >
           <span className="check__box" />
-          Mute {channel.name} afterwards
+          Mute this channel
         </button>
       </div>
     </Modal>
