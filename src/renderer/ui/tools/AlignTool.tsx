@@ -15,6 +15,7 @@ import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
 import { Waveform } from './Waveform'
+import { NumberField } from '../primitives'
 import { usePeaks } from './usePeaks'
 
 const WAVE_HEIGHT = 190
@@ -149,27 +150,23 @@ export function AlignTool() {
               </select>
             </label>
             <Field label="BPM">
-              <input
-                className="well input input--tiny num"
-                type="number"
-                min={20}
+              <NumberField
+                label="BPM"
+                className="number-field--tiny"
                 value={Math.round(click.bpm)}
-                onChange={(event) => {
-                  const next = Number(event.target.value)
-                  if (Number.isFinite(next) && next > 0) change({ bpm: next })
-                }}
+                min={20}
+                max={400}
+                onChange={(bpm) => change({ bpm })}
               />
             </Field>
             <Field label="Beats">
-              <input
-                className="well input input--tiny num"
-                type="number"
-                min={1}
+              <NumberField
+                label="Beats per measure"
+                className="number-field--tiny"
                 value={click.beatsPerMeasure}
-                onChange={(event) => {
-                  const next = Number(event.target.value)
-                  if (Number.isFinite(next)) change({ beatsPerMeasure: Math.max(1, next) })
-                }}
+                min={1}
+                max={16}
+                onChange={(beatsPerMeasure) => change({ beatsPerMeasure })}
               />
             </Field>
             <button

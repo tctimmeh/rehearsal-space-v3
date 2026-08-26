@@ -587,7 +587,9 @@
   color: var(--text-dim);
 }
 .metro__number {
-  width: 42px;
+  width: 66px;
+}
+.metro__number .number-field__input {
   padding: 4px 5px;
   font-size: 12px;
   text-align: center;
@@ -716,4 +718,12 @@
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--text-faint);
+}
+
+.number-field--tiny {
+  width: 68px;
+}
+.number-field--tiny .number-field__input {
+  padding: 5px 6px;
+  font-size: 12px;
 }

@@ -5,7 +5,7 @@ import { METRONOME_SAMPLE_LABEL, METRONOME_SAMPLES } from '@core/song/song'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from '@renderer/state/config'
 import { useMetronome } from '@renderer/state/metronome'
-import { Readout, RepeatButton } from '../primitives'
+import { NumberField, Readout, RepeatButton } from '../primitives'
 
 const BPM_MIN = 20
 const BPM_MAX = 300
@@ -134,18 +134,17 @@ function MetronomeSetup() {
 
       {open ? (
         <div className="metro__panel">
-          <label className="metro__field">
+          <div className="metro__field">
             <span className="metro__label">Beats</span>
-            <input
-              className="well input metro__number"
-              type="number"
+            <NumberField
+              label="Beats per measure"
+              className="metro__number"
+              value={beatsPerMeasure}
               min={BEATS_MIN}
               max={BEATS_MAX}
-              value={beatsPerMeasure}
-              aria-label="Beats per measure"
-              onChange={(event) => change({ beatsPerMeasure: Number(event.target.value) })}
+              onChange={(beatsPerMeasure) => change({ beatsPerMeasure })}
             />
-          </label>
+          </div>
 
           <label className="metro__check">
             <input

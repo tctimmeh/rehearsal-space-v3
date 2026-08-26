@@ -261,3 +261,43 @@
       0 0 14px rgba(226, 86, 79, 0.85);
   }
 }
+
+/* ---------- NumberField ---------- */
+/* The browser's own arrows cannot be given a colour, only taken away. */
+.number-field__input::-webkit-outer-spin-button,
+.number-field__input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.number-field {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 3px;
+}
+.number-field__input {
+  min-width: 0;
+  flex: 1;
+}
+.number-field__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: none;
+}
+.number-field__step {
+  width: 17px;
+  flex: 1;
+  border-radius: 3px;
+  font-size: 7px;
+  line-height: 1;
+  color: var(--text-dim);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.number-field__step:hover:not(:disabled) {
+  color: var(--text);
+}
+.number-field__step:disabled {
+  color: #3c3f45;
+}
