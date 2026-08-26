@@ -62,6 +62,19 @@ describe('a reading not worth having', () => {
     expect(muddled.hz).toBe(settled.hz)
   })
 
+  /* Six strings at once are not periodic, and are mostly refused outright. The
+     danger is the odd window of a chord that comes out looking convincing, and
+     reads nothing that is on the guitar at all. */
+  it('is ignored when a strummed chord almost passes for a note', () => {
+    const settled = feed(held(0))
+    const chord = feed(
+      Array.from({ length: 8 }, () => ({ frequency: at(-165), clarity: 0.91, level: 0.05 })),
+      settled
+    )
+
+    expect(chord.hz).toBe(settled.hz)
+  })
+
   it('is ignored when there was no pitch at all', () => {
     const settled = feed(held(0))
     const silent = feed([{ frequency: null, clarity: 0, level: 0.0001 }], settled)

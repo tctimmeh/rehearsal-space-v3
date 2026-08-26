@@ -21,8 +21,9 @@ const service = vi.hoisted(() => {
         emit = null
       }
     }),
-    hear(frequency: number | null, level = 0.2) {
-      emit?.({ frequency, clarity: frequency === null ? 0 : 0.9, level })
+    /* A clean reading of one string measures a hundredth short of perfect. */
+    hear(frequency: number | null, level = 0.2, clarity = 1) {
+      emit?.({ frequency, clarity: frequency === null ? 0 : clarity, level })
     }
   }
 })

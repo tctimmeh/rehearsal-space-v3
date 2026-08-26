@@ -47,16 +47,34 @@ export interface Needle {
 /** Kept to the odd handful: enough to ignore a stray reading, short enough to
     stay out of the way of a hand on a peg. */
 const READINGS = 5
-/** How periodic a window must have been for its reading to be worth having. */
-const CLEAR_ENOUGH = 0.9
+/**
+ * How periodic a window must have been for its reading to be worth having.
+ *
+ * A strummed chord is the thing this is really for. Six strings at once are
+ * not periodic and are mostly refused outright, but a few windows of one come
+ * out looking convincing enough to pass a gentler test — and what they read is
+ * not any of the six strings, it is nonsense a hundred cents from the nearest.
+ * Raising the bar to this rejects every one of them across two recordings of
+ * tuning a string after strumming a chord, and costs nothing anywhere else:
+ * the needle is live for the same nine tenths of the time and is no further
+ * from the truth.
+ */
+const CLEAR_ENOUGH = 0.95
 /**
  * How far a note must have died away before its pitch is read: down to a
  * little under half its own loudest, by which point the sharpness of the
  * attack has gone.
  */
 const SETTLED_SHARE = 0.45
-/** Loud enough, and enough louder than a moment ago, to be a fresh note. */
-const ONSET_LEVEL = 0.02
+/**
+ * Loud enough, and enough louder than a moment ago, to be a fresh note.
+ *
+ * A quiet pluck never reaches this and so is never waited on — which is the
+ * right answer rather than a hole in it, since a string struck gently is a
+ * string barely bent sharp. The waiting matters in proportion to how hard the
+ * string was hit, and so does the noticing.
+ */
+const ONSET_LEVEL = 0.01
 const ONSET_RISE = 1.8
 /** Readings for which a note holds its peak, and the fewest between notes. */
 const STRUCK = 3
