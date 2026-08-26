@@ -254,3 +254,16 @@ describe('tags', () => {
     expect(shownTitles()).toHaveLength(3)
   })
 })
+
+describe('where the filter sits', () => {
+  it('comes before the button that makes a song', () => {
+    useSong.setState({ songs: [tagged('coast-road', 'Coast Road', ['gig'])] })
+    render(<LibraryView />)
+    const bar = filterBar().parentElement as HTMLElement
+
+    const order = [...bar.children].map((child) =>
+      child.classList.contains('library__filter') ? 'filter' : 'button'
+    )
+    expect(order).toEqual(['filter', 'button'])
+  })
+})

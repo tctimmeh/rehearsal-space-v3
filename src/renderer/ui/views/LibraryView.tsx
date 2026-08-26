@@ -51,10 +51,6 @@ export function LibraryView() {
   return (
     <div className="library">
       <div className="library__bar">
-        <Button variant="primary" onClick={() => void newSong()}>
-          New song
-        </Button>
-
         {known.length === 0 ? null : (
           <div className="library__filter" role="group" aria-label="Filter by tag">
             {known.map((tag) => (
@@ -76,6 +72,10 @@ export function LibraryView() {
             )}
           </div>
         )}
+
+        <Button variant="primary" onClick={() => void newSong()}>
+          New song
+        </Button>
       </div>
 
       <div className="library__head">
