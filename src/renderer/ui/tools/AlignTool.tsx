@@ -312,7 +312,6 @@ export function AlignTool() {
                 time={timing.startTime}
                 left={xOf(timing.startTime)}
                 onDrag={dragStart}
-                onNudge={(startTime) => change({ startTime })}
               />
             ) : (
               <Offscreen side={timing.startTime < from ? 'left' : 'right'} kind="start" />
@@ -324,7 +323,6 @@ export function AlignTool() {
                 time={timing.endTime}
                 left={xOf(timing.endTime)}
                 onDrag={dragEnd}
-                onNudge={(endTime) => change({ endTime })}
               />
             ) : (
               <Offscreen side={timing.endTime < from ? 'left' : 'right'} kind="end" />
@@ -340,9 +338,8 @@ export function AlignTool() {
         <span className="setting-note">
           {timing === null
             ? 'Add a click track from the mixer to line one up.'
-            : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · drag the handles, or arrow keys to nudge · scroll to zoom, middle-drag or shift-scroll to pan`}
+            : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · scroll to zoom, middle-drag or shift-scroll to pan`}
         </span>
-        <span className="num">{clock(to)}</span>
       </div>
     </div>
   )
@@ -368,30 +365,24 @@ function Offscreen({ side, kind }: { side: 'left' | 'right'; kind: 'start' | 'en
   )
 }
 
-/** Arrow keys move by this much, and a tenth of it with shift held. */
-const NUDGE_S = 0.01
-
 function Handle({
   className,
   label,
   time,
   left,
-  onDrag,
-  onNudge
+  onDrag
 }: {
   className: string
   label: string
   time: number
   left: string
   onDrag: (clientX: number) => void
-  onNudge: (time: number) => void
 }) {
   return (
     <span
       className={className}
       style={{ left }}
       role="slider"
-      tabIndex={0}
       aria-label={label}
       aria-valuenow={time}
       aria-valuetext={label}
@@ -405,15 +396,6 @@ function Handle({
       }}
       onPointerUp={(event) => {
         event.currentTarget.releasePointerCapture(event.pointerId)
-        /* Dragging with the pointer should not leave the handle holding focus:
-           the next key pressed for anything else would light it up. */
-        event.currentTarget.blur()
-      }}
-      onKeyDown={(event) => {
-        const direction = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0
-        if (direction === 0) return
-        event.preventDefault()
-        onNudge(time + direction * NUDGE_S * (event.shiftKey ? 0.1 : 1))
       }}
     >
       <span className="align__flag">{label}</span>
