@@ -54,23 +54,21 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
 
   const channels = input.status === 'live' ? input.channels : null
 
-  const explainDefault = () => {
-    if (chosen !== SYSTEM_DEFAULT) {
-      return input.status === 'unavailable' ? 'not available right now' : ''
-    }
-    if (input.status === 'opening') return 'finding out which one that is…'
-    if (input.status === 'unavailable') return 'no input available'
-    return input.name === ''
-      ? 'follows the system setting'
-      : `right now that is ${input.name}, and it follows the system setting`
-  }
+  /*
+   * Which device the system default currently is belongs on the choice itself.
+   * It used to be a line of prose underneath, which said the same thing at the
+   * cost of a paragraph.
+   */
+  const systemDefault =
+    input.status === 'live' && input.name !== ''
+      ? `System default — ${input.name}`
+      : 'System default'
 
   const unnamed = (devices ?? []).some((device) => device.label === '')
 
   return (
     <Modal
       title="Recording"
-      subtitle="The input used when you record"
       onDismiss={onDismiss}
       footer={
         <>
@@ -97,7 +95,7 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
             void setPreference({ inputDeviceId: event.target.value, inputChannel: ALL_INPUTS })
           }
         >
-          <option value={SYSTEM_DEFAULT}>System default</option>
+          <option value={SYSTEM_DEFAULT}>{systemDefault}</option>
           {(devices ?? []).map((device, index) => (
             <option key={device.deviceId} value={device.deviceId}>
               {nameOf(device, index)}
@@ -105,8 +103,6 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
           ))}
         </select>
       </div>
-
-      {explainDefault() === '' ? null : <p className="setting-under">{explainDefault()}</p>}
 
       <div className="setting-row setting-row--tight">
         <span className="setting-label">Channels</span>
@@ -118,7 +114,7 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
           onChange={(event) => void setPreference({ inputChannel: Number(event.target.value) })}
         >
           {(channels === null
-            ? [{ value: ALL_INPUTS, label: 'Looking…' }]
+            ? [{ value: ALL_INPUTS, label: input.status === 'opening' ? 'Looking…' : 'No input' }]
             : inputOptions(channels)
           ).map((option) => (
             <option key={option.value} value={option.value}>
@@ -127,13 +123,6 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
           ))}
         </select>
       </div>
-
-      {channels === 2 ? (
-        <p className="setting-under">
-          an interface with two sockets arrives as one stereo device: socket 1 is the left
-          channel, socket 2 the right
-        </p>
-      ) : null}
 
       <div className="setting-row setting-row--tight">
         <span className="setting-label">Level</span>
@@ -155,10 +144,6 @@ export function RecordingModal({ onDismiss }: { onDismiss: () => void }) {
           )}
         </div>
       </div>
-
-      {input.status === 'live' ? (
-        <p className="setting-under">play something — a channel with no bar has nothing plugged in</p>
-      ) : null}
     </Modal>
   )
 }

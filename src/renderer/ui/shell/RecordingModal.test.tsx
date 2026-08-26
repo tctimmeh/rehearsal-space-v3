@@ -164,19 +164,35 @@ describe('choosing what to record', () => {
   })
 })
 
+/**
+ * Which device the system default is stands on the choice itself, rather than
+ * in a line of prose underneath saying the same thing.
+ */
 describe('the system default', () => {
   it('names the device it currently resolves to', async () => {
     show()
 
-    await screen.findByText(/right now that is Rubix22 Analog Stereo/)
+    await waitFor(() =>
+      expect(
+        screen.getByRole('option', { name: 'System default — Rubix22 Analog Stereo' })
+      ).toBeTruthy()
+    )
   })
 
-  it('says so plainly when a named device has gone away', async () => {
+  it('says only what it can while the device is still opening', () => {
+    show()
+
+    expect(screen.getByRole('option', { name: 'System default' })).toBeTruthy()
+  })
+
+  it('does not claim to be looking once it has given up', async () => {
     useConfig.setState({ config: config({ inputDeviceId: 'rubix' }) })
     fake.failure = new Error('NotFoundError')
     show()
 
-    await screen.findByText('not available right now')
+    const picker = screen.getByRole('combobox', { name: 'Channels' }) as HTMLSelectElement
+    await waitFor(() => expect(picker.options[0]?.text).toBe('No input'))
+    expect(screen.getByText('nothing to listen to')).toBeTruthy()
   })
 })
 
