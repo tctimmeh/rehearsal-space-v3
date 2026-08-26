@@ -14,6 +14,17 @@ import {
   ZOOM_SPEED_MIN,
   type AppConfig
 } from '../shared/config'
+import {
+  NEEDLE_CLARITY_MAX,
+  NEEDLE_CLARITY_MIN,
+  NEEDLE_GRACE_MAX,
+  NEEDLE_GRACE_MIN,
+  NEEDLE_READINGS_MAX,
+  NEEDLE_READINGS_MIN,
+  NEEDLE_SETTLED_MAX,
+  NEEDLE_SETTLED_MIN
+} from '../shared/config'
+import { DEFAULT_NEEDLE, type NeedleSettings } from '../core/music/steady'
 import { isExternalTool, type ExternalTool } from '../shared/tools'
 import { isMetronomeSample } from '../core/song/song'
 import { BEATS_MAX, BEATS_MIN } from '../core/metronome/pulse'
@@ -28,6 +39,26 @@ const number = (raw: unknown, fallback: number, min: number, max: number): numbe
 
 const configPath = (): string => join(app.getPath('userData'), 'config.json')
 
+function parseNeedle(raw: unknown, defaults: NeedleSettings): NeedleSettings {
+  if (typeof raw !== 'object' || raw === null) return defaults
+  const record = raw as Record<string, unknown>
+  return {
+    readings: Math.round(
+      number(record['readings'], defaults.readings, NEEDLE_READINGS_MIN, NEEDLE_READINGS_MAX)
+    ),
+    clarity: number(record['clarity'], defaults.clarity, NEEDLE_CLARITY_MIN, NEEDLE_CLARITY_MAX),
+    settledShare: number(
+      record['settledShare'],
+      defaults.settledShare,
+      NEEDLE_SETTLED_MIN,
+      NEEDLE_SETTLED_MAX
+    ),
+    grace: Math.round(number(record['grace'], defaults.grace, NEEDLE_GRACE_MIN, NEEDLE_GRACE_MAX)),
+    answerFast:
+      typeof record['answerFast'] === 'boolean' ? record['answerFast'] : defaults.answerFast
+  }
+}
+
 export const defaultConfig = (): AppConfig => ({
   libraryPath: join(app.getPath('music'), 'Rehearsal Space'),
   lastSongId: null,
@@ -37,6 +68,7 @@ export const defaultConfig = (): AppConfig => ({
   inputDeviceId: '',
   inputChannel: 0,
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  tuner: DEFAULT_NEEDLE,
   toolPaths: {}
 })
 
@@ -65,6 +97,7 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
       typeof record['inputDeviceId'] === 'string' ? record['inputDeviceId'] : '',
     inputChannel: Math.max(0, Math.round(number(record['inputChannel'], 0, 0, 64))),
     metronome: parseMetronome(record['metronome'], defaults.metronome),
+    tuner: parseNeedle(record['tuner'], defaults.tuner),
     toolPaths: parseToolPaths(record['toolPaths'])
   }
 }

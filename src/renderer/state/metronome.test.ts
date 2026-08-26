@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const clicker = vi.hoisted(() => ({
   started: [] as unknown[],
@@ -44,6 +45,7 @@ beforeEach(() => {
       inputDeviceId: '',
       inputChannel: 0,
       metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  tuner: DEFAULT_NEEDLE,
       toolPaths: {}
     },
     /* Saving keeps the patch and answers with the config it produces. */

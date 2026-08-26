@@ -15,6 +15,7 @@ import { useSong } from '@renderer/state/song'
 import { installBridge } from '@renderer/testing/bridge'
 import { SettingsModal } from './SettingsModal'
 import { installPointerCapture } from '@renderer/testing/pointer'
+import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   libraryPath: '/songs',
@@ -25,6 +26,7 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   inputDeviceId: '',
   inputChannel: 0,
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  tuner: DEFAULT_NEEDLE,
   toolPaths: {},
   ...patch
 })

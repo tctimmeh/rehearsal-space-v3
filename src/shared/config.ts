@@ -1,3 +1,4 @@
+import type { NeedleSettings } from '../core/music/steady'
 import type { MetronomeSample } from '../core/song/song'
 import type { ExternalTool } from './tools'
 
@@ -25,6 +26,11 @@ export interface AppConfig {
   inputChannel: number
   /** Where the stand-alone metronome was left. */
   metronome: MetronomeSettings
+  /**
+   * How the tuner's needle behaves. Adjustable while the right balance of
+   * quick and still is being settled by playing a guitar at it.
+   */
+  tuner: NeedleSettings
   /** Explicit locations for external tools, overriding the search. */
   toolPaths: Partial<Record<ExternalTool, string>>
 }
@@ -44,6 +50,19 @@ export const PAN_SPEED_STEP = 0.01
    using it, and where a double-click on the knob puts it back to. */
 export const PAN_SPEED_DEFAULT = 0.1
 
+/* What the tuner's knobs may be turned to. Wide enough to be worth turning:
+   one reading and no waiting at one end, a very deliberate needle at the
+   other. */
+export const NEEDLE_READINGS_MIN = 1
+export const NEEDLE_READINGS_MAX = 15
+export const NEEDLE_CLARITY_MIN = 0.5
+export const NEEDLE_CLARITY_MAX = 1
+export const NEEDLE_SETTLED_MIN = 0.05
+/** One means reading a note the moment it is struck, without waiting at all. */
+export const NEEDLE_SETTLED_MAX = 1
+export const NEEDLE_GRACE_MIN = 2
+export const NEEDLE_GRACE_MAX = 100
+
 export const ZOOM_SPEED_MIN = 0.05
 export const ZOOM_SPEED_MAX = 1
 export const ZOOM_SPEED_STEP = 0.01
@@ -58,4 +77,5 @@ export type Preferences = Pick<
   | 'inputDeviceId'
   | 'inputChannel'
   | 'metronome'
+  | 'tuner'
 >

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const service = vi.hoisted(() => {
   let emit: ((heard: { frequency: number | null; clarity: number; level: number }) => void) | null =
@@ -50,6 +51,7 @@ beforeEach(() => {
       inputDeviceId: 'rubix',
       inputChannel: 2,
       metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  tuner: DEFAULT_NEEDLE,
       toolPaths: {}
     }
   })
@@ -101,13 +103,14 @@ describe('what it reports', () => {
     expect(useTuner.getState().note).toMatchObject({ name: 'A', octave: 2 })
   })
 
-  it('says nothing until the pitch has held still', async () => {
+  /* Struck from silence, there is nothing on screen worth protecting, so the
+     tuner answers rather than deliberating. */
+  it('answers a string struck from silence straight away', async () => {
     await startListening()
 
     service.hear(110)
-    service.hear(110)
 
-    expect(useTuner.getState().note).toBeNull()
+    expect(useTuner.getState().note).toMatchObject({ name: 'A', octave: 2 })
   })
 
   it('steadies a wavering string instead of showing every window', async () => {

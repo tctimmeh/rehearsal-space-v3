@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { moveNeedle, newNeedle, type Heard, type Needle } from './steady'
+import { DEFAULT_NEEDLE, moveNeedle, newNeedle, type Heard, type Needle } from './steady'
 
 const at = (cents: number) => 110 * 2 ** (cents / 1200)
 const off = (hz: number) => 1200 * Math.log2(hz / 110)
@@ -12,8 +12,10 @@ const quietly = (cents: number, level = 0.01): Heard => ({
   level
 })
 
-const feed = (heard: Heard[], from: Needle = newNeedle()) =>
-  heard.reduce((needle, one) => moveNeedle(needle, one), from)
+const feed = (heard: Heard[], from: Needle = newNeedle(), settings = DEFAULT_NEEDLE) =>
+  heard.reduce((needle, one) => moveNeedle(needle, one, settings), from)
+
+const patient = { ...DEFAULT_NEEDLE, answerFast: false }
 
 const held = (cents: number, howMany = 10) =>
   Array.from({ length: howMany }, () => quietly(cents))
@@ -104,10 +106,14 @@ describe('the attack of a pluck', () => {
       level: 0.06 * Math.exp(-step / 9)
     }))
 
-  it('is not shown', () => {
-    const struck = feed(pluck(0).slice(0, 8))
+  it('is not waited out when there is nothing on screen to protect', () => {
+    const struck = feed(pluck(0).slice(0, 3))
 
-    expect(struck.hz).toBeNull()
+    expect(struck.hz).not.toBeNull()
+  })
+
+  it('is waited out when the needle is asked to be patient', () => {
+    expect(feed(pluck(0).slice(0, 8), newNeedle(), patient).hz).toBeNull()
   })
 
   it('gives way to the pitch the string settles on', () => {
@@ -129,10 +135,13 @@ describe('a note that never dies away', () => {
     Array.from({ length: howMany }, () => quietly(cents, 0.06))
 
   it('is read anyway, once it has gone on long enough', () => {
-    expect(feed(sustained(5, 30)).hz).not.toBeNull()
+    expect(feed(sustained(5, 30), newNeedle(), patient).hz).not.toBeNull()
   })
 
-  it('is not read straight away', () => {
-    expect(feed(sustained(5, 6)).hz).toBeNull()
+  it('is not read straight away, once there is something to lose', () => {
+    const settled = feed(held(0))
+    const loud = feed(sustained(40, 6), settled)
+
+    expect(off(loud.hz as number)).toBeCloseTo(0, 1)
   })
 })

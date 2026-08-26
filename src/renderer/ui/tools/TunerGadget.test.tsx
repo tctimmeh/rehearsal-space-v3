@@ -7,6 +7,7 @@ import { useConfig } from '@renderer/state/config'
 import { installBridge } from '@renderer/testing/bridge'
 import { useTuner } from '@renderer/state/tuner'
 import { TunerGadget } from './TunerGadget'
+import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const listening = vi.hoisted(() => ({ starts: 0, stops: 0 }))
 
@@ -42,6 +43,7 @@ const configured = (inputDeviceId: string, inputChannel = 0) => ({
   inputDeviceId,
   inputChannel,
   metronome: { bpm: 100, beatsPerMeasure: 4 as number, accentFirstBeat: true, sample: 'tick' as const },
+    tuner: DEFAULT_NEEDLE,
   toolPaths: {}
 })
 

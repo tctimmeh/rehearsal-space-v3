@@ -7,6 +7,7 @@ import type { AppConfig } from '@shared/config'
 import { useConfig } from '@renderer/state/config'
 import { installBridge } from '@renderer/testing/bridge'
 import { RecordingModal } from './RecordingModal'
+import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const fake = vi.hoisted(() => {
   const listeners = new Set<(levels: readonly number[]) => void>()
@@ -69,6 +70,7 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   inputDeviceId: '',
   inputChannel: 0,
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  tuner: DEFAULT_NEEDLE,
   toolPaths: {},
   ...patch
 })

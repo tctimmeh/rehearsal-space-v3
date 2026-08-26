@@ -41,6 +41,18 @@
   min-width: 7ch;
   color: var(--text-dim);
 }
+/* Temporary, alongside the knobs it is there to help judge. */
+.tuner__pickup {
+  box-sizing: content-box;
+  min-width: 4ch;
+  color: var(--text-faint);
+}
+.needle__choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+}
 .cents {
   width: 190px;
   height: 14px;

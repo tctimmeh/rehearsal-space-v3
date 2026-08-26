@@ -44,28 +44,47 @@ export interface Needle {
   wasAt: number
 }
 
-/** Kept to the odd handful: enough to ignore a stray reading, short enough to
-    stay out of the way of a hand on a peg. */
-const READINGS = 5
 /**
- * How periodic a window must have been for its reading to be worth having.
+ * The four numbers worth arguing about, and one choice.
  *
- * A strummed chord is the thing this is really for. Six strings at once are
- * not periodic and are mostly refused outright, but a few windows of one come
- * out looking convincing enough to pass a gentler test — and what they read is
- * not any of the six strings, it is nonsense a hundred cents from the nearest.
- * Raising the bar to this rejects every one of them across two recordings of
- * tuning a string after strumming a chord, and costs nothing anywhere else:
- * the needle is live for the same nine tenths of the time and is no further
- * from the truth.
+ * They are settings rather than constants because what they trade against
+ * each other — how quickly the needle answers against how still it sits — is
+ * a matter of taste that can only be settled with a guitar in your hands.
  */
-const CLEAR_ENOUGH = 0.95
-/**
- * How far a note must have died away before its pitch is read: down to a
- * little under half its own loudest, by which point the sharpness of the
- * attack has gone.
- */
-const SETTLED_SHARE = 0.45
+export interface NeedleSettings {
+  /** How many readings the needle shows the middle of. */
+  readings: number
+  /**
+   * How periodic a window must have been for its reading to count.
+   *
+   * A strummed chord is what this is really for. Six strings at once are not
+   * periodic and are refused outright nine windows in ten, but the odd one
+   * comes out looking convincing — and what it reads is not any of the six
+   * strings, it is nonsense a hundred cents from the nearest.
+   */
+  clarity: number
+  /** How far a note must fall from its own loudest before it is read. */
+  settledShare: number
+  /** How long a note that never falls that far is waited on, in readings. */
+  grace: number
+  /**
+   * Whether to skip that wait when there is nothing on screen at all.
+   *
+   * The wait is there to stop a fresh pluck dragging a good reading sharp. If
+   * there is no reading to drag, it buys nothing, and it costs the second and
+   * a half between striking a string and being told what it is.
+   */
+  answerFast: boolean
+}
+
+export const DEFAULT_NEEDLE: NeedleSettings = {
+  readings: 5,
+  clarity: 0.95,
+  settledShare: 0.45,
+  grace: 24,
+  answerFast: true
+}
+
 /**
  * Loud enough, and enough louder than a moment ago, to be a fresh note.
  *
@@ -79,12 +98,6 @@ const ONSET_RISE = 1.8
 /** Readings for which a note holds its peak, and the fewest between notes. */
 const STRUCK = 3
 const APART = 20
-/**
- * How long a note that never dies away is waited on before being read anyway —
- * a second and a bit. A bowed note, a held chord, or a string plucked again
- * before the last one faded would otherwise leave the needle stale.
- */
-const GRACE = 24
 
 export interface Heard {
   frequency: number | null
@@ -108,16 +121,23 @@ const median = (values: readonly number[]): number => {
   return ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2
 }
 
-export function moveNeedle(needle: Needle, heard: Heard): Needle {
+export function moveNeedle(
+  needle: Needle,
+  heard: Heard,
+  settings: NeedleSettings = DEFAULT_NEEDLE
+): Needle {
   const struck = heard.level > ONSET_LEVEL && heard.level > needle.wasAt * ONSET_RISE
 
   const note = struck && needle.since >= APART ? fresh(heard) : carryOn(needle, heard)
+  const nothingToLose = settings.answerFast && needle.hz === null
   const worth =
-    heard.frequency !== null && heard.clarity >= CLEAR_ENOUGH && hasSettled(note, heard.level)
+    heard.frequency !== null &&
+    heard.clarity >= settings.clarity &&
+    (nothingToLose || hasSettled(note, heard.level, settings))
 
   if (!worth) return { ...note, hz: needle.hz, recent: needle.recent, wasAt: heard.level }
 
-  const recent = [...needle.recent, heard.frequency as number].slice(-READINGS)
+  const recent = [...needle.recent, heard.frequency as number].slice(-settings.readings)
   return { ...note, hz: median(recent), recent, wasAt: heard.level }
 }
 
@@ -127,8 +147,12 @@ export function moveNeedle(needle: Needle, heard: Heard): Needle {
  * gone on so long that it plainly is not going to, or it was never heard being
  * struck at all and so has no attack to wait out.
  */
-const hasSettled = (note: { peak: number; since: number }, level: number): boolean =>
-  note.peak === 0 || level <= note.peak * SETTLED_SHARE || note.since >= GRACE
+const hasSettled = (
+  note: { peak: number; since: number },
+  level: number,
+  settings: NeedleSettings
+): boolean =>
+  note.peak === 0 || level <= note.peak * settings.settledShare || note.since >= settings.grace
 
 const fresh = (heard: Heard) => ({ peak: heard.level, since: 0 })
 
