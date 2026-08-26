@@ -24,12 +24,14 @@ export function StemsDialog({ busy, onSeparate, onDismiss }: StemsDialogProps) {
 
   const pickModel = (next: DemucsModel) => {
     setModel(next)
-    /* Keep what still exists in the new model, rather than silently dropping it. */
-    setChosen((current) => {
-      const available = stemsOf(next)
-      const kept = current.filter((stem) => available.includes(stem))
-      return kept.length === 0 ? [...available] : kept
-    })
+    /*
+     * Everything the chosen model can do, every time it is chosen.
+     *
+     * Carrying the ticks across looks tidier and is worse: the four-stem model
+     * has no guitar or piano, so going there and back left both unticked with
+     * nothing on screen saying why.
+     */
+    setChosen([...stemsOf(next)])
   }
 
   const toggle = (stem: string) =>
