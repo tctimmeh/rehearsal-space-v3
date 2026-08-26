@@ -4,7 +4,9 @@ import { faderToGain, gainToDb, gainToFader } from '@core/mix/fader'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import type { AudioChannel, Channel } from '@core/song/song'
 import type { DemucsModel } from '@shared/stems'
+import { useAlign } from '@renderer/state/align'
 import { useSong, type MixerPatch } from '@renderer/state/song'
+import { openTool } from '@renderer/state/toolActions'
 import { ChannelEditor } from '../channels/ChannelEditor'
 import { DownloadDialog } from '../channels/DownloadDialog'
 import { StemsDialog } from '../channels/StemsDialog'
@@ -107,7 +109,12 @@ export function MixerDock() {
                   disabled={importing}
                   onClick={() => {
                     close()
-                    addMetronome()
+                    /* A click track is added in order to line it up, so the
+                       tool for lining it up comes with it. */
+                    const added = addMetronome()
+                    if (added === null) return
+                    useAlign.getState().align(added)
+                    openTool('align')
                   }}
                 />
               </>

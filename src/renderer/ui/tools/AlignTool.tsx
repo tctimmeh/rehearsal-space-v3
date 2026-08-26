@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { beatsBetween, solveMetronome } from '@core/metronome/solve'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
@@ -10,6 +10,7 @@ import {
   type MetronomeSample
 } from '@core/song/song'
 import { formatClock, formatClockPrecise } from '@core/time'
+import { useAlign } from '@renderer/state/align'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
@@ -46,6 +47,12 @@ export function AlignTool() {
 
   const [againstId, setAgainstId] = useState<string | null>(null)
   const [clickId, setClickId] = useState<string | null>(null)
+  const pointedAt = useAlign((state) => state.clickId)
+
+  /* Whatever the tool was opened for wins, until another one is chosen here. */
+  useEffect(() => {
+    if (pointedAt !== null) setClickId(pointedAt)
+  }, [pointedAt])
   const [span, setSpan] = useState(DEFAULT_SPAN)
   const [centre, setCentre] = useState<number | null>(null)
   const panSpeed = useConfig((state) => state.config?.panSpeed ?? 0.1)
@@ -126,7 +133,15 @@ export function AlignTool() {
           onChange={setClickId}
           empty="None yet"
         />
-        <Button onClick={addMetronome}>New</Button>
+        <Button
+          onClick={() => {
+            /* Made here, and shown here: the same as adding one from the mixer. */
+            const added = addMetronome()
+            if (added !== null) useAlign.getState().align(added)
+          }}
+        >
+          New
+        </Button>
         {click === null ? null : (
           <>
             <span className="align__divider" />
@@ -311,7 +326,7 @@ export function AlignTool() {
         <span className="num">{clock(from)}</span>
         <span className="setting-note">
           {timing === null
-            ? 'Add a metronome channel in Setup to line one up.'
+            ? 'Add a click track from the mixer to line one up.'
             : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · drag the handles, or arrow keys to nudge · scroll to zoom, middle-drag or shift-scroll to pan`}
         </span>
         <span className="num">{clock(to)}</span>

@@ -33,7 +33,8 @@ interface SongState {
   importAudio: (paths?: string[]) => Promise<void>
   removeChannel: (channelId: string) => Promise<void>
   downloadAudio: (url: string) => Promise<void>
-  addMetronome: () => void
+  /** Adds a click track and says which one it added. */
+  addMetronome: () => string | null
   /** True from pressing record until the take has been converted. */
   /** Opens the input and holds it, ready for a take to start instantly. */
   armRecording: () => Promise<void>
@@ -215,12 +216,13 @@ export const useSong = create<SongState>((set, get) => ({
 
   addMetronome: () => {
     const song = get().song
-    if (song === null) return
+    if (song === null) return null
     const taken = new Set(song.channels.map((channel) => channel.id))
     let id = 'click'
     for (let n = 2; taken.has(id); n += 1) id = `click-${n}`
     /* Ends where the music starts, which is where a count-in belongs. */
     get().update({ channels: [...song.channels, newMetronomeChannel(id, 0)] })
+    return id
   },
 
   armRecording: async () => {

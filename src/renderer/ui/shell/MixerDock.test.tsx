@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { AudioChannel, ChannelOrigin, Song } from '@core/song/song'
 import { newSong } from '@core/song/song'
+import { useAlign } from '@renderer/state/align'
 import { useSong } from '@renderer/state/song'
+import { useTools } from '@renderer/state/tools'
 import { installBridge } from '@renderer/testing/bridge'
 import { MixerDock } from './MixerDock'
 
@@ -55,6 +57,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  useTools.setState((state) => ({ open: { ...state.open, align: false } }))
+  useAlign.setState({ clickId: null })
   useSong.setState({ song: null })
 })
 
@@ -244,6 +248,45 @@ describe('adding a channel', () => {
     await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
 
     expect((useSong.getState().song as Song).channels).toHaveLength(before + 1)
+  })
+
+  /* A click track is added in order to line it up against the music. */
+  it('opens the alignment tool on the click track it just added', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await user.click(screen.getByRole('button', { name: 'Add a channel' }))
+    await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
+
+    expect(useTools.getState().open.align).toBe(true)
+    const added = (useSong.getState().song as Song).channels.at(-1)
+    expect(useAlign.getState().clickId).toBe(added?.id)
+  })
+
+  it('points at the second click track when a second one is added', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await user.click(screen.getByRole('button', { name: 'Add a channel' }))
+    await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
+    const first = useAlign.getState().clickId
+
+    await user.click(screen.getByRole('button', { name: 'Add a channel' }))
+    await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
+
+    expect(useAlign.getState().clickId).not.toBe(first)
+  })
+
+  it('leaves the tool open rather than closing it on a second click track', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    for (const _ of [1, 2]) {
+      await user.click(screen.getByRole('button', { name: 'Add a channel' }))
+      await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
+    }
+
+    expect(useTools.getState().open.align).toBe(true)
   })
 
   it('says how to start when the song has no channels at all', () => {

@@ -19,6 +19,12 @@ export function toggleTool(id: ToolId): void {
   persistIfSongScoped(id)
 }
 
+/** Opens a tool, or leaves it open if it already is. */
+export function openTool(id: ToolId): void {
+  if (useTools.getState().open[id]) return
+  toggleTool(id)
+}
+
 export function closeTool(id: ToolId): void {
   useTools.getState().close(id)
   persistIfSongScoped(id)
