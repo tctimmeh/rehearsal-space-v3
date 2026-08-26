@@ -196,6 +196,33 @@ describe('the channel menu', () => {
   })
 })
 
+/**
+ * A long channel name took its space out of the icon, which is drawn to fill
+ * its box and so lost half of itself rather than getting smaller. There is no
+ * layout in these tests to measure, so what is pinned is the marking that
+ * keeps the icon out of the shrinking.
+ */
+describe('the channel icon', () => {
+  it('is held at its own size, whatever the name does', () => {
+    useSong.setState({
+      song: {
+        ...(useSong.getState().song as Song),
+        channels: [
+          {
+            ...((useSong.getState().song as Song).channels[0] as Song['channels'][number]),
+            name: 'Downloaded Audio'
+          }
+        ]
+      }
+    })
+    dock()
+
+    const icon = document.querySelector('.strip__name-icon')
+    expect(icon).toBeTruthy()
+    expect(icon?.querySelector('svg')).toBeTruthy()
+  })
+})
+
 describe('adding a channel', () => {
   it('offers the three ways a channel gets here', async () => {
     const user = userEvent.setup()

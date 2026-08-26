@@ -224,7 +224,7 @@ function ChannelStrip({
   return (
     <div className="strip">
       <div className="strip__name">
-        <span style={{ color }}>
+        <span className="strip__name-icon" style={{ color }}>
           <SubjectIcon subject={channel.subject} size={20} />
         </span>
         <span className="strip__name-text">{channel.name}</span>
