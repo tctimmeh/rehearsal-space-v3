@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef } from 'react'
 
 import { classifyLine, piecesOf } from '@core/lyrics/chords'
+import {
+  beginHistory,
+  canRedo,
+  canUndo,
+  record,
+  redo,
+  undo,
+  type History,
+  type Recording
+} from '@core/lyrics/undo'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import { lendCursor, useLyrics } from '@renderer/state/lyrics'
 import { useSong } from '@renderer/state/song'
@@ -38,6 +48,12 @@ function Coloured({ line }: { line: string }) {
     </>
   )
 }
+
+const fresh = (text: string): Recording => ({
+  history: beginHistory({ text, caret: text.length }),
+  edit: { kind: 'none', at: 0, inserted: '', removed: '' },
+  length: 0
+})
 
 /** Chord charts are written in columns, and a tab is how a column is reached. */
 const TAB_STOP = 4
@@ -88,12 +104,18 @@ function retypeAll(field: HTMLTextAreaElement, text: string): boolean {
 export function LyricsEditor() {
   const song = useSong((state) => state.song)
   const text = useLyrics((state) => state.text)
+  const revision = useLyrics((state) => state.revision)
   const saved = useLyrics((state) => state.saved)
   const error = useLyrics((state) => state.error)
   const edit = useLyrics((state) => state.edit)
+  const replace = useLyrics((state) => state.replace)
   const transposeText = useLyrics((state) => state.transposed)
 
   const input = useRef<HTMLTextAreaElement>(null)
+  const history = useRef<Recording>(fresh(text))
+  /* Set while an undo is being applied, so it is not recorded as an edit. */
+  const applying = useRef(false)
+  const lastEditAt = useRef(0)
   const behind = useRef<HTMLPreElement>(null)
   const gutter = useRef<HTMLDivElement>(null)
 
@@ -113,6 +135,24 @@ export function LyricsEditor() {
 
   useEffect(follow, [text])
 
+  /**
+   * The field holds its own text, and is written into only when the words
+   * came from somewhere else — a different song, or a rewrite it could not be
+   * asked to type itself.
+   *
+   * Anything else loses the undo history. A field handed its own text back
+   * after every keystroke cannot group typing into steps, and one written to
+   * while an undo is being applied fights the undo and wins.
+   */
+  useEffect(() => {
+    const field = input.current
+    if (field === null) return
+    const words = useLyrics.getState().text
+    if (field.value !== words) field.value = words
+    /* A different song is a different history. */
+    history.current = fresh(words)
+  }, [revision])
+
   /* While the editor is open, anything that has a word to offer — the rhymes
      drawer — can put it where the caret is. */
   useEffect(
@@ -125,7 +165,7 @@ export function LyricsEditor() {
         const current = useLyrics.getState().text
         const at = field.selectionStart
         const end = field.selectionEnd
-        edit(`${current.slice(0, at)}${word}${current.slice(end)}`)
+        useLyrics.getState().replace(`${current.slice(0, at)}${word}${current.slice(end)}`)
         requestAnimationFrame(() => {
           field.focus()
           field.selectionStart = at + word.length
@@ -135,7 +175,46 @@ export function LyricsEditor() {
     [edit]
   )
 
+  const remember = (field: HTMLTextAreaElement) => {
+    if (applying.current) return
+    const now = performance.now()
+    history.current = record(
+      history.current,
+      { text: field.value, caret: field.selectionStart },
+      now - lastEditAt.current
+    )
+    lastEditAt.current = now
+  }
+
+  const goTo = (next: History) => {
+    const field = input.current
+    if (field === null) return
+    applying.current = true
+    if (!retypeAll(field, next.present.text)) replace(next.present.text)
+    field.setSelectionRange(next.present.caret, next.present.caret)
+    applying.current = false
+
+    history.current = { ...history.current, history: next }
+    edit(field.value)
+  }
+
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const undoing = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z'
+    const redoing =
+      (event.ctrlKey || event.metaKey) &&
+      (event.key.toLowerCase() === 'y' || (event.key.toLowerCase() === 'z' && event.shiftKey))
+
+    if (redoing) {
+      event.preventDefault()
+      if (canRedo(history.current.history)) goTo(redo(history.current.history))
+      return
+    }
+    if (undoing) {
+      event.preventDefault()
+      if (canUndo(history.current.history)) goTo(undo(history.current.history))
+      return
+    }
+
     if (event.key !== 'Tab') return
     event.preventDefault()
     const field = event.currentTarget
@@ -145,7 +224,7 @@ export function LyricsEditor() {
 
     if (typeInto(field, spaces)) return
     /* No editing command: keep the tab working, undo or no undo. */
-    edit(`${text.slice(0, at)}${spaces}${text.slice(field.selectionEnd)}`)
+    replace(`${text.slice(0, at)}${spaces}${text.slice(field.selectionEnd)}`)
     requestAnimationFrame(() => {
       field.selectionStart = at + spaces.length
       field.selectionEnd = at + spaces.length
@@ -157,7 +236,7 @@ export function LyricsEditor() {
   const move = (semitones: number) => {
     const next = transposeText(semitones)
     const field = input.current
-    if (field === null || !retypeAll(field, next)) edit(next)
+    if (field === null || !retypeAll(field, next)) replace(next)
   }
 
   if (song === null) return <p className="stage-empty">No song loaded.</p>
@@ -205,11 +284,14 @@ export function LyricsEditor() {
           <textarea
             ref={input}
             className="editor__input"
-            value={text}
+            defaultValue={text}
             spellCheck={false}
             aria-label="Lyrics"
             placeholder={'[Verse 1]\nC       Am\nWrite the words here'}
-            onChange={(event) => edit(event.target.value)}
+            onChange={(event) => {
+              remember(event.currentTarget)
+              edit(event.target.value)
+            }}
             onScroll={follow}
             onKeyDown={onKeyDown}
           />

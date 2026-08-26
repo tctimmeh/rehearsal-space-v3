@@ -10,11 +10,20 @@ interface LyricsState {
   /** Which song the text belongs to, so a song change is never saved over. */
   songId: string | null
   text: string
+  /**
+   * Bumped only when the words change from outside the editor — a different
+   * song, or a rewrite the field could not be asked to type itself. The editor
+   * writes them into the field on that and on nothing else, because a field
+   * that is handed its own text back cannot keep an undo history.
+   */
+  revision: number
   saving: boolean
   saved: boolean
   error: string | null
   load: (songId: string) => Promise<void>
   edit: (text: string) => void
+  /** Replaces the words wholesale, as the fallback path for a rewrite. */
+  replace: (text: string) => void
   /** The words with every chord moved, for the editor to type in. */
   transposed: (semitones: number) => string
   flush: () => Promise<void>
@@ -26,17 +35,18 @@ let writing: Promise<void> = Promise.resolve()
 export const useLyrics = create<LyricsState>((set, get) => ({
   songId: null,
   text: '',
+  revision: 0,
   saving: false,
   saved: true,
   error: null,
 
   load: async (songId) => {
     cancelPending()
-    set({ songId, text: '', saved: true, error: null })
+    set({ songId, text: '', revision: get().revision + 1, saved: true, error: null })
     try {
       const text = await window.rehearsal.library.readLyrics(songId)
       /* The song may have been swapped while this was being read. */
-      if (get().songId === songId) set({ text })
+      if (get().songId === songId) set({ text, revision: get().revision + 1 })
     } catch (error) {
       set({ error: `Could not read the lyrics: ${message(error)}` })
     }
@@ -49,6 +59,11 @@ export const useLyrics = create<LyricsState>((set, get) => ({
   },
 
   transposed: (semitones) => transposeLyrics(get().text, semitones),
+
+  replace: (text) => {
+    set({ revision: get().revision + 1 })
+    get().edit(text)
+  },
 
   /**
    * Writes are queued behind each other rather than raced. Two overlapping
@@ -116,7 +131,12 @@ export function followSongForLyrics(): () => void {
     current = songId
     if (leaving !== null && !useLyrics.getState().saved) void useLyrics.getState().flush()
     if (songId === null) {
-      useLyrics.setState({ songId: null, text: '', saved: true })
+      useLyrics.setState({
+        songId: null,
+        text: '',
+        revision: useLyrics.getState().revision + 1,
+        saved: true
+      })
       return
     }
     void useLyrics.getState().load(songId)

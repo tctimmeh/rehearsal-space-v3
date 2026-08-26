@@ -262,3 +262,91 @@ describe('how edits reach the field', () => {
     expect(field.scrollTop).toBe(120)
   })
 })
+
+/**
+ * The browser's own undo cannot be used: colouring the words means rebuilding
+ * the layer behind the field on every keystroke, and any change to the page
+ * during typing ends the grouping the browser was keeping — measured, one
+ * character per press. So the editor keeps its own.
+ */
+describe('undo', () => {
+  beforeEach(() => {
+    document.execCommand = vi.fn((command: string, _ui?: boolean, value?: string) => {
+      if (command !== 'insertText') return false
+      const field = document.querySelector('.editor__input') as HTMLTextAreaElement
+      const before = field.value.slice(0, field.selectionStart)
+      const after = field.value.slice(field.selectionEnd)
+      fireEvent.change(field, { target: { value: `${before}${value ?? ''}${after}` } })
+      return true
+    }) as typeof document.execCommand
+  })
+
+  const field = () => screen.getByRole('textbox', { name: 'Lyrics' }) as HTMLTextAreaElement
+
+  it('takes back a word at a time, not a letter at a time', async () => {
+    const user = userEvent.setup()
+    useLyrics.setState({ text: '', revision: 1 })
+    render(<LyricsEditor />)
+
+    await user.click(field())
+    await user.type(field(), 'hold on tight')
+    await user.keyboard('{Control>}z{/Control}')
+
+    expect(useLyrics.getState().text).toBe('hold on ')
+  })
+
+  it('takes back a transposition in one press', async () => {
+    const user = userEvent.setup()
+    render(<LyricsEditor />)
+    const before = useLyrics.getState().text
+
+    await user.click(screen.getByRole('button', { name: '+' }))
+    expect(useLyrics.getState().text).not.toBe(before)
+
+    await user.click(field())
+    await user.keyboard('{Control>}z{/Control}')
+
+    expect(useLyrics.getState().text).toBe(before)
+  })
+
+  it('takes back a word put in from the rhymes drawer', async () => {
+    const user = userEvent.setup()
+    render(<LyricsEditor />)
+    const before = useLyrics.getState().text
+    field().setSelectionRange(9, 9)
+
+    act(() => {
+      insertIntoLyrics('bemoan')
+    })
+    expect(useLyrics.getState().text).not.toBe(before)
+
+    await user.click(field())
+    await user.keyboard('{Control>}z{/Control}')
+
+    expect(useLyrics.getState().text).toBe(before)
+  })
+
+  it('puts back what it took away', async () => {
+    const user = userEvent.setup()
+    useLyrics.setState({ text: '', revision: 2 })
+    render(<LyricsEditor />)
+
+    await user.click(field())
+    await user.type(field(), 'hold on')
+    await user.keyboard('{Control>}z{/Control}')
+    await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}')
+
+    expect(useLyrics.getState().text).toBe('hold on')
+  })
+
+  it('has nothing to undo in a song just opened', async () => {
+    const user = userEvent.setup()
+    render(<LyricsEditor />)
+    const opened = useLyrics.getState().text
+
+    await user.click(field())
+    await user.keyboard('{Control>}z{/Control}')
+
+    expect(useLyrics.getState().text).toBe(opened)
+  })
+})
