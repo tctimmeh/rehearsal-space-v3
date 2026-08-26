@@ -30,10 +30,16 @@ export function LibraryView() {
     setView('player')
   }
 
+  /* A new song is made in order to work on it, the same as opening one. */
+  const newSong = async () => {
+    await create()
+    setView('player')
+  }
+
   return (
     <div className="library">
       <div className="library__bar">
-        <Button variant="primary" onClick={() => void create()}>
+        <Button variant="primary" onClick={() => void newSong()}>
           New song
         </Button>
       </div>

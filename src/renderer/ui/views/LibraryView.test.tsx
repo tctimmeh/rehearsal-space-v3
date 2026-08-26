@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { SongSummary } from '@core/song/song'
 import { useSong } from '@renderer/state/song'
 import { installBridge } from '@renderer/testing/bridge'
+import { useView } from '@renderer/state/view'
 import { LibraryView } from './LibraryView'
 
 const summary = (id: string, title: string, artist: string): SongSummary => ({
@@ -18,6 +19,7 @@ const summary = (id: string, title: string, artist: string): SongSummary => ({
 
 beforeEach(() => {
   installBridge()
+  useView.setState({ view: 'library' })
   useSong.setState({
     song: null,
     error: null,
@@ -28,6 +30,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   useSong.setState({ songs: [], song: null })
+  useView.setState({ view: 'library' })
 })
 
 describe('the delete dialog', () => {
@@ -69,5 +72,27 @@ describe('the delete dialog', () => {
     await user.click(screen.getByRole('dialog').querySelector('.btn--primary') as HTMLElement)
 
     expect(library.remove).toHaveBeenCalledWith('b-side')
+  })
+})
+
+/** A song is made in order to work on it, the same as opening one. */
+describe('leaving the library', () => {
+  it('goes to the player when a song is opened', async () => {
+    const user = userEvent.setup()
+    render(<LibraryView />)
+
+    await user.click(screen.getByText('Coast Road'))
+
+    expect(useView.getState().view).toBe('player')
+  })
+
+  it('goes to the player when a song is made', async () => {
+    const user = userEvent.setup()
+    render(<LibraryView />)
+
+    await user.click(screen.getByRole('button', { name: 'New song' }))
+
+    expect(window.rehearsal.library.create).toHaveBeenCalled()
+    expect(useView.getState().view).toBe('player')
   })
 })
