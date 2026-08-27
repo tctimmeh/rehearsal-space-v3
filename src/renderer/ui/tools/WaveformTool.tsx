@@ -13,7 +13,7 @@ import { Waveform } from './Waveform'
 import { Tabs } from '../primitives'
 import { usePeaks } from './usePeaks'
 import { ClickTrackControls, ClickTrackMarks } from './ClickTrackMode'
-import { LoopControls, LoopMarks } from './LoopMode'
+import { LoopControls, LoopMarks, MIN_LENGTH, regionBetween } from './LoopMode'
 import { Picker, type View } from './waveformParts'
 
 /**
@@ -39,7 +39,7 @@ const note = (job: Job, timing: MetronomeTiming | null, loop: LoopRegion | null)
   const moving = 'scroll to zoom, middle-drag or shift-scroll to pan'
   if (job === 'loop') {
     return loop === null
-      ? `Set a region to go round and round while you work on it · ${moving}`
+      ? `Shift-drag to mark a stretch to go round and round · ${moving}`
       : `Looping ${(loop.end - loop.start).toFixed(1)}s · ${moving}`
   }
   return timing === null
@@ -82,6 +82,11 @@ export function WaveformTool() {
      a re-render would have told the handler that a drag had started. */
   const scrubbing = useRef(false)
   const [showScrub, setShowScrub] = useState(false)
+  /* Where a shift-drag took hold, and the region it has drawn out so far. The
+     song only hears about it once the button comes up: a region is the whole
+     gesture, not every pixel of it. */
+  const drawingFrom = useRef<number | null>(null)
+  const [drawn, setDrawn] = useState<LoopRegion | null>(null)
 
   const against = audio.find((c) => c.id === againstId) ?? audio[0] ?? null
   const click = clicks.find((c) => c.id === clickId) ?? clicks[0] ?? null
@@ -181,6 +186,21 @@ export function WaveformTool() {
           }
           if (event.button !== 0) return
 
+          /* Shift draws a region out, which is how one is made in the first
+             place — there is nothing to take hold of until there is one. */
+          if (job === 'loop' && event.shiftKey) {
+            event.preventDefault()
+            const at = timeAt(event.clientX)
+            drawingFrom.current = at
+            setDrawn({ start: at, end: at })
+            try {
+              event.currentTarget.setPointerCapture(event.pointerId)
+            } catch {
+              /* No capture; the drag still works within the strip. */
+            }
+            return
+          }
+
           /* Scrubbing: the playhead follows for as long as the button is
              down, so a spot can be hunted for by ear rather than found in
              one go. */
@@ -194,6 +214,11 @@ export function WaveformTool() {
           seek(timeAt(event.clientX))
         }}
         onPointerMove={(event) => {
+          const drawnFrom = drawingFrom.current
+          if (drawnFrom !== null) {
+            setDrawn(regionBetween(drawnFrom, timeAt(event.clientX)))
+            return
+          }
           if (scrubbing.current) {
             seek(timeAt(event.clientX))
             return
@@ -205,6 +230,23 @@ export function WaveformTool() {
           setCentre(clampViewCentre(held.centre - moved, visible, [songStart, songEnd]))
         }}
         onPointerUp={(event) => {
+          const drawnFrom = drawingFrom.current
+          if (drawnFrom !== null) {
+            drawingFrom.current = null
+            /* Taken from where the button came up rather than from what has
+               been drawn so far: the last move of a drag can arrive too late
+               to have been rendered, and the region would come up short. */
+            const region = regionBetween(drawnFrom, timeAt(event.clientX))
+            /* A region that short is a click that slipped, not a decision. */
+            if (region.end - region.start >= MIN_LENGTH) setRegion(region)
+            setDrawn(null)
+            try {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            } catch {
+              /* Never captured. */
+            }
+            return
+          }
           scrubbing.current = false
           setShowScrub(false)
           if (grab.current === null) {
@@ -224,6 +266,8 @@ export function WaveformTool() {
           }
         }}
         onPointerCancel={() => {
+          drawingFrom.current = null
+          setDrawn(null)
           scrubbing.current = false
           setShowScrub(false)
           grab.current = null
@@ -265,7 +309,12 @@ export function WaveformTool() {
         {job === 'click' ? (
           <ClickTrackMarks timing={timing} view={view} change={change} />
         ) : (
-          <LoopMarks loop={loop} view={view} onChange={setRegion} />
+          <LoopMarks
+            loop={drawn ?? loop}
+            view={view}
+            drawing={drawn !== null}
+            onChange={setRegion}
+          />
         )}
 
         <span className="align__playhead" style={{ left: xOf(position) }} />

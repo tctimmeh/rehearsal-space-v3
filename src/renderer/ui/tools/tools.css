@@ -423,6 +423,10 @@
   background: rgba(255, 255, 255, 0.08);
   pointer-events: none;
 }
+.align__loop[data-drawing='true'] {
+  background: rgba(255, 255, 255, 0.14);
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+}
 .align__handle--loop-start::before,
 .align__handle--loop-end::before {
   background: var(--text);
@@ -453,6 +457,10 @@
   bottom: 0;
   background: rgba(255, 255, 255, 0.08);
   pointer-events: none;
+}
+.align__loop[data-drawing='true'] {
+  background: rgba(255, 255, 255, 0.14);
+  outline: 1px solid rgba(255, 255, 255, 0.35);
 }
 .align__handle--loop-start::before,
 .align__handle--loop-end::before {

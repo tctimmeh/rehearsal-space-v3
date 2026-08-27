@@ -186,7 +186,15 @@ describe('moving the playhead', () => {
 describe('the loop region', () => {
   const pickLoopJob = async () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Loop region' }))
-    await waitFor(() => screen.getByRole('button', { name: /region/i }))
+    await waitFor(() => screen.getByRole('tab', { name: 'Loop region', selected: true }))
+  }
+
+  /* The strip is mocked at 1000px wide and opens 4 seconds across, from -2. */
+  const strip = () => document.querySelector('.align__strip') as HTMLElement
+  const drawAcross = (fromX: number, toX: number, shiftKey = true) => {
+    fireEvent.pointerDown(strip(), { clientX: fromX, button: 0, pointerId: 1, shiftKey })
+    fireEvent.pointerMove(strip(), { clientX: toX, pointerId: 1, shiftKey })
+    fireEvent.pointerUp(strip(), { clientX: toX, pointerId: 1, shiftKey })
   }
 
   const saved = () => useSong.getState().song?.loop ?? null
@@ -207,17 +215,62 @@ describe('the loop region', () => {
     expect(screen.queryByRole('slider', { name: /Loop from/ })).toBeNull()
   })
 
-  /* Something has to be there before it can be dragged, and what is on screen
-     is what is being looked at. */
-  it('is set to what is on screen', async () => {
+  /* There is nothing to take hold of until there is a region, so the first one
+     is drawn out rather than dragged. */
+  it('is drawn by shift-dragging across the waveform', async () => {
     render(<WaveformTool />)
     await pickLoopJob()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Set region to what is shown' }))
+    /* Half the width of a window four seconds across. */
+    drawAcross(250, 750)
 
-    const loop = saved()
-    expect(loop).not.toBeNull()
-    expect((loop as { end: number }).end).toBeGreaterThan((loop as { start: number }).start)
+    const loop = saved() as { start: number; end: number }
+    expect(loop.end - loop.start).toBeCloseTo(2, 5)
+  })
+
+  it('is drawn the same either way round', async () => {
+    render(<WaveformTool />)
+    await pickLoopJob()
+    drawAcross(250, 750)
+    const forwards = saved()
+
+    useSong.setState((state) => ({ song: { ...(state.song as Song), loop: null } }))
+    drawAcross(750, 250)
+
+    expect(saved()).toEqual(forwards)
+  })
+
+  it('is not drawn by a plain drag, which scrubs', async () => {
+    render(<WaveformTool />)
+    await pickLoopJob()
+
+    drawAcross(250, 750, false)
+
+    expect(saved()).toBeNull()
+  })
+
+  /* The last move of a drag can arrive too late to have been rendered, and
+     the region would come up short of where the button actually came up. */
+  it('reaches where the button came up, not where the last move was drawn', async () => {
+    render(<WaveformTool />)
+    await pickLoopJob()
+
+    fireEvent.pointerDown(strip(), { clientX: 250, button: 0, pointerId: 1, shiftKey: true })
+    fireEvent.pointerMove(strip(), { clientX: 500, pointerId: 1, shiftKey: true })
+    fireEvent.pointerUp(strip(), { clientX: 750, pointerId: 1, shiftKey: true })
+
+    const loop = saved() as { start: number; end: number }
+    expect(loop.end - loop.start).toBeCloseTo(2, 5)
+  })
+
+  /* A region that short is a click that slipped, not a decision. */
+  it('is not drawn by a shift-click that barely moved', async () => {
+    render(<WaveformTool />)
+    await pickLoopJob()
+
+    drawAcross(500, 505)
+
+    expect(saved()).toBeNull()
   })
 
   /* The window opens four seconds wide around the click, so a region has to be

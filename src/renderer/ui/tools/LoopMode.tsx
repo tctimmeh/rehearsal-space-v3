@@ -21,15 +21,12 @@ export function LoopControls({
     <>
       <span className="align__divider" />
       {loop === null ? (
-        /* There has to be something to take hold of before it can be dragged,
-           and what is on screen is what is being looked at. */
-        <Button onClick={() => onChange({ start: view.from, end: view.to })}>
-          Set region to what is shown
-        </Button>
+        <span className="setting-note">Shift-drag across the waveform to mark a region.</span>
       ) : (
         <>
           <span className="setting-note">
-            {view.clock(loop.start)} – {view.clock(loop.end)} · drag the ends
+            {view.clock(loop.start)} – {view.clock(loop.end)} · drag the ends, or shift-drag to
+            draw a new one
           </span>
           <Button onClick={() => onChange(null)}>Clear region</Button>
         </>
@@ -41,13 +38,26 @@ export function LoopControls({
 export function LoopMarks({
   loop,
   view,
+  drawing,
   onChange
 }: {
   loop: LoopRegion | null
   view: View
+  /** True while one is being drawn out, when there is nothing to take hold of. */
+  drawing?: boolean
   onChange: (loop: LoopRegion) => void
 }) {
   if (loop === null) return null
+
+  if (drawing === true) {
+    return (
+      <span
+        className="align__loop"
+        data-drawing="true"
+        style={{ left: view.xOf(loop.start), right: `${100 - percent(loop.end, view)}%` }}
+      />
+    )
+  }
 
   /* Dragging one end past the other would leave a region that runs backwards,
      which nothing downstream would know what to do with. */
@@ -90,7 +100,13 @@ export function LoopMarks({
 }
 
 /** Short enough to be a mistake rather than a choice. */
-const MIN_LENGTH = 0.1
+export const MIN_LENGTH = 0.1
+
+/** Drawn either way round; a region does not care which end you started at. */
+export const regionBetween = (one: number, other: number): LoopRegion => ({
+  start: Math.min(one, other),
+  end: Math.max(one, other)
+})
 
 const percent = (time: number, view: View): number =>
   ((time - view.from) / (view.to - view.from)) * 100
