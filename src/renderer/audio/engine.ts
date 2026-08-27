@@ -5,6 +5,7 @@ import { beatsBetween, solveMetronome, type MetronomeTiming } from '@core/metron
 import { shifterSemitones } from '@core/mix/pitch'
 import type {
   AudioChannel,
+  LoopRegion,
   MetronomeChannel,
   MetronomeSample,
   PitchOffset,
@@ -89,7 +90,9 @@ export class AudioEngine {
      all there is. */
   private openEnded = false
   private end = 0
-  private endTimer: ReturnType<typeof setTimeout> | null = null
+  /** The stretch being gone round, or null when playing straight through. */
+  private loop: LoopRegion | null = null
+  private nextTimer: ReturnType<typeof setTimeout> | null = null
   private onEnded: (() => void) | null = null
 
   private ensureContext(): AudioContext {
@@ -207,8 +210,8 @@ export class AudioEngine {
   setOpenEnded(open: boolean): void {
     if (open === this.openEnded) return
     this.openEnded = open
-    if (open) this.clearEndTimer()
-    else if (this.playing) this.scheduleEnd()
+    if (open) this.clearNextTimer()
+    else if (this.playing) this.scheduleNext()
   }
 
   /**
@@ -233,7 +236,7 @@ export class AudioEngine {
       }
     }
 
-    if (this.playing) this.scheduleEnd()
+    if (this.playing) this.scheduleNext()
     this.applyShift()
   }
 
@@ -295,7 +298,12 @@ export class AudioEngine {
   setBounds(start: number, end: number): void {
     this.start = start
     this.end = end
-    if (this.playing) this.scheduleEnd()
+    if (this.playing) this.scheduleNext()
+  }
+
+  setLoop(loop: LoopRegion | null): void {
+    this.loop = loop
+    if (this.playing) this.scheduleNext()
   }
 
   /** Called when the song runs past its last channel. */
@@ -304,24 +312,44 @@ export class AudioEngine {
   }
 
   /**
-   * The end is scheduled rather than watched for, so it does not depend on the
-   * UI getting a frame — a window nobody is looking at still finishes its song.
+   * Whatever happens next — going round the loop, or running out — is
+   * scheduled rather than watched for, so it does not depend on the UI getting
+   * a frame. A window nobody is looking at still finishes its song, and still
+   * comes round.
+   *
+   * Each turn of a loop is anchored at its start rather than measured from the
+   * last one, so a late timer makes one turn a few milliseconds long rather
+   * than walking the loop out of the song.
    */
-  private scheduleEnd(): void {
-    this.clearEndTimer()
+  private scheduleNext(): void {
+    this.clearNextTimer()
+
+    const loop = this.loop
+    if (loop !== null) {
+      const untilRoundAgain = (loop.end - this.position) / this.rate
+      if (untilRoundAgain > 0) {
+        this.nextTimer = setTimeout(() => {
+          this.nextTimer = null
+          /* Restarting schedules the next turn. */
+          this.restartSources(loop.start)
+        }, untilRoundAgain * 1000)
+        return
+      }
+    }
+
     if (this.openEnded) return
     const remaining = (this.end - this.position) / this.rate + END_GRACE_S
     if (remaining <= 0) return
-    this.endTimer = setTimeout(() => {
-      this.endTimer = null
+    this.nextTimer = setTimeout(() => {
+      this.nextTimer = null
       this.onEnded?.()
     }, remaining * 1000)
   }
 
-  private clearEndTimer(): void {
-    if (this.endTimer === null) return
-    clearTimeout(this.endTimer)
-    this.endTimer = null
+  private clearNextTimer(): void {
+    if (this.nextTimer === null) return
+    clearTimeout(this.nextTimer)
+    this.nextTimer = null
   }
 
   /**
@@ -491,7 +519,7 @@ export class AudioEngine {
     this.starting = false
     this.anchorSong = this.position
     this.playing = false
-    this.clearEndTimer()
+    this.clearNextTimer()
     this.stopSources()
   }
 
@@ -499,7 +527,7 @@ export class AudioEngine {
     this.playing = false
     this.playAttempt += 1
     this.starting = false
-    this.clearEndTimer()
+    this.clearNextTimer()
     this.stopSources()
     this.anchorSong = this.start
   }
@@ -515,7 +543,7 @@ export class AudioEngine {
   }
 
   dispose(): void {
-    this.clearEndTimer()
+    this.clearNextTimer()
     this.playAttempt += 1
     this.playing = false
     for (const loaded of this.channels.values()) this.dropChannel(loaded)
@@ -569,7 +597,7 @@ export class AudioEngine {
       this.startChannel(loaded, this.anchorSong)
     }
     this.restartClicks(this.anchorSong)
-    if (this.playing) this.scheduleEnd()
+    if (this.playing) this.scheduleNext()
   }
 
   /** Clicks already handed over cannot be recalled, so the watermark moves too. */
@@ -658,7 +686,7 @@ export class AudioEngine {
        already running: rewinding its watermark would sound the same clicks
        twice. */
     if (this.clickTimer === null) this.restartClicks(at)
-    this.scheduleEnd()
+    this.scheduleNext()
   }
 
   /** Starts one channel's source for a given song time, replacing any current one. */

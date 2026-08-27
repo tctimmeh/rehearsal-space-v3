@@ -11,7 +11,7 @@ export type ToolSize = 'gadget' | 'stage' | 'drawer'
 /** `app` tools survive a song change; `song` tools are saved with the song. */
 export type ToolScope = 'app' | 'song'
 
-export const TOOL_IDS = ['metronome', 'tuner', 'lyrics', 'chords', 'align', 'rhymes'] as const
+export const TOOL_IDS = ['metronome', 'tuner', 'lyrics', 'chords', 'waveform', 'rhymes'] as const
 export type ToolId = (typeof TOOL_IDS)[number]
 
 export interface ToolMeta {
@@ -46,10 +46,10 @@ export const TOOL_META: Record<ToolId, ToolMeta> = {
     size: 'stage',
     scope: 'song'
   },
-  align: {
-    id: 'align',
-    label: 'Align click track',
-    shortLabel: 'Align',
+  waveform: {
+    id: 'waveform',
+    label: 'Waveform',
+    shortLabel: 'Wave',
     size: 'stage',
     scope: 'song'
   },

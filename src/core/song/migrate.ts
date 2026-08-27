@@ -7,6 +7,7 @@ import {
   SONG_SCHEMA_VERSION,
   type Channel,
   type ChannelOrigin,
+  type LoopRegion,
   type PitchOffset,
   type Song,
   type SongKey
@@ -168,6 +169,25 @@ function parseChannel(raw: unknown, index: number): Channel | null {
  * with a fallback rather than trusted; only a version we cannot understand is
  * an error.
  */
+/**
+ * Tools that have been renamed since a song last recorded which were open.
+ * Aligning a click track became one job among several in the waveform area.
+ */
+const RENAMED: Record<string, ToolId> = { align: 'waveform' }
+
+const renamedTool = (tool: unknown): unknown =>
+  typeof tool === 'string' && tool in RENAMED ? RENAMED[tool] : tool
+
+/** A region only survives if it is a region: two numbers, the right way round. */
+function parseLoop(raw: unknown): LoopRegion | null {
+  if (!isRecord(raw)) return null
+  const start = raw['start']
+  const end = raw['end']
+  if (typeof start !== 'number' || typeof end !== 'number') return null
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null
+  return { start, end }
+}
+
 export function migrateSong(raw: unknown, id: string): Song {
   const defaults = newSong(id)
   if (!isRecord(raw)) return defaults
@@ -203,8 +223,9 @@ export function migrateSong(raw: unknown, id: string): Song {
       speed: clamped(playback['speed'], 1, 0.5, 1.5),
       pitch: parsePitch(playback['pitch'])
     },
+    loop: parseLoop(raw['loop']),
     key: parseKey(raw['key'], defaults.key),
     tags: parseTags(raw['tags']),
-    openTools: openTools.filter((tool): tool is ToolId => isToolId(tool))
+    openTools: openTools.map(renamedTool).filter((tool): tool is ToolId => isToolId(tool))
   }
 }

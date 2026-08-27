@@ -27,6 +27,14 @@ export const AutoReturnIcon = ({ size = 18 }: { size?: number }) => (
   </Icon>
 )
 
+/* Round and round: an arrow chasing its own tail between two ends. */
+export const LoopIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size}>
+    <path d="M7 7h10a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 0117 14H7a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 017 7z" />
+    <path d="M9 4.5L6.2 7 9 9.5" />
+  </Icon>
+)
+
 export const KebabIcon = ({ size = 18 }: { size?: number }) => (
   <Icon size={size}>
     <circle cx="12" cy="5" r="1.5" />

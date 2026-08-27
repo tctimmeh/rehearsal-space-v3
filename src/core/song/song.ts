@@ -64,10 +64,23 @@ export interface Song {
   playback: { speed: number; pitch: PitchOffset }
   /** What key the song is in, for the chord chart to open on. */
   key: SongKey
+  /**
+   * The stretch being worked on, kept with the song because that is what it is
+   * about — the awkward eight bars are still awkward tomorrow. Whether the
+   * player is currently going round it is not kept: that is a thing you are
+   * doing, not a thing the song is.
+   */
+  loop: LoopRegion | null
   /** The user's own words for what this song is: "gig", "half finished". */
   tags: string[]
   /** Song-scoped tools reopen where you left them. */
   openTools: ToolId[]
+}
+
+/** Both ends in song time, so a region may begin before 00:00 in a count-in. */
+export interface LoopRegion {
+  start: number
+  end: number
 }
 
 export interface SongKey {
@@ -156,6 +169,7 @@ export function newSong(id: string, now = new Date()): Song {
     buses: { music: 1, click: 0.5 },
     playback: { speed: 1, pitch: { semitones: 0, cents: 0 } },
     key: { tonic: 'C', mode: 'major' },
+    loop: null,
     tags: [],
     openTools: []
   }

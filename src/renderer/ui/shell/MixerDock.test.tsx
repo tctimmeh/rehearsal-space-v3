@@ -57,7 +57,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  useTools.setState((state) => ({ open: { ...state.open, align: false } }))
+  useTools.setState((state) => ({ open: { ...state.open, waveform: false } }))
   useAlign.setState({ clickId: null })
   useSong.setState({ song: null })
 })
@@ -258,7 +258,7 @@ describe('adding a channel', () => {
     await user.click(screen.getByRole('button', { name: 'Add a channel' }))
     await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
 
-    expect(useTools.getState().open.align).toBe(true)
+    expect(useTools.getState().open.waveform).toBe(true)
     const added = (useSong.getState().song as Song).channels.at(-1)
     expect(useAlign.getState().clickId).toBe(added?.id)
   })
@@ -286,7 +286,7 @@ describe('adding a channel', () => {
       await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
     }
 
-    expect(useTools.getState().open.align).toBe(true)
+    expect(useTools.getState().open.waveform).toBe(true)
   })
 
   it('says how to start when the song has no channels at all', () => {

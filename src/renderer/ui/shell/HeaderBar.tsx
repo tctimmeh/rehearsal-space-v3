@@ -15,6 +15,7 @@ import { useView, VIEWS } from '@renderer/state/view'
 import {
   AutoReturnIcon,
   KebabIcon,
+  LoopIcon,
   PauseIcon,
   PlayIcon,
   RecordIcon,
@@ -99,6 +100,7 @@ export function HeaderBar() {
         </IconButton>
       </div>
 
+      <LoopToggle />
       <AutoReturnToggle />
 
       <div className="knobs">
@@ -124,6 +126,34 @@ export function HeaderBar() {
 
       <AppMenu />
     </header>
+  )
+}
+
+/**
+ * Looping: going round the region set on the song, over and over.
+ *
+ * Nothing to go round means nothing to press, so without a region it is
+ * disabled rather than absent — the loop is a thing this song can have, and a
+ * button that comes and goes is harder to find than one that waits.
+ */
+function LoopToggle() {
+  const loop = useTransport((state) => state.loop)
+  const looping = useTransport((state) => state.looping)
+  const setLooping = useTransport((state) => state.setLooping)
+
+  const label =
+    loop === null ? 'Loop, no region set' : looping ? 'Loop, on' : 'Loop, off'
+
+  return (
+    <IconButton
+      label={label}
+      engaged={looping}
+      aria-pressed={looping}
+      disabled={loop === null}
+      onClick={() => setLooping(!looping)}
+    >
+      <LoopIcon />
+    </IconButton>
   )
 }
 

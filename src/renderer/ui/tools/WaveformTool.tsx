@@ -1,22 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { beatsBetween, solveMetronome } from '@core/metronome/solve'
+import { solveMetronome, type MetronomeTiming } from '@core/metronome/solve'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import { clampViewCentre } from '@core/song/viewWindow'
-import {
-  METRONOME_SAMPLE_LABEL,
-  type AudioChannel,
-  type MetronomeChannel,
-  type MetronomeSample
-} from '@core/song/song'
+import type { AudioChannel, LoopRegion, MetronomeChannel } from '@core/song/song'
 import { formatClock, formatClockPrecise } from '@core/time'
 import { useAlign } from '@renderer/state/align'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
 import { Waveform } from './Waveform'
-import { NumberField } from '../primitives'
+import { Tabs } from '../primitives'
 import { usePeaks } from './usePeaks'
+import { ClickTrackControls, ClickTrackMarks } from './ClickTrackMode'
+import { LoopControls, LoopMarks } from './LoopMode'
+import { Picker, type View } from './waveformParts'
+
+/**
+ * Whatever needs the waveform: anything set by looking at the music rather
+ * than by typing a number. One area, one set of eyes on the song, and a job
+ * chosen at the top.
+ */
+const JOBS = [
+  { id: 'click', label: 'Click track' },
+  { id: 'loop', label: 'Loop region' }
+] as const
+type Job = (typeof JOBS)[number]['id']
 
 const WAVE_HEIGHT = 190
 const DEFAULT_SPAN = 4
@@ -24,18 +33,25 @@ const DEFAULT_SPAN = 4
 const MIN_SPAN = 0.05
 /** Pressing a button is a deliberate step, so it is worth more than a notch. */
 const BUTTON_FACTOR = 1.6
-const SAMPLES: MetronomeSample[] = ['tick', 'chirp', 'cymbal', 'rim', 'kit']
 
-/**
- * Lining a click track up against the music.
- *
- * The numbers this sets are the ones nobody can type: where a count-in ends is
- * wherever the band actually comes in, which you find by looking at the
- * transient and dragging to it.
- */
-export function AlignTool() {
+/** What the strip has to say for itself, which depends on what is being done. */
+const note = (job: Job, timing: MetronomeTiming | null, loop: LoopRegion | null): string => {
+  const moving = 'scroll to zoom, middle-drag or shift-scroll to pan'
+  if (job === 'loop') {
+    return loop === null
+      ? `Set a region to go round and round while you work on it · ${moving}`
+      : `Looping ${(loop.end - loop.start).toFixed(1)}s · ${moving}`
+  }
+  return timing === null
+    ? 'Add a click track from the mixer to line one up.'
+    : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · ${moving}`
+}
+
+export function WaveformTool() {
   const song = useSong((state) => state.song)
   const update = useSong((state) => state.update)
+  const loop = song?.loop ?? null
+  const setRegion = (region: LoopRegion | null) => update({ loop: region })
   const position = useTransport((state) => state.position)
   const seek = useTransport((state) => state.seek)
   const songStart = useTransport((state) => state.start)
@@ -44,13 +60,16 @@ export function AlignTool() {
   const audio = (song?.channels.filter((c) => c.kind === 'audio') ?? []) as AudioChannel[]
   const clicks = (song?.channels.filter((c) => c.kind === 'metronome') ?? []) as MetronomeChannel[]
 
+  const [job, setJob] = useState<Job>('click')
   const [againstId, setAgainstId] = useState<string | null>(null)
   const [clickId, setClickId] = useState<string | null>(null)
   const pointedAt = useAlign((state) => state.clickId)
 
   /* Whatever the tool was opened for wins, until another one is chosen here. */
   useEffect(() => {
-    if (pointedAt !== null) setClickId(pointedAt)
+    if (pointedAt === null) return
+    setClickId(pointedAt)
+    setJob('click')
   }, [pointedAt])
   const [span, setSpan] = useState(DEFAULT_SPAN)
   const [centre, setCentre] = useState<number | null>(null)
@@ -100,6 +119,7 @@ export function AlignTool() {
     return from + ((clientX - box.left) / box.width) * (to - from)
   }
   const xOf = (time: number): string => `${((time - from) / (to - from)) * 100}%`
+  const view: View = { from, to, timeAt, xOf, clock }
 
   if (song === null) return <p className="tool-placeholder">No song loaded.</p>
   if (audio.length === 0) {
@@ -113,15 +133,10 @@ export function AlignTool() {
     })
   }
 
-  /* Both ends are just times, so dragging either is the same thing. How many
-     beats fall between them follows from the tempo. */
-  const dragStart = (clientX: number) => change({ startTime: timeAt(clientX) })
-  const dragEnd = (clientX: number) => change({ endTime: timeAt(clientX) })
-
-  const beats = timing === null ? [] : beatsBetween(timing, from, to)
-
   return (
     <div className="align">
+      <Tabs tabs={JOBS} active={job} onSelect={setJob} />
+
       <div className="align__controls">
         <Picker
           label="Against"
@@ -129,60 +144,15 @@ export function AlignTool() {
           options={audio.map((c) => ({ id: c.id, label: c.name }))}
           onChange={setAgainstId}
         />
-        <Picker
-          label="Click track"
-          value={click?.id ?? ''}
-          options={clicks.map((c) => ({ id: c.id, label: c.name }))}
-          onChange={setClickId}
-          empty="None yet"
-        />
-        {click === null ? null : (
-          <>
-            <span className="align__divider" />
-            <label className="align__picker">
-              <span>Sound</span>
-              <select
-                className="well input"
-                value={click.sample}
-                onChange={(event) => change({ sample: event.target.value as MetronomeSample })}
-              >
-                {SAMPLES.map((sample) => (
-                  <option key={sample} value={sample}>
-                    {METRONOME_SAMPLE_LABEL[sample]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Field label="BPM">
-              <NumberField
-                label="BPM"
-                className="number-field--tiny"
-                value={Math.round(click.bpm)}
-                min={20}
-                max={400}
-                onChange={(bpm) => change({ bpm })}
-              />
-            </Field>
-            <Field label="Beats">
-              <NumberField
-                label="Beats per measure"
-                className="number-field--tiny"
-                value={click.beatsPerMeasure}
-                min={1}
-                max={16}
-                onChange={(beatsPerMeasure) => change({ beatsPerMeasure })}
-              />
-            </Field>
-            <button
-              type="button"
-              className="check align__accent"
-              data-engaged={click.accentFirstBeat}
-              onClick={() => change({ accentFirstBeat: !click.accentFirstBeat })}
-            >
-              <span className="check__box" />
-              Accent
-            </button>
-          </>
+        {job === 'click' ? (
+          <ClickTrackControls
+            clicks={clicks}
+            click={click}
+            onPick={setClickId}
+            change={change}
+          />
+        ) : (
+          <LoopControls loop={loop} view={view} onChange={setRegion} />
         )}
       </div>
 
@@ -292,42 +262,10 @@ export function AlignTool() {
           height={WAVE_HEIGHT}
         />
 
-        {beats.map((beat) => (
-          <span
-            key={beat.index}
-            className="align__beat"
-            data-accent={beat.accent}
-            style={{ left: xOf(beat.time) }}
-          />
-        ))}
-
-        {timing === null ? null : (
-          <>
-            {/* A handle beyond the edge is not drawn at a nonsense position; the
-                edge says which way it lies so it can be panned back to. */}
-            {inView(timing.startTime, from, to) ? (
-              <Handle
-                className="align__handle align__handle--start"
-                label={`Start ${clock(timing.startTime)}`}
-                time={timing.startTime}
-                left={xOf(timing.startTime)}
-                onDrag={dragStart}
-              />
-            ) : (
-              <Offscreen side={timing.startTime < from ? 'left' : 'right'} kind="start" />
-            )}
-            {inView(timing.endTime, from, to) ? (
-              <Handle
-                className="align__handle align__handle--end"
-                label={`End ${clock(timing.endTime)}`}
-                time={timing.endTime}
-                left={xOf(timing.endTime)}
-                onDrag={dragEnd}
-              />
-            ) : (
-              <Offscreen side={timing.endTime < from ? 'left' : 'right'} kind="end" />
-            )}
-          </>
+        {job === 'click' ? (
+          <ClickTrackMarks timing={timing} view={view} change={change} />
+        ) : (
+          <LoopMarks loop={loop} view={view} onChange={setRegion} />
         )}
 
         <span className="align__playhead" style={{ left: xOf(position) }} />
@@ -335,103 +273,8 @@ export function AlignTool() {
 
       <div className="align__scale">
         <span className="num">{clock(from)}</span>
-        <span className="setting-note">
-          {timing === null
-            ? 'Add a click track from the mixer to line one up.'
-            : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · scroll to zoom, middle-drag or shift-scroll to pan`}
-        </span>
+        <span className="setting-note">{note(job, timing, loop)}</span>
       </div>
     </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="align__picker">
-      <span>{label}</span>
-      {children}
-    </label>
-  )
-}
-
-const inView = (time: number, from: number, to: number): boolean => time >= from && time <= to
-
-/** Says which way an off-screen handle lies, and takes you to it. */
-function Offscreen({ side, kind }: { side: 'left' | 'right'; kind: 'start' | 'end' }) {
-  return (
-    <span className={`align__offscreen align__offscreen--${side} align__offscreen--${kind}`}>
-      {side === 'left' ? '‹' : '›'} {kind}
-    </span>
-  )
-}
-
-function Handle({
-  className,
-  label,
-  time,
-  left,
-  onDrag
-}: {
-  className: string
-  label: string
-  time: number
-  left: string
-  onDrag: (clientX: number) => void
-}) {
-  return (
-    <span
-      className={className}
-      style={{ left }}
-      role="slider"
-      aria-label={label}
-      aria-valuenow={time}
-      aria-valuetext={label}
-      onPointerDown={(event) => {
-        event.stopPropagation()
-        event.currentTarget.setPointerCapture(event.pointerId)
-        onDrag(event.clientX)
-      }}
-      onPointerMove={(event) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) onDrag(event.clientX)
-      }}
-      onPointerUp={(event) => {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }}
-    >
-      <span className="align__flag">{label}</span>
-    </span>
-  )
-}
-
-function Picker({
-  label,
-  value,
-  options,
-  onChange,
-  empty
-}: {
-  label: string
-  value: string
-  options: { id: string; label: string }[]
-  onChange: (id: string) => void
-  empty?: string
-}) {
-  return (
-    <label className="align__picker">
-      <span>{label}</span>
-      <select
-        className="well input"
-        value={value}
-        disabled={options.length === 0}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.length === 0 ? <option>{empty ?? 'None'}</option> : null}
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
   )
 }

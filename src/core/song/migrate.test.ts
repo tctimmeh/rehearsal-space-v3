@@ -193,3 +193,51 @@ describe('the tags on a song', () => {
     expect(migrateSong({ tags: 'gig' }, 'x').tags).toEqual([])
   })
 })
+
+/**
+ * The stretch being worked on is kept with the song, so it is there tomorrow.
+ * A region that is not two numbers the right way round is not a region.
+ */
+describe('the loop region', () => {
+  const read = (loop: unknown) => migrateSong({ schemaVersion: 1, loop }, 'x').loop
+
+  it('is kept', () => {
+    expect(read({ start: 12, end: 30 })).toEqual({ start: 12, end: 30 })
+  })
+
+  it('is absent in a song that never had one', () => {
+    expect(migrateSong({ schemaVersion: 1 }, 'x').loop).toBeNull()
+  })
+
+  /* A count-in puts the top of the song before zero. */
+  it('may begin before the start of the song', () => {
+    expect(read({ start: -4, end: 8 })).toEqual({ start: -4, end: 8 })
+  })
+
+  it('is dropped when it has no length', () => {
+    expect(read({ start: 12, end: 12 })).toBeNull()
+  })
+
+  it('is dropped when it runs backwards', () => {
+    expect(read({ start: 30, end: 12 })).toBeNull()
+  })
+
+  it('is dropped when it is not numbers', () => {
+    expect(read({ start: '12', end: 30 })).toBeNull()
+  })
+})
+
+/* Aligning a click track became one job among several in the waveform area. */
+describe('a tool that has been renamed', () => {
+  it('is still open in a song that had the old one open', () => {
+    expect(migrateSong({ schemaVersion: 1, openTools: ['align'] }, 'x').openTools).toEqual([
+      'waveform'
+    ])
+  })
+
+  it('does not disturb the others', () => {
+    expect(
+      migrateSong({ schemaVersion: 1, openTools: ['lyrics', 'align', 'made-up'] }, 'x').openTools
+    ).toEqual(['lyrics', 'waveform'])
+  })
+})

@@ -17,7 +17,7 @@ export const TOOL_ICONS: Record<ToolId, ComponentType<{ size?: number }>> = {
   tuner: TunerIcon,
   lyrics: LyricsEditorIcon,
   chords: ChordChartIcon,
-  align: AlignIcon,
+  waveform: AlignIcon,
   rhymes: RhymesIcon
 }
 
@@ -28,7 +28,7 @@ export const RAIL_ORDER: (ToolId | 'gap')[] = [
   'gap',
   'lyrics',
   'chords',
-  'align',
+  'waveform',
   'gap',
   'rhymes'
 ]

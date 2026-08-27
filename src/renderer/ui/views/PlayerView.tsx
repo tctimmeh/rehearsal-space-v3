@@ -7,7 +7,7 @@ import { Drawer, GadgetStrip, MixerDock, Stage, StageEmpty, ToolRail } from '../
 import { Button } from '../primitives'
 import { MetronomeGadget } from '../tools/MetronomeGadget'
 import { TunerGadget } from '../tools/TunerGadget'
-import { AlignTool } from '../tools/AlignTool'
+import { WaveformTool } from '../tools/WaveformTool'
 import { LyricsEditor } from '../tools/LyricsEditor'
 import { ChordChart } from '../tools/ChordChart'
 import { RhymesDrawer } from '../tools/RhymesDrawer'
@@ -29,8 +29,8 @@ const renderStage = (id: ToolId) => {
       return <LyricsEditor />
     case 'chords':
       return <ChordChart />
-    case 'align':
-      return <AlignTool />
+    case 'waveform':
+      return <WaveformTool />
     default:
       return null
   }

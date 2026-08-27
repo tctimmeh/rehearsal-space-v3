@@ -913,6 +913,23 @@
   padding: 11px 13px;
 }
 
+/* The stretch being worked on. Lighter than the fill so the playhead reads
+   over it, and brighter while the player is actually going round. */
+.scrub__loop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.07);
+  border-left: 1px solid rgba(255, 255, 255, 0.28);
+  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+.scrub__loop[data-going-round='true'] {
+  background: rgba(255, 255, 255, 0.15);
+  border-left-color: var(--text);
+  border-right-color: var(--text);
+}
+
 .song-id__panel {
   width: 268px;
   display: flex;

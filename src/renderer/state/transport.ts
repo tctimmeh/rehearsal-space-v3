@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import type { LoopRegion } from '@core/song/song'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from '@renderer/state/config'
 
@@ -46,6 +47,10 @@ interface TransportState {
    * anybody means by it.
    */
   playedFrom: number | null
+  /** The stretch being worked on, as the song has it. */
+  loop: LoopRegion | null
+  /** Whether the player is currently going round it. */
+  looping: boolean
   end: number
   /** Playback rate as a fraction: 0.96 is the 96% shown on the tempo knob. */
   speed: number
@@ -62,6 +67,8 @@ interface TransportState {
   setSemitones: (semitones: number) => void
   setCents: (cents: number) => void
   setBounds: (start: number, end: number) => void
+  setLoop: (loop: LoopRegion | null) => void
+  setLooping: (looping: boolean) => void
 }
 
 /**
@@ -85,11 +92,32 @@ const autoReturn = (get: () => TransportState, wasPlaying: boolean): void => {
   seek(playedFrom)
 }
 
+/**
+ * The playhead being put outside the region ends the looping, which is how it
+ * is escaped: scrub away, or stop, and the player goes back to playing the
+ * song. The region itself stays, so it can be picked up again.
+ *
+ * Only ever checked where the playhead is *put*, never on the clock's own
+ * running. Coming round is a jump to the start, and a frame arriving between
+ * reaching the end and the jump would otherwise read as having left.
+ */
+const outsideLoop = (loop: LoopRegion, position: number): boolean =>
+  position < loop.start || position >= loop.end
+
+const stopLoopingIfLeft = (get: () => TransportState, set: (patch: object) => void): void => {
+  const { loop, looping, position } = get()
+  if (!looping || loop === null || !outsideLoop(loop, position)) return
+  audioEngine.setLoop(null)
+  set({ looping: false })
+}
+
 export const useTransport = create<TransportState>((set, get) => ({
   playing: false,
   position: 0,
   start: 0,
   playedFrom: null,
+  loop: null,
+  looping: false,
   end: 0,
   speed: 1,
   semitones: 0,
@@ -109,6 +137,7 @@ export const useTransport = create<TransportState>((set, get) => ({
     set({ playing: false, position: audioEngine.position })
     announce('pause')
     autoReturn(get, wasPlaying)
+    stopLoopingIfLeft(get, set)
   },
   toggle: () => (get().playing ? get().pause() : get().play()),
   /* Stopping returns to the earliest point, which may be before 00:00. */
@@ -118,6 +147,7 @@ export const useTransport = create<TransportState>((set, get) => ({
     set({ playing: false, position: get().start })
     announce('stop')
     autoReturn(get, wasPlaying)
+    stopLoopingIfLeft(get, set)
   },
   seek: (position) => {
     const clamped = Math.min(get().end, Math.max(get().start, position))
@@ -126,6 +156,7 @@ export const useTransport = create<TransportState>((set, get) => ({
        the playhead there. Auto return's own seek happens once playing has
        already stopped, so it cannot move the mark it just read. */
     set(get().playing ? { position: clamped, playedFrom: clamped } : { position: clamped })
+    stopLoopingIfLeft(get, set)
   },
   setSpeed: (speed) => {
     audioEngine.setSpeed(speed)
@@ -142,6 +173,28 @@ export const useTransport = create<TransportState>((set, get) => ({
   setBounds: (start, end) => {
     audioEngine.setBounds(start, end)
     set({ start, end })
+  },
+
+  /* The region belongs to the song, so it arrives from there. Losing it stops
+     any going round it; keeping a loop with nothing to loop is nonsense. */
+  setLoop: (loop) => {
+    set({ loop })
+    if (loop === null) {
+      audioEngine.setLoop(null)
+      set({ looping: false })
+      return
+    }
+    if (get().looping) audioEngine.setLoop(loop)
+  },
+
+  setLooping: (looping) => {
+    const { loop, position, seek } = get()
+    if (loop === null) return
+    audioEngine.setLoop(looping ? loop : null)
+    set({ looping })
+    /* Turning it on from outside the region means starting at the top of it —
+       looping somewhere you are not is no use to anybody. */
+    if (looping && outsideLoop(loop, position)) seek(loop.start)
   }
 }))
 

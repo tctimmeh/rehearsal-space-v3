@@ -114,7 +114,7 @@ export function MixerDock() {
                     const added = addMetronome()
                     if (added === null) return
                     useAlign.getState().align(added)
-                    openTool('align')
+                    openTool('waveform')
                   }}
                 />
               </>

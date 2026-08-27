@@ -9,7 +9,7 @@ import { useTransport } from '@renderer/state/transport'
  * where they are as they drag.
  */
 export function ScrubBar() {
-  const { position, start, end, seek } = useTransport()
+  const { position, start, end, seek, loop, looping } = useTransport()
   const loading = useSong((state) => state.loading)
   const track = useRef<HTMLDivElement>(null)
 
@@ -65,6 +65,18 @@ export function ScrubBar() {
         onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
       >
         <span className="scrub__fill" style={{ width: `${asFraction(position) * 100}%` }} />
+        {/* Marked whether or not the player is going round it: the region is
+            set aside work, and knowing it is there is the point of showing it. */}
+        {loop === null ? null : (
+          <span
+            className="scrub__loop"
+            data-going-round={looping}
+            style={{
+              left: `${asFraction(loop.start) * 100}%`,
+              width: `${(asFraction(loop.end) - asFraction(loop.start)) * 100}%`
+            }}
+          />
+        )}
         {start < 0 ? (
           <span className="scrub__countin" style={{ width: `${asFraction(0) * 100}%` }} />
         ) : null}

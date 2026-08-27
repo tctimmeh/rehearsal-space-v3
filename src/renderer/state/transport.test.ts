@@ -8,6 +8,7 @@ const engine = vi.hoisted(() => ({
     engine.position = to
   }),
   setBounds: vi.fn(),
+  setLoop: vi.fn(),
   setSpeed: vi.fn(),
   setPitch: vi.fn(),
   whenEnded: vi.fn(),
@@ -31,7 +32,15 @@ const playFrom = (from: number, to: number) => {
 }
 
 beforeEach(() => {
-  useTransport.setState({ playing: false, position: 0, start: 0, end: 120, playedFrom: null })
+  useTransport.setState({
+    playing: false,
+    position: 0,
+    start: 0,
+    end: 120,
+    playedFrom: null,
+    loop: null,
+    looping: false
+  })
   autoReturn(false)
   engine.position = 0
   vi.clearAllMocks()
@@ -155,5 +164,109 @@ describe('auto return', () => {
     useTransport.getState().pause()
 
     expect(useTransport.getState().position).toBe(-4)
+  })
+})
+
+/**
+ * A loop is for the eight bars that will not go right. The region belongs to
+ * the song; going round it is something you start and stop.
+ */
+describe('looping', () => {
+  const region = { start: 20, end: 30 }
+
+  beforeEach(() => {
+    useTransport.setState({ loop: region, looping: false })
+  })
+
+  it('cannot be started without a region to go round', () => {
+    useTransport.setState({ loop: null })
+
+    useTransport.getState().setLooping(true)
+
+    expect(useTransport.getState().looping).toBe(false)
+  })
+
+  it('starts where the region does when the playhead is elsewhere', () => {
+    useTransport.setState({ position: 5 })
+
+    useTransport.getState().setLooping(true)
+
+    expect(useTransport.getState().position).toBe(20)
+    expect(useTransport.getState().looping).toBe(true)
+  })
+
+  it('leaves the playhead alone when it is already inside', () => {
+    useTransport.setState({ position: 24 })
+
+    useTransport.getState().setLooping(true)
+
+    expect(useTransport.getState().position).toBe(24)
+  })
+
+  it('is given to the engine to schedule', () => {
+    useTransport.getState().setLooping(true)
+
+    expect(engine.setLoop).toHaveBeenCalledWith(region)
+  })
+
+  it('stops when the playhead is scrubbed out of the region', () => {
+    useTransport.setState({ position: 24 })
+    useTransport.getState().setLooping(true)
+
+    useTransport.getState().seek(60)
+
+    expect(useTransport.getState().looping).toBe(false)
+    expect(engine.setLoop).toHaveBeenLastCalledWith(null)
+  })
+
+  it('carries on when the playhead is scrubbed within the region', () => {
+    useTransport.setState({ position: 24 })
+    useTransport.getState().setLooping(true)
+
+    useTransport.getState().seek(28)
+
+    expect(useTransport.getState().looping).toBe(true)
+  })
+
+  it('stops when the song is stopped', () => {
+    useTransport.setState({ position: 24 })
+    useTransport.getState().setLooping(true)
+
+    useTransport.getState().stop()
+
+    expect(useTransport.getState().looping).toBe(false)
+  })
+
+  /* Auto return puts the playhead back inside the region, so there is no
+     reason to have stopped going round it. */
+  it('carries on through a pause that returns into the region', () => {
+    autoReturn(true)
+    useTransport.setState({ position: 22, playing: false })
+    useTransport.getState().play()
+    useTransport.getState().setLooping(true)
+    useTransport.setState({ position: 29 })
+
+    useTransport.getState().pause()
+
+    expect(useTransport.getState().position).toBe(22)
+    expect(useTransport.getState().looping).toBe(true)
+  })
+
+  it('keeps the region when it is switched off', () => {
+    useTransport.getState().setLooping(true)
+
+    useTransport.getState().setLooping(false)
+
+    expect(useTransport.getState().loop).toEqual(region)
+    expect(engine.setLoop).toHaveBeenLastCalledWith(null)
+  })
+
+  it('is given up when the region itself goes', () => {
+    useTransport.setState({ position: 24 })
+    useTransport.getState().setLooping(true)
+
+    useTransport.getState().setLoop(null)
+
+    expect(useTransport.getState().looping).toBe(false)
   })
 })

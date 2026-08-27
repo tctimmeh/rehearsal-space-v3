@@ -414,6 +414,23 @@
 .align__handle--end::before {
   background: var(--mute);
 }
+/* The stretch to go round, laid over the waveform rather than beside it: the
+   region is a piece of the music, not an annotation on it. */
+.align__loop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+.align__handle--loop-start::before,
+.align__handle--loop-end::before {
+  background: var(--text);
+}
+.align__handle--loop-end .align__flag {
+  left: auto;
+  right: 10px;
+}
 .align__flag {
   position: absolute;
   top: 6px;
@@ -428,7 +445,24 @@
   white-space: nowrap;
   pointer-events: none;
 }
-.align__handle--end .align__flag {
+.align__handle--end /* The stretch to go round, laid over the waveform rather than beside it: the
+   region is a piece of the music, not an annotation on it. */
+.align__loop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+.align__handle--loop-start::before,
+.align__handle--loop-end::before {
+  background: var(--text);
+}
+.align__handle--loop-end .align__flag {
+  left: auto;
+  right: 10px;
+}
+.align__flag {
   left: auto;
   right: 10px;
 }

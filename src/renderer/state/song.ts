@@ -181,6 +181,7 @@ export const useSong = create<SongState>((set, get) => ({
     set({ song })
     /* Adding, removing or moving a channel changes where the song begins and ends. */
     if (patch.channels !== undefined) applyBounds(song)
+    if (patch.loop !== undefined) useTransport.getState().setLoop(song.loop)
     audioEngine.applyMix(song)
     unsaved = true
     if (saveTimer !== null) clearTimeout(saveTimer)
@@ -446,6 +447,9 @@ function applySongState(song: Song): void {
   transport.setCents(song.playback.pitch.cents)
   transport.setSpeed(song.playback.speed)
   applyBounds(song)
+  /* A region comes with the song; going round it is something you start. */
+  transport.setLooping(false)
+  transport.setLoop(song.loop)
 
   const songScoped = (id: ToolId) => TOOL_META[id].scope === 'song'
   useTools.getState().setOpenScoped(songScoped, song.openTools)
