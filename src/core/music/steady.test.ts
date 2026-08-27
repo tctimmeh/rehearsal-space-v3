@@ -5,20 +5,14 @@ import { DEFAULT_NEEDLE, moveNeedle, newNeedle, type Heard, type Needle } from '
 const at = (cents: number) => 110 * 2 ** (cents / 1200)
 const off = (hz: number) => 1200 * Math.log2(hz / 110)
 
-/** A reading of a note that is well under way: clear, and quietly decaying. */
-const quietly = (cents: number, level = 0.01): Heard => ({
-  frequency: at(cents),
-  clarity: 1,
-  level
-})
+/** A clean reading of one string, which is what the detector mostly gives. */
+const clear = (cents: number): Heard => ({ frequency: at(cents), clarity: 1, level: 0.02 })
 
 const feed = (heard: Heard[], from: Needle = newNeedle(), settings = DEFAULT_NEEDLE) =>
   heard.reduce((needle, one) => moveNeedle(needle, one, settings), from)
 
-const patient = { ...DEFAULT_NEEDLE, answerFast: false }
-
-const held = (cents: number, howMany = 10) =>
-  Array.from({ length: howMany }, () => quietly(cents))
+const held = (cents: number, howMany = DEFAULT_NEEDLE.readings) =>
+  Array.from({ length: howMany }, () => clear(cents))
 
 describe('a string being listened to', () => {
   it('is shown as soon as it has been heard', () => {
@@ -31,50 +25,35 @@ describe('a string being listened to', () => {
 
   it('does not move while it is held', () => {
     const settled = feed(held(3))
-    const later = feed(held(3), settled)
 
-    expect(later.hz).toBe(settled.hz)
+    expect(feed(held(3), settled).hz).toBe(settled.hz)
   })
 
-  /* The old design had a deadband, and it read in tune while the string was
-     three cents flat. Small is exactly the range a tuner is used in. */
+  /* An earlier design had a deadband, and read in tune while the string was
+     three cents flat. Small is the range a tuner is used in. */
   it('follows a change too small to argue about', () => {
     const settled = feed(held(0))
-    const nudged = feed(held(2), settled)
 
-    expect(off(nudged.hz as number)).toBeCloseTo(2, 1)
+    expect(off(feed(held(2), settled).hz as number)).toBeCloseTo(2, 1)
   })
 
-  it('follows a peg without waiting for it to stop', () => {
+  it('follows a peg turned under it', () => {
     const settled = feed(held(0))
     const wound = feed(
-      Array.from({ length: 6 }, (_, step) => quietly(3 + step * 3)),
+      Array.from({ length: DEFAULT_NEEDLE.readings }, (_, step) => clear(step * 3)),
       settled
     )
 
-    expect(off(wound.hz as number)).toBeGreaterThan(9)
+    expect(off(wound.hz as number)).toBeGreaterThan(10)
   })
 })
 
 describe('a reading not worth having', () => {
   it('is ignored when the window was not periodic enough', () => {
     const settled = feed(held(0))
-    const muddled = feed([{ frequency: at(300), clarity: 0.4, level: 0.01 }], settled)
+    const muddled = feed([{ frequency: at(300), clarity: 0.4, level: 0.02 }], settled)
 
     expect(muddled.hz).toBe(settled.hz)
-  })
-
-  /* Six strings at once are not periodic, and are mostly refused outright. The
-     danger is the odd window of a chord that comes out looking convincing, and
-     reads nothing that is on the guitar at all. */
-  it('is ignored when a strummed chord almost passes for a note', () => {
-    const settled = feed(held(0))
-    const chord = feed(
-      Array.from({ length: 8 }, () => ({ frequency: at(-165), clarity: 0.91, level: 0.05 })),
-      settled
-    )
-
-    expect(chord.hz).toBe(settled.hz)
   })
 
   it('is ignored when there was no pitch at all', () => {
@@ -86,62 +65,64 @@ describe('a reading not worth having', () => {
 
   it('is outvoted when it is a single wild one', () => {
     const settled = feed(held(0))
-    const stray = feed([quietly(400), ...held(0, 2)], settled)
+    const stray = feed([clear(400), ...held(0, 2)], settled)
 
     expect(off(stray.hz as number)).toBeCloseTo(0, 1)
+  })
+
+  /* Six strings at once are not periodic and are refused outright, but the odd
+     window of a chord comes out looking convincing and reads nothing that is
+     on the guitar. Asking for more confidence is what rules those out — at the
+     cost of naming a string you have just played a little later. */
+  it('is ruled out by confidence when a chord almost passes for a note', () => {
+    const strict = { ...DEFAULT_NEEDLE, clarity: 0.95 }
+    const settled = feed(held(0), newNeedle(), strict)
+    const chord = feed(
+      Array.from({ length: 8 }, () => ({ frequency: at(-165), clarity: 0.91, level: 0.05 })),
+      settled,
+      strict
+    )
+
+    expect(chord.hz).toBe(settled.hz)
   })
 })
 
 /**
- * A plucked string is sharp when struck and settles as it dies away — ten
- * cents on a low E, most of it gone within a second. Showing that is honest
- * and useless; the pitch it settles on is the one being asked for.
+ * A plucked string is sharp when struck — ten cents on a low E — and settles
+ * as it fades. The needle shows that rather than waiting it out, which is the
+ * trade that was chosen: being told what you played straight away is worth
+ * more than being told a truer number a second and a half later.
  */
 describe('the attack of a pluck', () => {
-  /* A low E, from the recordings: struck loudly and sharp, decaying to pitch. */
   const pluck = (settlesOn: number) =>
-    Array.from({ length: 30 }, (_, step) => ({
+    Array.from({ length: 40 }, (_, step) => ({
       frequency: at(settlesOn + 11 * Math.exp(-step / 7)),
       clarity: 1,
       level: 0.06 * Math.exp(-step / 9)
     }))
 
-  it('is not waited out when there is nothing on screen to protect', () => {
-    const struck = feed(pluck(0).slice(0, 3))
-
-    expect(struck.hz).not.toBeNull()
-  })
-
-  it('is waited out when the needle is asked to be patient', () => {
-    expect(feed(pluck(0).slice(0, 8), newNeedle(), patient).hz).toBeNull()
+  it('is answered rather than waited out', () => {
+    expect(feed(pluck(0).slice(0, 3)).hz).not.toBeNull()
   })
 
   it('gives way to the pitch the string settles on', () => {
     expect(off(feed(pluck(0)).hz as number)).toBeCloseTo(0, 0)
   })
-
-  it('does not drag a needle that already had the string', () => {
-    const settled = feed(held(0))
-    const replucked = feed(pluck(0).slice(0, 8), settled)
-
-    expect(Math.abs(off(replucked.hz as number))).toBeLessThan(1)
-  })
 })
 
-describe('a note that never dies away', () => {
-  /* Bowed, or a string struck again before the last had faded. Waiting for a
-     decay that never comes would leave the needle stale. */
-  const sustained = (cents: number, howMany: number) =>
-    Array.from({ length: howMany }, () => quietly(cents, 0.06))
+describe('how much it smooths', () => {
+  it('shows every reading when asked for none', () => {
+    const twitchy = { ...DEFAULT_NEEDLE, readings: 1 }
+    const settled = feed(held(0), newNeedle(), twitchy)
 
-  it('is read anyway, once it has gone on long enough', () => {
-    expect(feed(sustained(5, 30), newNeedle(), patient).hz).not.toBeNull()
+    expect(off(feed([clear(30)], settled, twitchy).hz as number)).toBeCloseTo(30, 1)
   })
 
-  it('is not read straight away, once there is something to lose', () => {
-    const settled = feed(held(0))
-    const loud = feed(sustained(40, 6), settled)
+  it('outvotes more of them when asked for more', () => {
+    const steady = { ...DEFAULT_NEEDLE, readings: 15 }
+    const settled = feed(held(0, 15), newNeedle(), steady)
+    const nudged = feed(Array.from({ length: 7 }, () => clear(30)), settled, steady)
 
-    expect(off(loud.hz as number)).toBeCloseTo(0, 1)
+    expect(off(nudged.hz as number)).toBeCloseTo(0, 1)
   })
 })

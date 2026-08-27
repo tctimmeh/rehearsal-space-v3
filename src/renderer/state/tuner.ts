@@ -22,12 +22,6 @@ interface TunerState {
   /** True while the note shown is a memory rather than something being heard. */
   fading: boolean
   level: number
-  /**
-   * How long the last string took to name, in milliseconds, counted from the
-   * first sound of it. Temporary, for judging the needle's settings by
-   * something better than an impression.
-   */
-  pickedUpIn: number | null
 }
 
 export const useTuner = create<TunerState>(() => ({
@@ -35,8 +29,7 @@ export const useTuner = create<TunerState>(() => ({
   note: null,
   frequency: null,
   fading: false,
-  level: 0,
-  pickedUpIn: null
+  level: 0
 }))
 
 /**
@@ -49,7 +42,6 @@ export const useTuner = create<TunerState>(() => ({
 export async function startListening(): Promise<void> {
   const config = useConfig.getState().config
   heardAt = 0
-  soundAt = 0
   needle = newNeedle()
   try {
     await tuner.start(config?.inputDeviceId ?? '', config?.inputChannel ?? 0)
@@ -66,14 +58,11 @@ export function stopListening(): void {
     note: null,
     frequency: null,
     fading: false,
-    level: 0,
-    pickedUpIn: null
+    level: 0
   })
 }
 
 let heardAt = 0
-/** When the sound the tuner is working on was first heard at all. */
-let soundAt = 0
 /** What the needle is showing, and what it is thinking of showing instead. */
 let needle = newNeedle()
 
@@ -82,8 +71,6 @@ export function followTuner(): () => void {
     const now = Date.now()
 
     if (frequency !== null) {
-      const blank = needle.hz === null
-      if (blank && soundAt === 0) soundAt = now
       heardAt = now
       needle = moveNeedle(
         needle,
@@ -94,18 +81,14 @@ export function followTuner(): () => void {
         note: needle.hz === null ? null : noteFromFrequency(needle.hz),
         frequency: needle.hz,
         fading: false,
-        level,
-        ...(blank && needle.hz !== null ? { pickedUpIn: now - soundAt } : {})
+        level
       })
       return
     }
 
     const gone = now - heardAt > HOLD_MS
     /* A note that has died away is not where the next one starts from. */
-    if (gone) {
-      needle = newNeedle()
-      soundAt = 0
-    }
+    if (gone) needle = newNeedle()
     useTuner.setState({
       level,
       fading: !gone && heardAt !== 0,

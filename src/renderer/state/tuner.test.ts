@@ -146,17 +146,16 @@ describe('what it reports', () => {
     expect(useTuner.getState().note).toMatchObject({ name: 'A', octave: 2 })
   })
 
-  /* Struck again, the same string has nothing new to say. Measured from the
-     recordings: a low E is about ten cents sharp as it is struck, and loud
-     with it, both fading together over the second that follows. */
-  it('does not move when the string is plucked again', async () => {
+  /* Measured from the recordings: a low E is about ten cents sharp as it is
+     struck and settles over the second that follows. The needle follows it
+     rather than waiting the attack out — and comes back to the string. */
+  it('settles back to the string after it is plucked again', async () => {
     await startListening()
-    /* Settled on the dying tail of the last one. */
-    for (let reading = 0; reading < 6; reading += 1) service.hear(110, 0.01)
+    for (let reading = 0; reading < 12; reading += 1) service.hear(110, 0.01)
     const before = useTuner.getState().frequency as number
 
-    for (const step of [0, 1, 2, 3, 4, 5, 6, 7]) {
-      service.hear(110 * 2 ** (11 * Math.exp(-step / 7) / 1200), 0.06 * Math.exp(-step / 9))
+    for (let step = 0; step < 40; step += 1) {
+      service.hear(110 * 2 ** ((11 * Math.exp(-step / 7)) / 1200), 0.06 * Math.exp(-step / 9))
     }
 
     const after = useTuner.getState().frequency as number

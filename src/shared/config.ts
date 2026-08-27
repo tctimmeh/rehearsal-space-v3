@@ -51,17 +51,12 @@ export const PAN_SPEED_STEP = 0.01
 export const PAN_SPEED_DEFAULT = 0.1
 
 /* What the tuner's knobs may be turned to. Wide enough to be worth turning:
-   one reading and no waiting at one end, a very deliberate needle at the
+   a needle that answers every window at one end, a very deliberate one at the
    other. */
 export const NEEDLE_READINGS_MIN = 1
 export const NEEDLE_READINGS_MAX = 15
 export const NEEDLE_CLARITY_MIN = 0.5
 export const NEEDLE_CLARITY_MAX = 1
-export const NEEDLE_SETTLED_MIN = 0.05
-/** One means reading a note the moment it is struck, without waiting at all. */
-export const NEEDLE_SETTLED_MAX = 1
-export const NEEDLE_GRACE_MIN = 2
-export const NEEDLE_GRACE_MAX = 100
 
 export const ZOOM_SPEED_MIN = 0.05
 export const ZOOM_SPEED_MAX = 1

@@ -17,12 +17,8 @@ import {
 import {
   NEEDLE_CLARITY_MAX,
   NEEDLE_CLARITY_MIN,
-  NEEDLE_GRACE_MAX,
-  NEEDLE_GRACE_MIN,
   NEEDLE_READINGS_MAX,
-  NEEDLE_READINGS_MIN,
-  NEEDLE_SETTLED_MAX,
-  NEEDLE_SETTLED_MIN
+  NEEDLE_READINGS_MIN
 } from '../shared/config'
 import { DEFAULT_NEEDLE, type NeedleSettings } from '../core/music/steady'
 import { isExternalTool, type ExternalTool } from '../shared/tools'
@@ -46,16 +42,7 @@ function parseNeedle(raw: unknown, defaults: NeedleSettings): NeedleSettings {
     readings: Math.round(
       number(record['readings'], defaults.readings, NEEDLE_READINGS_MIN, NEEDLE_READINGS_MAX)
     ),
-    clarity: number(record['clarity'], defaults.clarity, NEEDLE_CLARITY_MIN, NEEDLE_CLARITY_MAX),
-    settledShare: number(
-      record['settledShare'],
-      defaults.settledShare,
-      NEEDLE_SETTLED_MIN,
-      NEEDLE_SETTLED_MAX
-    ),
-    grace: Math.round(number(record['grace'], defaults.grace, NEEDLE_GRACE_MIN, NEEDLE_GRACE_MAX)),
-    answerFast:
-      typeof record['answerFast'] === 'boolean' ? record['answerFast'] : defaults.answerFast
+    clarity: number(record['clarity'], defaults.clarity, NEEDLE_CLARITY_MIN, NEEDLE_CLARITY_MAX)
   }
 }
 

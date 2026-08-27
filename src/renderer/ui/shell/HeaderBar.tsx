@@ -14,6 +14,7 @@ import {
 import { useView, VIEWS } from '@renderer/state/view'
 import { KebabIcon, PauseIcon, PlayIcon, RecordIcon, StopIcon } from '../icons/uiIcons'
 import { IconButton, Knob, Tabs } from '../primitives'
+import { AdvancedModal } from './AdvancedModal'
 import { SettingsModal } from './SettingsModal'
 import { RecordingModal } from './RecordingModal'
 import { useRecording } from '@renderer/state/recording'
@@ -208,7 +209,7 @@ function SongIdentity() {
 }
 
 
-type Dialog = 'settings' | 'recording' | 'tools' | null
+type Dialog = 'settings' | 'advanced' | 'recording' | 'tools' | null
 
 function AppMenu() {
   const [open, setOpen] = useState(false)
@@ -264,6 +265,7 @@ function AppMenu() {
           <MenuItem label="Settings" shortcut="Ctrl+," onClick={choose(() => setDialog('settings'))} />
           <MenuItem label="Recording…" onClick={choose(() => setDialog('recording'))} />
           <MenuItem label="External tools…" onClick={choose(() => setDialog('tools'))} />
+          <MenuItem label="Advanced settings…" onClick={choose(() => setDialog('advanced'))} />
           <div className="menu__sep" />
           <MenuItem label="Library folder" onClick={choose(() => void revealLibraryFolder())} />
           <div className="menu__sep" />
@@ -272,6 +274,7 @@ function AppMenu() {
       ) : null}
 
       {dialog === 'settings' ? <SettingsModal onDismiss={dismiss} /> : null}
+      {dialog === 'advanced' ? <AdvancedModal onDismiss={dismiss} /> : null}
       {dialog === 'recording' ? <RecordingModal onDismiss={dismiss} /> : null}
       {dialog === 'tools' ? <ToolsModal onDismiss={dismiss} /> : null}
     </div>
