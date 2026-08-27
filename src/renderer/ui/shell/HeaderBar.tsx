@@ -12,7 +12,14 @@ import {
   useTransport
 } from '@renderer/state/transport'
 import { useView, VIEWS } from '@renderer/state/view'
-import { KebabIcon, PauseIcon, PlayIcon, RecordIcon, StopIcon } from '../icons/uiIcons'
+import {
+  AutoReturnIcon,
+  KebabIcon,
+  PauseIcon,
+  PlayIcon,
+  RecordIcon,
+  StopIcon
+} from '../icons/uiIcons'
 import { IconButton, Knob, Tabs, useDismiss } from '../primitives'
 import { AdvancedModal } from './AdvancedModal'
 import { SettingsModal } from './SettingsModal'
@@ -92,6 +99,8 @@ export function HeaderBar() {
         </IconButton>
       </div>
 
+      <AutoReturnToggle />
+
       <div className="knobs">
         <Knob
           label="Tempo"
@@ -115,6 +124,29 @@ export function HeaderBar() {
 
       <AppMenu />
     </header>
+  )
+}
+
+/**
+ * Auto return: stopping or pausing puts the playhead back where playing began.
+ *
+ * It sits beside the transport because that is what it changes the meaning of,
+ * and it is a latch rather than an action, so it reads as engaged the way
+ * everything else that stays pressed does.
+ */
+function AutoReturnToggle() {
+  const on = useConfig((state) => state.config?.autoReturn ?? false)
+  const set = useConfig((state) => state.set)
+
+  return (
+    <IconButton
+      label={on ? 'Auto return, on' : 'Auto return, off'}
+      engaged={on}
+      aria-pressed={on}
+      onClick={() => void set({ autoReturn: !on })}
+    >
+      <AutoReturnIcon />
+    </IconButton>
   )
 }
 

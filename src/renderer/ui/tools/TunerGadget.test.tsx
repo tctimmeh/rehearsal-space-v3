@@ -43,6 +43,7 @@ const configured = (inputDeviceId: string, inputChannel = 0) => ({
   inputDeviceId,
   inputChannel,
   metronome: { bpm: 100, beatsPerMeasure: 4 as number, accentFirstBeat: true, sample: 'tick' as const },
+    autoReturn: false,
     tuner: DEFAULT_NEEDLE,
   toolPaths: {}
 })

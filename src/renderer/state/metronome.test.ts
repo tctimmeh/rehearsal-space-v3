@@ -45,6 +45,7 @@ beforeEach(() => {
       inputDeviceId: '',
       inputChannel: 0,
       metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  autoReturn: false,
   tuner: DEFAULT_NEEDLE,
       toolPaths: {}
     },

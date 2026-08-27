@@ -24,6 +24,11 @@ export interface AppConfig {
   inputDeviceId: string
   /** Which channel of that device: 0 for all of them, otherwise 1-based. */
   inputChannel: number
+  /**
+   * Whether stopping or pausing sends the playhead back to where playing
+   * began, for going over a passage again and again.
+   */
+  autoReturn: boolean
   /** Where the stand-alone metronome was left. */
   metronome: MetronomeSettings
   /**
@@ -71,6 +76,7 @@ export type Preferences = Pick<
   | 'zoomSpeed'
   | 'inputDeviceId'
   | 'inputChannel'
+  | 'autoReturn'
   | 'metronome'
   | 'tuner'
 >

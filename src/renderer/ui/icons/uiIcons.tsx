@@ -19,6 +19,14 @@ export const PauseIcon = ({ size = 18 }: { size?: number }) => (
   </svg>
 )
 
+/* The return arrow off a keyboard: back to where you came from. */
+export const AutoReturnIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size}>
+    <path d="M19.5 5.5v6.5a3 3 0 01-3 3H6" />
+    <path d="M9.5 11.5L5.5 15l4 3.5" />
+  </Icon>
+)
+
 export const KebabIcon = ({ size = 18 }: { size?: number }) => (
   <Icon size={size}>
     <circle cx="12" cy="5" r="1.5" />

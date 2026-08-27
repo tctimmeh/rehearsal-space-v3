@@ -54,6 +54,7 @@ export const defaultConfig = (): AppConfig => ({
   zoomSpeed: ZOOM_SPEED_DEFAULT,
   inputDeviceId: '',
   inputChannel: 0,
+  autoReturn: false,
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
   tuner: DEFAULT_NEEDLE,
   toolPaths: {}
@@ -83,6 +84,8 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
     inputDeviceId:
       typeof record['inputDeviceId'] === 'string' ? record['inputDeviceId'] : '',
     inputChannel: Math.max(0, Math.round(number(record['inputChannel'], 0, 0, 64))),
+    autoReturn:
+      typeof record['autoReturn'] === 'boolean' ? record['autoReturn'] : defaults.autoReturn,
     metronome: parseMetronome(record['metronome'], defaults.metronome),
     tuner: parseNeedle(record['tuner'], defaults.tuner),
     toolPaths: parseToolPaths(record['toolPaths'])

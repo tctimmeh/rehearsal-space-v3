@@ -36,6 +36,7 @@ const config = (metronome: Partial<AppConfig['metronome']> = {}): AppConfig => (
   inputDeviceId: '',
   inputChannel: 0,
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick', ...metronome },
+    autoReturn: false,
     tuner: DEFAULT_NEEDLE,
   toolPaths: {}
 })
