@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
@@ -13,7 +13,7 @@ import {
 } from '@renderer/state/transport'
 import { useView, VIEWS } from '@renderer/state/view'
 import { KebabIcon, PauseIcon, PlayIcon, RecordIcon, StopIcon } from '../icons/uiIcons'
-import { IconButton, Knob, Tabs } from '../primitives'
+import { IconButton, Knob, Tabs, useDismiss } from '../primitives'
 import { AdvancedModal } from './AdvancedModal'
 import { SettingsModal } from './SettingsModal'
 import { RecordingModal } from './RecordingModal'
@@ -100,26 +100,11 @@ export function HeaderBar() {
           onChange={changeSpeed}
           format={formatSpeed}
         />
-        <Knob
-          label="Pitch"
-          value={semitones}
-          min={SEMITONES_MIN}
-          max={SEMITONES_MAX}
-          step={1}
-          defaultValue={0}
-          onChange={changeSemitones}
-          format={formatSemitones}
-          travel={264}
-        />
-        <Knob
-          label="Cents"
-          value={cents}
-          min={CENTS_MIN}
-          max={CENTS_MAX}
-          step={1}
-          defaultValue={0}
-          onChange={changeCents}
-          format={formatCents}
+        <PitchControls
+          semitones={semitones}
+          cents={cents}
+          onSemitones={changeSemitones}
+          onCents={changeCents}
         />
       </div>
 
@@ -127,6 +112,80 @@ export function HeaderBar() {
 
       <AppMenu />
     </header>
+  )
+}
+
+/**
+ * Pitch, folded away.
+ *
+ * It is set once for a song, if at all, and then left alone — which is a poor
+ * reason to spend two knobs' worth of the bar on it. What it may not do is go
+ * quiet: a shift left on by accident is a baffling thing to listen to, so
+ * whenever the pitch is anything other than nothing the button says so instead
+ * of saying "Pitch".
+ */
+function PitchControls({
+  semitones,
+  cents,
+  onSemitones,
+  onCents
+}: {
+  semitones: number
+  cents: number
+  onSemitones: (value: number) => void
+  onCents: (value: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const wrap = useDismiss<HTMLDivElement>(open, () => setOpen(false))
+
+  const shifted = semitones !== 0 || cents !== 0
+  const summary = [
+    semitones === 0 ? null : formatSemitones(semitones),
+    cents === 0 ? null : formatCents(cents)
+  ].filter((part) => part !== null)
+
+  return (
+    <div className="menu-wrap pitch" ref={wrap}>
+      <button
+        type="button"
+        className="raised pitch__face"
+        aria-label={
+          shifted ? `Pitch controls, shifted ${summary.join(' ')}` : 'Pitch controls'
+        }
+        aria-expanded={open}
+        data-engaged={open}
+        data-shifted={shifted}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+      >
+        {shifted ? summary.join(' ') : 'Pitch'}
+      </button>
+
+      {open ? (
+        <div className="menu pitch__panel">
+          <Knob
+            label="Pitch"
+            value={semitones}
+            min={SEMITONES_MIN}
+            max={SEMITONES_MAX}
+            step={1}
+            defaultValue={0}
+            onChange={onSemitones}
+            format={formatSemitones}
+            travel={264}
+          />
+          <Knob
+            label="Cents"
+            value={cents}
+            min={CENTS_MIN}
+            max={CENTS_MAX}
+            step={1}
+            defaultValue={0}
+            onChange={onCents}
+            format={formatCents}
+          />
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -140,23 +199,7 @@ function SongIdentity() {
   const song = useSong((state) => state.song)
   const update = useSong((state) => state.update)
   const [open, setOpen] = useState(false)
-  const wrap = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      if (!wrap.current?.contains(event.target as Node)) setOpen(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
+  const wrap = useDismiss<HTMLDivElement>(open, () => setOpen(false))
 
   if (song === null) {
     return (
@@ -223,23 +266,7 @@ function AppMenu() {
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<Dialog>(null)
   const revealLibraryFolder = useConfig((state) => state.revealLibraryFolder)
-  const wrap = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      if (!wrap.current?.contains(event.target as Node)) setOpen(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
+  const wrap = useDismiss<HTMLDivElement>(open, () => setOpen(false))
 
   const choose = (action: () => void) => () => {
     setOpen(false)
