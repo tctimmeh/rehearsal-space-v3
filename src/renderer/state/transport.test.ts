@@ -92,16 +92,38 @@ describe('auto return', () => {
     expect(useTransport.getState().position).toBe(30)
   })
 
-  /* Jumping about to hear a different bit does not change which passage is
-     being worked on. */
-  it('is not moved by scrubbing while playing', () => {
+  /* Dropping the playhead somewhere is choosing a passage just as much as
+     pressing play there is. */
+  it('follows the playhead when it is scrubbed while playing', () => {
     autoReturn(true)
     playFrom(30, 45)
 
     useTransport.getState().seek(90)
+    useTransport.setState({ position: 96 })
     useTransport.getState().pause()
 
-    expect(useTransport.getState().position).toBe(30)
+    expect(useTransport.getState().position).toBe(90)
+  })
+
+  /* Sending the playhead back is itself a seek, and it must not count as
+     choosing a passage or the mark would rewrite itself every time. */
+  it('is not moved by its own sending back', () => {
+    autoReturn(true)
+    playFrom(30, 45)
+
+    useTransport.getState().pause()
+
+    expect(useTransport.getState().playedFrom).toBe(30)
+  })
+
+  it('is not moved by scrubbing while stopped, which is only navigating', () => {
+    autoReturn(true)
+    playFrom(30, 45)
+    useTransport.getState().pause()
+
+    useTransport.getState().seek(70)
+
+    expect(useTransport.getState().playedFrom).toBe(30)
   })
 
   /* Otherwise there is no way back to the top of the song at all. */

@@ -37,12 +37,13 @@ interface TransportState {
   /** Earliest point on the timeline — negative when a count-in exists. */
   start: number
   /**
-   * Where the playhead was when playing last began, or null before it ever
-   * has. Auto return sends it back here.
+   * Where playing began, or null before it ever has. Auto return sends the
+   * playhead back here.
    *
-   * Scrubbing while playing deliberately leaves this alone: it is where play
-   * was engaged, which is the passage being worked on, and jumping the
-   * playhead about to hear a different bit does not change what that was.
+   * Scrubbing while playing moves it: dropping the playhead somewhere is
+   * choosing the passage to work on just as much as pressing play there is,
+   * and being sent back to a spot you had already moved on from is not what
+   * anybody means by it.
    */
   playedFrom: number | null
   end: number
@@ -121,7 +122,10 @@ export const useTransport = create<TransportState>((set, get) => ({
   seek: (position) => {
     const clamped = Math.min(get().end, Math.max(get().start, position))
     audioEngine.seek(clamped)
-    set({ position: clamped })
+    /* Scrubbing while playing is picking a new passage, so auto return follows
+       the playhead there. Auto return's own seek happens once playing has
+       already stopped, so it cannot move the mark it just read. */
+    set(get().playing ? { position: clamped, playedFrom: clamped } : { position: clamped })
   },
   setSpeed: (speed) => {
     audioEngine.setSpeed(speed)
