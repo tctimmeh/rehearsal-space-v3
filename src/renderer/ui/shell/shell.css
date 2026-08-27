@@ -895,9 +895,12 @@
   font-family: var(--mono);
   font-size: 11.5px;
   letter-spacing: 0.02em;
-  color: var(--text-faint);
+  /* What every other button in the bar reads as. Fainter than this and it
+     looks disabled rather than idle. */
+  color: var(--text-dim);
   white-space: nowrap;
 }
+.pitch__face:hover,
 .pitch__face[data-shifted='true'] {
   color: var(--text);
 }

@@ -51,8 +51,20 @@ describe('the pitch controls in the header', () => {
 
     await user.click(face())
 
-    expect(screen.getByLabelText('Pitch')).toBeTruthy()
+    expect(screen.getByLabelText('Semitones')).toBeTruthy()
     expect(screen.getByLabelText('Cents')).toBeTruthy()
+  })
+
+  /* The button carries the unit, so the readout beneath it need not. */
+  it('leaves the unit to the button it folds out of', async () => {
+    const user = userEvent.setup()
+    useTransport.setState({ semitones: -2, cents: 0 })
+    render(<HeaderBar />)
+
+    await user.click(face())
+
+    expect(screen.getByLabelText('Semitones').getAttribute('aria-valuetext')).toBe('−2')
+    expect(face().textContent).toBe('−2 st')
   })
 
   it('says only "Pitch" while the song is at its own pitch', () => {

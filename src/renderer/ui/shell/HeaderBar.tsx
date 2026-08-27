@@ -23,9 +23,12 @@ import { ToolsModal } from './ToolsModal'
 
 const formatSpeed = (speed: number) => `${Math.round(speed * 100)}%`
 
-const signed = (value: number, unit: string) =>
-  `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)} ${unit}`
+const signed = (value: number, unit = '') =>
+  `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}${unit === '' ? '' : ` ${unit}`}`
 
+/* The knob is labelled Semitones and sits under a button that says "st", so
+   saying it a third time on the readout is just noise. */
+const formatSteps = (semitones: number) => signed(semitones)
 const formatSemitones = (semitones: number) => signed(semitones, 'st')
 const formatCents = (cents: number) => signed(cents, '¢')
 
@@ -163,14 +166,14 @@ function PitchControls({
       {open ? (
         <div className="menu pitch__panel">
           <Knob
-            label="Pitch"
+            label="Semitones"
             value={semitones}
             min={SEMITONES_MIN}
             max={SEMITONES_MAX}
             step={1}
             defaultValue={0}
             onChange={onSemitones}
-            format={formatSemitones}
+            format={formatSteps}
             travel={264}
           />
           <Knob
