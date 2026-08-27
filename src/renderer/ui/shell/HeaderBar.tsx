@@ -181,7 +181,15 @@ function SongIdentity() {
       </button>
 
       {open ? (
-        <div className="menu song-id__panel">
+        /* Both fields save as they are typed, so Enter has nothing to do but
+           mean "done". Listening here rather than on each field so it holds
+           for whatever else ends up in the panel. */
+        <div
+          className="menu song-id__panel"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') setOpen(false)
+          }}
+        >
           <label className="field">
             <span>Name</span>
             <input

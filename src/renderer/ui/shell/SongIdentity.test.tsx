@@ -96,6 +96,38 @@ describe('the song name in the header', () => {
     expect(screen.getByText('Comeback Season!')).toBeTruthy()
   })
 
+  /* Both fields save as they are typed, so Enter means "done" rather than
+     "save" — and it means it from whichever field you are in. */
+  it('closes on Enter from the name', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+    await open(user)
+
+    await user.type(screen.getByLabelText('Name'), '{Enter}')
+
+    expect(screen.queryByLabelText('Name')).toBeNull()
+  })
+
+  it('closes on Enter from the artist', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+    await open(user)
+
+    await user.type(screen.getByLabelText('Artist'), '{Enter}')
+
+    expect(screen.queryByLabelText('Artist')).toBeNull()
+  })
+
+  it('keeps what was typed before Enter closed it', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+    await open(user)
+
+    await user.type(screen.getByLabelText('Name'), '!{Enter}')
+
+    expect(screen.getByText('Comeback Season!')).toBeTruthy()
+  })
+
   it('closes on Escape', async () => {
     const user = userEvent.setup()
     render(<HeaderBar />)
