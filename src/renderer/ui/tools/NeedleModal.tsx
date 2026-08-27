@@ -1,8 +1,6 @@
 import {
   NEEDLE_CLARITY_MAX,
   NEEDLE_CLARITY_MIN,
-  NEEDLE_GRACE_MAX,
-  NEEDLE_GRACE_MIN,
   NEEDLE_READINGS_MAX,
   NEEDLE_READINGS_MIN,
   NEEDLE_SETTLED_MAX,
@@ -20,6 +18,12 @@ const A_SECOND = 20
  * where that balance belongs is a matter of taste that no amount of measuring
  * settles — so here it is, on knobs, until it has been played at enough to
  * know. Once it is settled these become constants again and this goes.
+ *
+ * How long to wait before reading a note that never dies away is not among
+ * them. It is a safety net for a bowed string rather than a plucked one, and
+ * turning it from a fifth of a second to five changed how far the needle sat
+ * from the truth by a tenth of a cent across every recording of somebody
+ * tuning. A knob that does nothing is worse than no knob.
  */
 export function NeedleModal({ onDismiss }: { onDismiss: () => void }) {
   const config = useConfig((state) => state.config)
@@ -74,16 +78,6 @@ export function NeedleModal({ onDismiss }: { onDismiss: () => void }) {
             defaultValue={DEFAULT_NEEDLE.settledShare}
             onChange={turn('settledShare')}
             format={(value) => (value >= 1 ? 'no wait' : `${Math.round(value * 100)}%`)}
-          />
-          <Knob
-            label="Give up after"
-            value={tuner.grace}
-            min={NEEDLE_GRACE_MIN}
-            max={NEEDLE_GRACE_MAX}
-            step={2}
-            defaultValue={DEFAULT_NEEDLE.grace}
-            onChange={turn('grace')}
-            format={(value) => `${(value / A_SECOND).toFixed(1)}s`}
           />
         </div>
       </section>
