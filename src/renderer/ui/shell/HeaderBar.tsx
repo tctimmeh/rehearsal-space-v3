@@ -100,8 +100,14 @@ export function HeaderBar() {
         </IconButton>
       </div>
 
-      <LoopToggle />
-      <AutoReturnToggle />
+      <span className="bar__sep" />
+
+      {/* Two latches that change what the transport means, rather than working
+          it: they belong together and apart from it. */}
+      <div className="latches">
+        <LoopToggle />
+        <AutoReturnToggle />
+      </div>
 
       <div className="knobs">
         <Knob

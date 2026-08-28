@@ -64,9 +64,14 @@ afterEach(() => {
 const chosenClick = () =>
   (screen.getByLabelText('Click track') as HTMLSelectElement).value
 
+/* The tool opens on the loop region, which is what it is most often wanted
+   for; lining up a click track is the other tab. */
+const pickClickJob = () => fireEvent.click(screen.getByRole('tab', { name: 'Click align' }))
+
 describe('which click track the tool shows', () => {
   it('shows the only one there is', () => {
     render(<WaveformTool />)
+    pickClickJob()
 
     expect(chosenClick()).toBe('click')
   })
@@ -88,6 +93,7 @@ describe('which click track the tool shows', () => {
       song: withClicks(click('click', 'Count-in', 0), click('click-2', 'Bridge', 40))
     })
     render(<WaveformTool />)
+    pickClickJob()
     expect(chosenClick()).toBe('click')
 
     useAlign.setState({ clickId: 'click-2' })
@@ -105,6 +111,7 @@ describe('which click track the tool shows', () => {
   it('says where a click track comes from when the song has none', () => {
     useSong.setState({ song: withClicks() })
     render(<WaveformTool />)
+    pickClickJob()
 
     expect(screen.getByText(/Add a click track from the mixer/)).toBeTruthy()
   })
@@ -170,6 +177,7 @@ describe('moving the playhead', () => {
     const seeks: number[] = []
     useTransport.setState({ seek: (position: number) => seeks.push(position) })
     render(<WaveformTool />)
+    pickClickJob()
     const handle = document.querySelector('.align__handle') as HTMLElement
 
     fireEvent.pointerDown(handle, { button: 0, clientX: 400, pointerId: 1 })

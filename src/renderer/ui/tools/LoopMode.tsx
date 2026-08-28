@@ -17,20 +17,17 @@ export function LoopControls({
   view: View
   onChange: (loop: LoopRegion | null) => void
 }) {
-  return (
+  /* The note takes the right of the row to itself; the button belongs beside
+     the channel it is drawn against. */
+  return loop === null ? (
+    <span className="setting-note">Shift-drag across the waveform to mark a region.</span>
+  ) : (
     <>
-      <span className="align__divider" />
-      {loop === null ? (
-        <span className="setting-note">Shift-drag across the waveform to mark a region.</span>
-      ) : (
-        <>
-          <span className="setting-note">
-            {view.clock(loop.start)} – {view.clock(loop.end)} · drag the ends, or shift-drag to
-            draw a new one
-          </span>
-          <Button onClick={() => onChange(null)}>Clear region</Button>
-        </>
-      )}
+      <Button onClick={() => onChange(null)}>Clear region</Button>
+      <span className="setting-note">
+        {view.clock(loop.start)} – {view.clock(loop.end)} · drag the ends, or shift-drag to draw a
+        new one
+      </span>
     </>
   )
 }

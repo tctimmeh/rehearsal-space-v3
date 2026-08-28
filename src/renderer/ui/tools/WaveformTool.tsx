@@ -22,8 +22,8 @@ import { Picker, type View } from './waveformParts'
  * chosen at the top.
  */
 const JOBS = [
-  { id: 'click', label: 'Click track' },
-  { id: 'loop', label: 'Loop region' }
+  { id: 'loop', label: 'Loop region' },
+  { id: 'click', label: 'Click align' }
 ] as const
 type Job = (typeof JOBS)[number]['id']
 
@@ -60,7 +60,7 @@ export function WaveformTool() {
   const audio = (song?.channels.filter((c) => c.kind === 'audio') ?? []) as AudioChannel[]
   const clicks = (song?.channels.filter((c) => c.kind === 'metronome') ?? []) as MetronomeChannel[]
 
-  const [job, setJob] = useState<Job>('click')
+  const [job, setJob] = useState<Job>('loop')
   const [againstId, setAgainstId] = useState<string | null>(null)
   const [clickId, setClickId] = useState<string | null>(null)
   const pointedAt = useAlign((state) => state.clickId)
@@ -144,7 +144,7 @@ export function WaveformTool() {
 
       <div className="align__controls">
         <Picker
-          label="Against"
+          label="Channel"
           value={against?.id ?? ''}
           options={audio.map((c) => ({ id: c.id, label: c.name }))}
           onChange={setAgainstId}
