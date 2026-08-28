@@ -6,7 +6,7 @@ import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
-import { ALL_INPUTS, pickInput } from '@core/audio/inputChannels'
+import { ALL_INPUTS, dropSilentInputs, pickInput } from '@core/audio/inputChannels'
 import { encodeWav } from '@core/audio/wav'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from './config'
@@ -268,9 +268,12 @@ export const useSong = create<SongState>((set, get) => ({
     })
 
     /* Only the socket the instrument is in, so a two-input interface does not
-       produce a take with the guitar on one side and the room on the other. */
+       produce a take with the guitar on one side and the room on the other —
+       and, whatever was asked for, not the sockets that had nothing in them. */
     const kept = trimHead(
-      pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS),
+      dropSilentInputs(
+        pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS)
+      ),
       trimSeconds,
       take.sampleRate
     )

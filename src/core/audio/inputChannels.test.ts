@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALL_INPUTS, channelName, inputOptions, pickInput } from './inputChannels'
+import {
+  ALL_INPUTS,
+  channelName,
+  dropSilentInputs,
+  inputOptions,
+  pickInput
+} from './inputChannels'
 
 const guitar = Float32Array.from([1, 1, 1])
 const microphone = Float32Array.from([2, 2, 2])
@@ -69,5 +75,45 @@ describe('channelName', () => {
     const labels = inputOptions(2).map((option) => option.label)
     expect(labels).toContain(`${channelName(0, 2)} only`)
     expect(labels).toContain(`${channelName(1, 2)} only`)
+  })
+})
+
+/**
+ * A two-socket interface arrives as one stereo stream, so taking it "as it
+ * comes" with a guitar in the first socket alone gives a take that is hard
+ * left and silent on the right. Measured from a real one: the played channel
+ * peaked at -3 dBFS and the empty socket at -64.
+ */
+describe('inputs with nothing plugged into them', () => {
+  const tone = (peak: number, length = 64) =>
+    Float32Array.from({ length }, (_, i) => peak * Math.sin(i))
+
+  const silence = (length = 64) => new Float32Array(length)
+
+  it('are dropped, so a lone guitar records as mono', () => {
+    expect(dropSilentInputs([tone(0.5), silence()])).toHaveLength(1)
+  })
+
+  it('are dropped whichever socket they are', () => {
+    const guitar = tone(0.5)
+    expect(dropSilentInputs([silence(), guitar])).toEqual([guitar])
+  })
+
+  it('leave a genuinely two-sided take alone', () => {
+    expect(dropSilentInputs([tone(0.5), tone(0.2)])).toHaveLength(2)
+  })
+
+  /* Quiet is not the same as empty: a distant microphone is still a take. */
+  it('keep a channel that is merely quiet', () => {
+    expect(dropSilentInputs([tone(0.5), tone(0.02)])).toHaveLength(2)
+  })
+
+  it('keep the interface\'s own noise rather than nothing at all', () => {
+    const hiss = tone(0.0002)
+    expect(dropSilentInputs([hiss])).toEqual([hiss])
+  })
+
+  it('leave a take of nothing alone, for the caller to complain about', () => {
+    expect(dropSilentInputs([silence(), silence()])).toHaveLength(2)
   })
 })
