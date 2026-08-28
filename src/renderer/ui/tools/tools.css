@@ -831,6 +831,14 @@
   outline: 1px solid var(--go-edge);
   outline-offset: -1px;
 }
+/* Scrolled to a whole system at a time, with room to breathe against the edge
+   rather than the beat numbers sitting flush against it. */
+.tablature__system {
+  scroll-margin: 14px;
+}
+.tablature__system + .tablature__system {
+  margin-top: 20px;
+}
 .tablature__line {
   min-height: 20px;
 }
@@ -843,4 +851,10 @@
 }
 .tablature__sheet:not(:focus) .tablature__cursor {
   background: var(--text-faint);
+}
+/* Scrolled to a bar at a time, with room to breathe against the edge: the
+   beats a note is counted against are as much a part of it as the note. */
+.tablature__system {
+  scroll-margin: 14px;
+  padding-bottom: 4px;
 }

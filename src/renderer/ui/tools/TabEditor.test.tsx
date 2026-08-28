@@ -152,3 +152,33 @@ describe('a song with no tablature yet', () => {
     expect(useSong.getState().song?.tabs).toHaveLength(1)
   })
 })
+
+/**
+ * jsdom has no layout, so a click cannot be aimed by pixel here. What can be
+ * held to is that the sheet offers the lines to aim at, and that a click on
+ * one of them moves the cursor to it rather than being ignored.
+ */
+describe('pointing at the tablature', () => {
+  it('offers every line to be aimed at', () => {
+    render(<TabEditor />)
+
+    const rows = [...sheet().querySelectorAll('.tablature__line')]
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) expect(row.getAttribute('data-line')).not.toBeNull()
+  })
+
+  it('draws a system at a time, so scrolling can think in whole bars', () => {
+    render(<TabEditor />)
+
+    expect(sheet().querySelectorAll('.tablature__system').length).toBeGreaterThan(0)
+  })
+
+  it('takes the focus when clicked, so typing goes here', () => {
+    render(<TabEditor />)
+    const row = sheet().querySelector('.tablature__line') as HTMLElement
+
+    fireEvent.pointerDown(row, { clientX: 0 })
+
+    expect(document.activeElement).toBe(sheet())
+  })
+})

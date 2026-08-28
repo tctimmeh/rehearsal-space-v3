@@ -6,7 +6,7 @@ import {
   type Slot,
   type TabDoc
 } from './document'
-import { layOut, WRAP_COLUMNS } from './render'
+import { cursorAtPlace, laidOut, placeOf, WRAP_COLUMNS } from './render'
 
 /**
  * Everything that happens when a key is pressed, as a function of what was
@@ -117,49 +117,40 @@ export function moveRight(state: Editing): Editing {
 }
 
 /**
- * Which bars are drawn on a line together, so that up and down can leave the
- * strings and go to the bar above or below rather than stopping dead.
+ * Up and down go up and down the screen.
  *
- * This is the one place the layout reaches into editing, and it has to: "the
- * bar above" is a fact about how the thing is drawn, not about the music.
+ * Within a system that is simply the next string. Past the last one it is the
+ * system above or below, and the cursor stays in the same column rather than
+ * on the same beat — the bar underneath may be a different shape entirely, and
+ * following the beat would send the cursor sideways, which is not what anybody
+ * pressing an arrow meant.
+ *
+ * This is the one place the drawing reaches into the editing, and it has to:
+ * "the line above" is a fact about how the thing is laid out.
  */
-const systemOf = (doc: TabDoc, bar: number, wrapAt: number): { first: number; count: number } => {
-  let first = 0
-  for (const system of layOut(doc, wrapAt)) {
-    const count = system.bars.length
-    if (bar < first + count) return { first, count }
-    first += count
+function moveByLine(state: Editing, by: -1 | 1, wrapAt: number): Editing {
+  const string = state.cursor.string + by
+  if (string >= 0 && string < state.doc.strings) {
+    return { ...state, cursor: { ...state.cursor, string } }
   }
-  return { first: 0, count: doc.bars.length }
+
+  const place = placeOf(state.doc, state.cursor, wrapAt)
+  if (place === null) return state
+
+  const laid = laidOut(state.doc, wrapAt)
+  const next = laid[place.system + by]
+  if (next === undefined) return state
+
+  const line = by === -1 ? next.top + state.doc.strings - 1 : next.top
+  const cursor = cursorAtPlace(state.doc, line, place.column, wrapAt)
+  return cursor === null ? state : { ...state, cursor }
 }
 
-export function moveUp(state: Editing, wrapAt = WRAP_COLUMNS): Editing {
-  if (state.cursor.string > 0) {
-    return { ...state, cursor: { ...state.cursor, string: state.cursor.string - 1 } }
-  }
-  const here = systemOf(state.doc, state.cursor.bar, wrapAt)
-  if (here.first === 0) return state
-  const above = systemOf(state.doc, here.first - 1, wrapAt)
-  const across = state.cursor.bar - here.first
-  const bar = Math.min(above.first + across, here.first - 1)
-  return {
-    ...state,
-    cursor: atPosition(state.doc, bar, positionIn(state.doc, state.cursor), state.doc.strings - 1)
-  }
-}
+export const moveUp = (state: Editing, wrapAt = WRAP_COLUMNS): Editing =>
+  moveByLine(state, -1, wrapAt)
 
-export function moveDown(state: Editing, wrapAt = WRAP_COLUMNS): Editing {
-  if (state.cursor.string < state.doc.strings - 1) {
-    return { ...state, cursor: { ...state.cursor, string: state.cursor.string + 1 } }
-  }
-  const here = systemOf(state.doc, state.cursor.bar, wrapAt)
-  const next = here.first + here.count
-  if (next >= state.doc.bars.length) return state
-  const below = systemOf(state.doc, next, wrapAt)
-  const across = state.cursor.bar - here.first
-  const bar = Math.min(below.first + across, below.first + below.count - 1)
-  return { ...state, cursor: atPosition(state.doc, bar, positionIn(state.doc, state.cursor), 0) }
-}
+export const moveDown = (state: Editing, wrapAt = WRAP_COLUMNS): Editing =>
+  moveByLine(state, 1, wrapAt)
 
 /* ---------------------------------------------------------------- typing -- */
 

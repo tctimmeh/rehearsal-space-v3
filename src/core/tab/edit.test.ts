@@ -15,7 +15,7 @@ import {
   typeMute,
   type Editing
 } from './edit'
-import { placeOf, render } from './render'
+import { cursorAtPlace, placeOf, render } from './render'
 
 const start = (bars = 1): Editing => ({
   doc: { ...newTab(6), bars: newTab(6).bars.concat(Array.from({ length: bars - 1 }, () => newTab(6).bars[0] as never)) },
@@ -192,5 +192,84 @@ describe('where the cursor is in the drawing', () => {
 
     expect(place).not.toBeNull()
     expect((place?.line ?? 0)).toBeGreaterThan(6)
+  })
+})
+
+/**
+ * Up and down go up and down the screen. The bar on the line below may be a
+ * different shape entirely — a different number of beats, or beats split into
+ * sixteenths — and following the beat rather than the column would send the
+ * cursor sideways, which is not what anybody pressing an arrow meant.
+ */
+describe('crossing between lines of bars', () => {
+  /* Three bars, narrow enough that they do not all fit on one line. */
+  const threeBars = (): TabDoc => ({
+    ...newTab(6),
+    bars: [...newTab(6).bars, ...newTab(6).bars, ...newTab(6).bars]
+  })
+  const wrapAt = 40
+
+  it('drops from the bottom string to the line below', () => {
+    const state: Editing = { doc: threeBars(), cursor: { bar: 0, beat: 0, slot: 0, string: 5 } }
+
+    const moved = moveDown(state, wrapAt)
+
+    expect(moved.cursor.string).toBe(0)
+    expect(moved.cursor.bar).toBeGreaterThan(0)
+  })
+
+  it('comes back up to the bottom string of the line above', () => {
+    const doc = threeBars()
+    const down = moveDown({ doc, cursor: { bar: 0, beat: 0, slot: 0, string: 5 } }, wrapAt)
+
+    const back = moveUp(down, wrapAt)
+
+    expect(back.cursor.string).toBe(5)
+    expect(back.cursor.bar).toBe(0)
+  })
+
+  /* Straight down: the column is what is kept, not the beat. */
+  it('stays in the same column rather than the same beat', () => {
+    const doc = threeBars()
+    const from: Editing = { doc, cursor: { bar: 0, beat: 2, slot: 1, string: 5 } }
+    const column = placeOf(doc, from.cursor, wrapAt)?.column
+
+    const moved = moveDown(from, wrapAt)
+
+    expect(placeOf(doc, moved.cursor, wrapAt)?.column).toBe(column)
+  })
+
+  it('stays put at the very bottom', () => {
+    const doc = threeBars()
+    const last = doc.bars.length - 1
+    const state: Editing = { doc, cursor: { bar: last, beat: 0, slot: 0, string: 5 } }
+
+    expect(moveDown(state, wrapAt).cursor).toEqual(state.cursor)
+  })
+})
+
+/** What was clicked on, which is the same question as what is straight above. */
+describe('pointing at a place in the drawing', () => {
+  it('finds the slot under a column', () => {
+    const doc = newTab(6)
+    const wanted: Cursor = { bar: 0, beat: 2, slot: 1, string: 3 }
+    const place = placeOf(doc, wanted)
+
+    const found = cursorAtPlace(doc, place?.line ?? 0, place?.column ?? 0)
+
+    expect(found).toEqual(wanted)
+  })
+
+  it('takes the nearest slot when the column falls between two', () => {
+    const doc = newTab(6)
+    const place = placeOf(doc, { bar: 0, beat: 1, slot: 0, string: 0 })
+
+    const found = cursorAtPlace(doc, place?.line ?? 0, (place?.column ?? 0) + 1)
+
+    expect(found).toMatchObject({ beat: 1, slot: 0 })
+  })
+
+  it('answers with something for a line off the end of the drawing', () => {
+    expect(cursorAtPlace(newTab(6), 999, 4)).not.toBeNull()
   })
 })

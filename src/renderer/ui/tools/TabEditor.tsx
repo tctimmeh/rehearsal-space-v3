@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AT_START, deleteNote, moveDown, moveLeft, moveRight, moveUp, settle, typeFret, typeMute, type Editing } from '@core/tab/edit'
-import { placeOf, render, WRAP_COLUMNS } from '@core/tab/render'
+import { cursorAtPlace, placeOf, render, WRAP_COLUMNS } from '@core/tab/render'
 import type { TabFile } from '@core/song/song'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
@@ -38,11 +38,13 @@ export function TabEditor() {
    * a wide window should show wide lines.
    */
   const [columns, setColumns] = useState(WRAP_COLUMNS)
+  /** How wide one character is, for turning a click into a column. */
+  const [each, setEach] = useState(0)
   /* When the last digit was typed, so that two in quick succession make one
      number. Reset by moving, because a digit typed elsewhere is not this one. */
   const typedAt = useRef(0)
   const field = useRef<HTMLDivElement>(null)
-  const block = useRef<HTMLSpanElement>(null)
+  const showing = useRef<HTMLDivElement>(null)
 
   const tab = song?.tabs.find((entry) => entry.id === tabId) ?? song?.tabs[0] ?? null
 
@@ -65,7 +67,9 @@ export function TabEditor() {
     if (sheet === null) return
     const measure = (): void => {
       const fits = charactersAcross(sheet)
-      if (fits !== null) setColumns(fits)
+      if (fits === null) return
+      setColumns(fits.columns)
+      setEach(fits.each)
     }
     measure()
     const watching = new ResizeObserver(measure)
@@ -73,17 +77,50 @@ export function TabEditor() {
     return () => watching.disconnect()
   }, [])
 
-  /* Somewhere off the bottom of a long tab is no use to whoever is typing. */
+  /*
+   * The whole system is brought into view rather than the cursor alone.
+   * Showing the character by itself leaves the beats it is counted against off
+   * the top of the screen, and the rest of the bar off the bottom, which is
+   * most of what there is to read.
+   */
   useEffect(() => {
-    block.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    showing.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
   }, [cursor, columns])
 
   const text = useMemo(() => render(doc, columns), [doc, columns])
-  const lines = useMemo(() => text.split('\n'), [text])
+  /* Drawn a system at a time, so that scrolling can think in whole bars. */
+  const systems = useMemo(
+    () => text.replace(/\n$/, '').split('\n\n').map((block) => block.split('\n')),
+    [text]
+  )
   const place = placeOf(doc, cursor, columns)
 
   if (song === null) return <p className="tool-placeholder">No song loaded.</p>
   if (tab === null) return <NoTabYet />
+
+  /*
+   * Clicking puts the cursor on the nearest slot to wherever the pointer
+   * landed — nearest in both directions, because a click lands where it lands.
+   * Aiming between two systems, or past the end of the last one, should still
+   * mean something rather than nothing at all.
+   */
+  const onPointerDown = (event: React.PointerEvent): void => {
+    field.current?.focus()
+    const sheet = field.current
+    if (sheet === null || each <= 0) return
+
+    const row = nearestRow(sheet, event.clientY)
+    if (row === null) return
+
+    const box = row.getBoundingClientRect()
+    const line = Number(row.getAttribute('data-line'))
+    const column = Math.max(0, Math.round((event.clientX - box.left) / each))
+    const found = cursorAtPlace(doc, line, column, columns)
+    if (found !== null) {
+      typedAt.current = 0
+      setCursor(found)
+    }
+  }
 
   const apply = (next: Editing, moved: boolean): void => {
     if (moved) typedAt.current = 0
@@ -92,7 +129,7 @@ export function TabEditor() {
     if (tidied.doc !== doc) edit(tidied.doc)
   }
 
-  const moves: Record<string, (state: Editing) => Editing> = {
+  const moves: Record<string, (state: Editing, wrapAt: number) => Editing> = {
     ArrowLeft: moveLeft,
     ArrowRight: moveRight,
     ArrowUp: moveUp,
@@ -105,7 +142,7 @@ export function TabEditor() {
 
     const move = moves[event.key]
     if (move !== undefined) {
-      apply(move(state), true)
+      apply(move(state, columns), true)
       event.preventDefault()
       return
     }
@@ -148,20 +185,30 @@ export function TabEditor() {
         /* Tells the app's own keys to keep out while this has the cursor. */
         data-typing="true"
         onKeyDown={onKeyDown}
+        onPointerDown={onPointerDown}
       >
-        {lines.map((line, index) => (
-          <div className="tablature__line" key={index}>
-            {place !== null && place.line === index ? (
-              <>
-                {line.slice(0, place.column)}
-                <span className="tablature__cursor" ref={block}>
-                  {line[place.column] ?? ' '}
-                </span>
-                {line.slice(place.column + 1)}
-              </>
-            ) : (
-              line || ' '
-            )}
+        {systems.map((block, system) => (
+          <div
+            className="tablature__system"
+            key={system}
+            ref={place?.system === system ? showing : undefined}
+          >
+            {block.map((line, offset) => {
+              const index = lineOf(systems, system, offset)
+              return (
+                <div className="tablature__line" key={offset} data-line={index}>
+                  {place !== null && place.line === index ? (
+                    <>
+                      {line.slice(0, place.column)}
+                      <span className="tablature__cursor">{line[place.column] ?? ' '}</span>
+                      {line.slice(place.column + 1)}
+                    </>
+                  ) : (
+                    line || ' '
+                  )}
+                </div>
+              )
+            })}
           </div>
         ))}
       </div>
@@ -176,7 +223,7 @@ export function TabEditor() {
  * window actually got. Null when there is nothing to measure — a window not
  * laid out yet, or a test — and the caller keeps what it had.
  */
-function charactersAcross(sheet: HTMLElement): number | null {
+function charactersAcross(sheet: HTMLElement): { columns: number; each: number } | null {
   const probe = document.createElement('div')
   probe.style.cssText = 'visibility:hidden;height:0;overflow:hidden'
   const sample = document.createElement('span')
@@ -190,8 +237,33 @@ function charactersAcross(sheet: HTMLElement): number | null {
   probe.remove()
 
   if (across <= 0 || each <= 0) return null
-  return Math.max(MIN_COLUMNS, Math.floor(across / each))
+  return { columns: Math.max(MIN_COLUMNS, Math.floor(across / each)), each }
 }
+
+/**
+ * The line of tablature nearest a point, whether or not it was hit squarely.
+ *
+ * There is a gap between systems and empty room below the last one, and a
+ * click landing in either should still put the cursor somewhere.
+ */
+function nearestRow(sheet: HTMLElement, y: number): HTMLElement | null {
+  let best: HTMLElement | null = null
+  let closest = Infinity
+  for (const row of sheet.querySelectorAll<HTMLElement>('.tablature__line')) {
+    const box = row.getBoundingClientRect()
+    const away = y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0
+    if (away < closest) {
+      closest = away
+      best = row
+    }
+    if (away === 0) break
+  }
+  return best
+}
+
+/** Which line of the whole drawing a system's nth line is. */
+const lineOf = (systems: string[][], system: number, offset: number): number =>
+  systems.slice(0, system).reduce((total, block) => total + block.length + 1, 0) + offset
 
 /** Narrow enough to be unhelpful, but a bar has to go somewhere. */
 const MIN_COLUMNS = 24

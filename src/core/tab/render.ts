@@ -196,44 +196,122 @@ export function render(doc: TabDoc, wrapAt = WRAP_COLUMNS): string {
   return blocks.join('\n\n') + '\n'
 }
 
+/** A system, and where it ended up in the lines `render` produced. */
+interface Laid {
+  system: System
+  /** Index of this system's first bar in the document. */
+  firstBar: number
+  /** Line the first string row is drawn on. */
+  top: number
+}
+
+/**
+ * Where every system landed in the text.
+ *
+ * The editor shows the drawing and edits the document, so both directions
+ * between them are needed: where a cursor is drawn, and what was clicked on.
+ */
+export function laidOut(doc: TabDoc, wrapAt = WRAP_COLUMNS): Laid[] {
+  const laid: Laid[] = []
+  let line = 0
+  let firstBar = 0
+
+  for (const system of layOut(doc, wrapAt)) {
+    /* The chord line if there is one, then the beat numbers. */
+    const top = line + (chordLine(system) === null ? 0 : 1) + 1
+    laid.push({ system, firstBar, top })
+    firstBar += system.bars.length
+    /* The rows themselves, and the blank line between systems. */
+    line = top + doc.strings + 1
+  }
+
+  return laid
+}
+
+/** Every slot of a system, with the column it is drawn at. */
+function slotsAcross(
+  laid: Laid
+): { bar: number; beat: number; slot: number; column: number }[] {
+  const found: { bar: number; beat: number; slot: number; column: number }[] = []
+  laid.system.bars.forEach((placed, index) => {
+    const columns = slotColumns(placed.widths)
+    let at = 0
+    placed.bar.beats.forEach((beat, beatIndex) => {
+      beat.slots.forEach((_, slotIndex) => {
+        found.push({
+          bar: laid.firstBar + index,
+          beat: beatIndex,
+          slot: slotIndex,
+          column: placed.at + (columns[at] ?? 0)
+        })
+        at += 1
+      })
+    })
+  })
+  return found
+}
+
 /**
  * Where the cursor is in the drawing, so something can be drawn over it.
  *
- * The editor works on the document and shows the text, and this is the one
- * place the two meet. Counted in lines and columns of what `render` returns,
- * blank lines between systems included.
+ * Counted in lines and columns of what `render` returns, blank lines between
+ * systems included, along with which system it fell in — which is what has to
+ * be scrolled to, since showing the cursor alone would leave the beats it is
+ * counted against off the top of the screen.
  */
 export function placeOf(
   doc: TabDoc,
   cursor: Cursor,
   wrapAt = WRAP_COLUMNS
-): { line: number; column: number } | null {
-  let line = 0
-  let first = 0
+): { line: number; column: number; system: number } | null {
+  const laid = laidOut(doc, wrapAt)
 
-  for (const system of layOut(doc, wrapAt)) {
-    const rows = system.bars.length
-    const has = chordLine(system) !== null
-    /* The chord line if there is one, then the beat numbers. */
-    const top = line + (has ? 1 : 0) + 1
+  for (const [index, held] of laid.entries()) {
+    const rows = held.system.bars.length
+    if (cursor.bar < held.firstBar || cursor.bar >= held.firstBar + rows) continue
 
-    if (cursor.bar >= first && cursor.bar < first + rows) {
-      const placed = system.bars[cursor.bar - first]
-      if (placed === undefined) return null
-      const before = placed.bar.beats
-        .slice(0, cursor.beat)
-        .reduce((total, beat) => total + beat.slots.length, 0)
-      const columns = slotColumns(placed.widths)
-      const column = placed.at + (columns[before + cursor.slot] ?? 0)
-      return { line: top + cursor.string, column }
-    }
-
-    first += rows
-    /* The rows themselves, and the blank line between systems. */
-    line = top + doc.strings + 1
+    const found = slotsAcross(held).find(
+      (place) => place.bar === cursor.bar && place.beat === cursor.beat && place.slot === cursor.slot
+    )
+    if (found === undefined) return null
+    return { line: held.top + cursor.string, column: found.column, system: index }
   }
 
   return null
+}
+
+/**
+ * What was clicked on, or what is straight above or below.
+ *
+ * Answers with the nearest slot rather than refusing when the column falls
+ * between two: a click lands wherever it lands, and a cursor going up a line
+ * should carry on up the screen rather than tracking which beat it was on in a
+ * bar that may be a different shape.
+ */
+export function cursorAtPlace(
+  doc: TabDoc,
+  line: number,
+  column: number,
+  wrapAt = WRAP_COLUMNS
+): Cursor | null {
+  const laid = laidOut(doc, wrapAt)
+  if (laid.length === 0) return null
+
+  /* The system whose rows the line falls in, or the nearest one to it. */
+  const held =
+    laid.find((one) => line >= one.top && line < one.top + doc.strings) ??
+    laid.reduce((best, one) =>
+      Math.abs(one.top - line) < Math.abs(best.top - line) ? one : best
+    )
+
+  const string = Math.max(0, Math.min(doc.strings - 1, line - held.top))
+  const slots = slotsAcross(held)
+  if (slots.length === 0) return null
+
+  const nearest = slots.reduce((best, one) =>
+    Math.abs(one.column - column) < Math.abs(best.column - column) ? one : best
+  )
+  return { bar: nearest.bar, beat: nearest.beat, slot: nearest.slot, string }
 }
 
 /** One bar on its own, which is what the tests and the clipboard mostly want. */
