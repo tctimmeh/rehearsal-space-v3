@@ -21,14 +21,19 @@ export const TOOL_ICONS: Record<ToolId, ComponentType<{ size?: number }>> = {
   rhymes: RhymesIcon
 }
 
-/** Rail order, with a gap separating the always-on gadgets from the rest. */
+/**
+ * Rail order, with a gap separating the always-on gadgets from the rest.
+ *
+ * The waveform leads the stage tools because it is where the stage starts and
+ * where it returns when nothing else is chosen.
+ */
 export const RAIL_ORDER: (ToolId | 'gap')[] = [
   'metronome',
   'tuner',
   'gap',
+  'waveform',
   'lyrics',
   'chords',
-  'waveform',
   'gap',
   'rhymes'
 ]
