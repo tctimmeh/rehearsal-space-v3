@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { useConfig } from '@renderer/state/config'
+import { useDialog } from '@renderer/state/dialog'
 import { useSong } from '@renderer/state/song'
 import {
   CENTS_MAX,
@@ -23,6 +24,7 @@ import {
 } from '../icons/uiIcons'
 import { IconButton, Knob, Tabs, useDismiss } from '../primitives'
 import { AdvancedModal } from './AdvancedModal'
+import { ShortcutsModal } from './ShortcutsModal'
 import { SettingsModal } from './SettingsModal'
 import { RecordingModal } from './RecordingModal'
 import { useRecording } from '@renderer/state/recording'
@@ -331,11 +333,11 @@ function SongIdentity() {
 }
 
 
-type Dialog = 'settings' | 'advanced' | 'recording' | 'tools' | null
 
 function AppMenu() {
   const [open, setOpen] = useState(false)
-  const [dialog, setDialog] = useState<Dialog>(null)
+  const dialog = useDialog((state) => state.dialog)
+  const setDialog = useDialog((state) => state.show)
   const revealLibraryFolder = useConfig((state) => state.revealLibraryFolder)
   const wrap = useDismiss<HTMLDivElement>(open, () => setOpen(false))
 
@@ -346,15 +348,6 @@ function AppMenu() {
 
   const dismiss = () => setDialog(null)
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== ',' || !event.ctrlKey) return
-      event.preventDefault()
-      setDialog('settings')
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
 
   return (
     <div className="menu-wrap" ref={wrap}>
@@ -372,6 +365,7 @@ function AppMenu() {
           <MenuItem label="Recording…" onClick={choose(() => setDialog('recording'))} />
           <MenuItem label="External tools…" onClick={choose(() => setDialog('tools'))} />
           <MenuItem label="Advanced settings…" onClick={choose(() => setDialog('advanced'))} />
+          <MenuItem label="Keyboard shortcuts…" onClick={choose(() => setDialog('shortcuts'))} />
           <div className="menu__sep" />
           <MenuItem label="Library folder" onClick={choose(() => void revealLibraryFolder())} />
           <div className="menu__sep" />
@@ -383,6 +377,7 @@ function AppMenu() {
       {dialog === 'advanced' ? <AdvancedModal onDismiss={dismiss} /> : null}
       {dialog === 'recording' ? <RecordingModal onDismiss={dismiss} /> : null}
       {dialog === 'tools' ? <ToolsModal onDismiss={dismiss} /> : null}
+      {dialog === 'shortcuts' ? <ShortcutsModal onDismiss={dismiss} /> : null}
     </div>
   )
 }

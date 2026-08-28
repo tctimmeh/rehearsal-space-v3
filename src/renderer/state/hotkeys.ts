@@ -1,4 +1,5 @@
 import { actionFor, type HotkeyAction } from '@core/keys/hotkeys'
+import { useDialog } from '@renderer/state/dialog'
 import { useMetronome } from '@renderer/state/metronome'
 import { useRecording } from '@renderer/state/recording'
 import { useTools } from '@renderer/state/tools'
@@ -61,7 +62,9 @@ const perform: Record<HotkeyAction, () => void> = {
   },
 
   metronomeTool: () => useTools.getState().toggle('metronome'),
-  tunerTool: () => useTools.getState().toggle('tuner')
+  tunerTool: () => useTools.getState().toggle('tuner'),
+
+  settings: () => useDialog.getState().show('settings')
 }
 
 /**

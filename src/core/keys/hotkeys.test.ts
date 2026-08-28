@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { actionFor, type Keystroke } from './hotkeys'
+import {
+  actionFor,
+  BINDING_COUNT,
+  HOTKEY_GROUPS,
+  hotkeysInGroup,
+  type Keystroke
+} from './hotkeys'
 
 const stroke = (patch: Partial<Keystroke>): Keystroke => ({
   key: '',
@@ -83,5 +89,38 @@ describe('while typing', () => {
   it('still shows a tool on a function key', () => {
     expect(press({ key: 'F1' }, true)).toBe('metronomeTool')
     expect(press({ key: 'F2' }, true)).toBe('tunerTool')
+  })
+})
+
+/**
+ * The list shown to the user is read from the same table the keys are matched
+ * against. A help page that lies about a shortcut is worse than none, so the
+ * thing to guard is that the two cannot drift apart.
+ */
+describe('the list of them', () => {
+  const everything = HOTKEY_GROUPS.flatMap((group) => hotkeysInGroup(group))
+
+  it('accounts for every key the app answers to', () => {
+    expect(everything).toHaveLength(BINDING_COUNT)
+  })
+
+  it('says what each one does', () => {
+    for (const { keys, does } of everything) {
+      expect(keys.length).toBeGreaterThan(0)
+      expect(does.length).toBeGreaterThan(0)
+    }
+  })
+
+  /* Written the way it is pressed, so it can be found on the keyboard. */
+  it('writes the modified ones out in full', () => {
+    const written = everything.map((entry) => entry.keys)
+    expect(written).toContain('Shift + Space')
+    expect(written).toContain('Ctrl + Space')
+    expect(written).toContain('Shift + R')
+  })
+
+  it('puts each one in exactly one group', () => {
+    const counted = new Set(everything.map((entry) => entry.keys))
+    expect(counted.size).toBe(everything.length)
   })
 })
