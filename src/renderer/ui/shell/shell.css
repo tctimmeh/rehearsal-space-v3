@@ -919,21 +919,47 @@
   padding: 11px 13px;
 }
 
-/* The stretch being worked on. Lighter than the fill so the playhead reads
-   over it, and brighter while the player is actually going round. */
+/*
+ * The stretch being worked on.
+ *
+ * The track is six pixels tall, so a line drawn inside it has nowhere to be
+ * seen. The ends stand proud of it instead, the way a marker sticks out of a
+ * book, and the region between them is tinted rather than outlined.
+ *
+ * Green is what this app already means by engaged — the play button, a string
+ * in tune — so the region wears it while the player is going round and stays
+ * grey while it is only set.
+ */
 .scrub__loop {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.07);
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
-  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.22);
   pointer-events: none;
 }
+.scrub__loop::before,
+.scrub__loop::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--text);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
+}
+.scrub__loop::before {
+  left: -1px;
+}
+.scrub__loop::after {
+  right: -1px;
+}
 .scrub__loop[data-going-round='true'] {
-  background: rgba(255, 255, 255, 0.15);
-  border-left-color: var(--text);
-  border-right-color: var(--text);
+  background: rgba(111, 217, 154, 0.3);
+}
+.scrub__loop[data-going-round='true']::before,
+.scrub__loop[data-going-round='true']::after {
+  background: var(--go);
 }
 
 .song-id__panel {
