@@ -1,6 +1,6 @@
 import { TOOL_META } from '@core/tools'
 import { toggleTool } from '@renderer/state/toolActions'
-import { useTools } from '@renderer/state/tools'
+import { stageOnShow, useTools } from '@renderer/state/tools'
 import { RAIL_ORDER, TOOL_ICONS } from '../tools/registry'
 
 /**
@@ -10,6 +10,8 @@ import { RAIL_ORDER, TOOL_ICONS } from '../tools/registry'
  */
 export function ToolRail() {
   const open = useTools((state) => state.open)
+  /* What is on the stage reads as engaged whether it was chosen or fell there. */
+  const onStage = stageOnShow(open)
 
   return (
     <nav className="rail" aria-label="Tools">
@@ -17,15 +19,16 @@ export function ToolRail() {
         if (entry === 'gap') return <span key={`gap-${index}`} className="rail__gap" />
         const { label } = TOOL_META[entry]
         const Glyph = TOOL_ICONS[entry]
+        const engaged = open[entry] || entry === onStage
         return (
           <button
             key={entry}
             type="button"
             className="raised rail__btn"
-            data-engaged={open[entry]}
+            data-engaged={engaged}
             title={label}
             aria-label={label}
-            aria-pressed={open[entry]}
+            aria-pressed={engaged}
             onClick={() => toggleTool(entry)}
           >
             <Glyph />

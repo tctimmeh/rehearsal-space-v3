@@ -42,6 +42,16 @@ export const useTools = create<ToolsState>((set) => ({
     })
 }))
 
+/**
+ * The stage is never empty. Looking at the song is the thing you are most
+ * often doing, so that is what it falls back to when nothing else is chosen —
+ * and there is nothing to close, because there would be nothing behind it.
+ */
+export const DEFAULT_STAGE_TOOL: ToolId = 'waveform'
+
+export const stageOnShow = (open: Record<ToolId, boolean>): ToolId =>
+  openToolOfSize(open, 'stage') ?? DEFAULT_STAGE_TOOL
+
 export const openToolOfSize = (
   open: Record<ToolId, boolean>,
   size: 'stage' | 'drawer'

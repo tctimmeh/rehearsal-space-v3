@@ -1,9 +1,9 @@
 import { TOOL_META, type ToolId } from '@core/tools'
 import { useSong } from '@renderer/state/song'
 import { closeTool } from '@renderer/state/toolActions'
-import { openToolOfSize, useTools } from '@renderer/state/tools'
+import { openToolOfSize, stageOnShow, useTools } from '@renderer/state/tools'
 import { useView } from '@renderer/state/view'
-import { Drawer, GadgetStrip, MixerDock, Stage, StageEmpty, ToolRail } from '../shell'
+import { Drawer, GadgetStrip, MixerDock, Stage, ToolRail } from '../shell'
 import { Button } from '../primitives'
 import { MetronomeGadget } from '../tools/MetronomeGadget'
 import { TunerGadget } from '../tools/TunerGadget'
@@ -40,7 +40,9 @@ export function PlayerView() {
   const open = useTools((state) => state.open)
   const song = useSong((state) => state.song)
 
-  const stageTool = openToolOfSize(open, 'stage')
+  const stageTool = stageOnShow(open)
+  /* Shown because nothing else is, so there is no closing it. */
+  const chosen = openToolOfSize(open, 'stage') !== null
   const drawerTool = openToolOfSize(open, 'drawer')
 
   return (
@@ -50,14 +52,15 @@ export function PlayerView() {
         <div className="column">
           <GadgetStrip render={renderGadget} />
           <div className="workspace">
-            {stageTool !== null ? (
-              <Stage title={TOOL_META[stageTool].label} onClose={() => closeTool(stageTool)}>
-                {renderStage(stageTool)}
-              </Stage>
-            ) : song === null ? (
+            {song === null ? (
               <NoSongLoaded />
             ) : (
-              <StageEmpty />
+              <Stage
+                title={TOOL_META[stageTool].label}
+                {...(chosen ? { onClose: () => closeTool(stageTool) } : {})}
+              >
+                {renderStage(stageTool)}
+              </Stage>
             )}
             {drawerTool === null ? null : (
               <Drawer title={TOOL_META[drawerTool].label} onClose={() => closeTool(drawerTool)}>

@@ -361,6 +361,8 @@
 
 .align__strip {
   position: relative;
+  display: flex;
+  align-items: center;
   flex: 1;
   min-height: 0;
   border-radius: var(--radius);
@@ -370,7 +372,9 @@
 }
 .waveform {
   display: block;
-  width: 100%;
+  /* A flex item with a width of its own would still be free to shrink. */
+  flex: 1;
+  min-width: 0;
 }
 
 /* The beat grid, drawn over the music it is being lined up against. */

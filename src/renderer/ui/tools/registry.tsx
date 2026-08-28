@@ -3,7 +3,7 @@ import type { ComponentType } from 'react'
 import { TOOL_IDS, TOOL_META, type ToolId, type ToolSize } from '@core/tools'
 import { SubjectIcon } from '../icons/subjectIcons'
 import {
-  AlignIcon,
+  WaveformIcon,
   ChordChartIcon,
   LyricsEditorIcon,
   RhymesIcon,
@@ -17,7 +17,7 @@ export const TOOL_ICONS: Record<ToolId, ComponentType<{ size?: number }>> = {
   tuner: TunerIcon,
   lyrics: LyricsEditorIcon,
   chords: ChordChartIcon,
-  waveform: AlignIcon,
+  waveform: WaveformIcon,
   rhymes: RhymesIcon
 }
 

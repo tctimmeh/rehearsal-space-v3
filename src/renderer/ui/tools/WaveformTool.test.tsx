@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type Song } from '@core/song/song'
 import { useAlign } from '@renderer/state/align'
+import { useWaveformView } from '@renderer/state/waveformView'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
 import { installBridge } from '@renderer/testing/bridge'
@@ -53,6 +54,9 @@ const withClicks = (...clicks: Song['channels']): Song => ({
 beforeEach(() => {
   installBridge()
   useAlign.setState({ clickId: null })
+  /* The tool remembers where each song was left, which would otherwise carry
+     from one test to the next. */
+  useWaveformView.setState({ views: {} })
   useSong.setState({ song: withClicks(click('click', 'Count-in', 0)) })
 })
 
@@ -214,6 +218,11 @@ describe('the loop region', () => {
         useSong.setState((state) => ({ song: { ...(state.song as Song), ...patch } }))
     })
     useTransport.setState({ start: 0, end: 120, position: 0 })
+    /* A window four seconds wide from -2, so the pixels below mean something.
+       Left to itself the tool would open on the whole song. */
+    useWaveformView.setState({
+      views: { 'a-song': { job: 'loop', channelId: null, span: 4, centre: 0 } }
+    })
   })
 
   it('is not there until it is set', async () => {
@@ -333,5 +342,58 @@ describe('the loop region', () => {
 
     const loop = saved() as { start: number; end: number }
     expect(loop.start).toBeLessThan(loop.end)
+  })
+})
+
+/**
+ * Closing a tool and opening it again should not cost you the place you had
+ * found — the zoom especially, which takes a few seconds of scrolling to get
+ * back to.
+ */
+describe('where the tool was left', () => {
+  beforeEach(() => {
+    useSong.setState({ song: withClicks(click('click', 'Count-in', 0)) })
+    useTransport.setState({ start: 0, end: 120, position: 0 })
+  })
+
+  it('opens a song it has not seen on the whole of it', () => {
+    render(<WaveformTool />)
+
+    /* The window is the song and a little air, whatever the clock says. */
+    expect(screen.getByText(/^-?00:0[01]$/)).toBeTruthy()
+  })
+
+  it('comes back to the tab it was left on', () => {
+    const { unmount } = render(<WaveformTool />)
+    pickClickJob()
+    unmount()
+
+    render(<WaveformTool />)
+
+    expect(screen.getByRole('tab', { name: 'Click align', selected: true })).toBeTruthy()
+  })
+
+  it('comes back to the zoom it was left at', () => {
+    useWaveformView.setState({
+      views: { 'a-song': { job: 'loop', channelId: null, span: 4, centre: 30 } }
+    })
+
+    render(<WaveformTool />)
+
+    /* Four seconds from 28, rather than the whole two minutes. */
+    expect(screen.getByText('00:28')).toBeTruthy()
+  })
+
+  it('keeps each song\'s place separately', () => {
+    useWaveformView.setState({
+      views: { 'a-song': { job: 'loop', channelId: null, span: 4, centre: 30 } }
+    })
+    useSong.setState({
+      song: { ...withClicks(click('click', 'Count-in', 0)), id: 'another-song' }
+    })
+
+    render(<WaveformTool />)
+
+    expect(screen.queryByText('00:28')).toBeNull()
   })
 })

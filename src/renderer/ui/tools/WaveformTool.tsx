@@ -6,6 +6,7 @@ import { clampViewCentre } from '@core/song/viewWindow'
 import type { AudioChannel, LoopRegion, MetronomeChannel } from '@core/song/song'
 import { formatClock, formatClockPrecise } from '@core/time'
 import { useAlign } from '@renderer/state/align'
+import { useWaveformView, viewOf } from '@renderer/state/waveformView'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
@@ -27,6 +28,8 @@ const JOBS = [
 ] as const
 type Job = (typeof JOBS)[number]['id']
 
+/* Tall enough to read quiet passages by; centred in whatever room the strip
+   has, so the trace sits on the middle rather than hanging from the top. */
 const WAVE_HEIGHT = 190
 const DEFAULT_SPAN = 4
 /** Fifty milliseconds across the window is about as close as peaks can say. */
@@ -60,19 +63,39 @@ export function WaveformTool() {
   const audio = (song?.channels.filter((c) => c.kind === 'audio') ?? []) as AudioChannel[]
   const clicks = (song?.channels.filter((c) => c.kind === 'metronome') ?? []) as MetronomeChannel[]
 
-  const [job, setJob] = useState<Job>('loop')
-  const [againstId, setAgainstId] = useState<string | null>(null)
+  /* Where this song was left. A song not looked at before opens on the whole
+     of itself, which is the only view that tells you what is there. */
+  const views = useWaveformView((state) => state.views)
+  const remember = useWaveformView((state) => state.remember)
+  const kept = viewOf(views, song?.id ?? null)
+  const keep = (patch: Partial<typeof kept>) => {
+    if (song !== null) remember(song.id, patch)
+  }
+
+  const job = kept.job
+  const setJob = (next: Job) => keep({ job: next })
+  const againstId = kept.channelId
+  const setAgainstId = (id: string | null) => keep({ channelId: id })
   const [clickId, setClickId] = useState<string | null>(null)
   const pointedAt = useAlign((state) => state.clickId)
 
-  /* Whatever the tool was opened for wins, until another one is chosen here. */
+  /* Whatever the tool was opened for wins, until another one is chosen here —
+     and it is opened to be worked on, so the view goes to it rather than
+     leaving it a speck in a view of the whole song. */
   useEffect(() => {
-    if (pointedAt === null) return
+    if (pointedAt === null || song === null) return
     setClickId(pointedAt)
-    setJob('click')
+    const timing = song.channels.find((c) => c.id === pointedAt)
+    remember(song.id, {
+      job: 'click',
+      span: DEFAULT_SPAN,
+      ...(timing !== undefined && timing.kind === 'metronome' ? { centre: timing.endTime } : {})
+    })
   }, [pointedAt])
-  const [span, setSpan] = useState(DEFAULT_SPAN)
-  const [centre, setCentre] = useState<number | null>(null)
+  const span = kept.span
+  const setSpan = (next: number) => keep({ span: next })
+  const centre = kept.centre
+  const setCentre = (next: number) => keep({ centre: next })
   const panSpeed = useConfig((state) => state.config?.panSpeed ?? 0.1)
   const zoomSpeed = useConfig((state) => state.config?.zoomSpeed ?? 0.15)
   /* Where a middle-button drag took hold, and where the view was then. */
@@ -98,7 +121,7 @@ export function WaveformTool() {
      the way out as well as in, so zooming out cannot strand the view. */
   /* No wider than the song plus a little air: there is nothing beyond it. */
   const maxSpan = Math.max(DEFAULT_SPAN, songEnd - songStart + 2)
-  const visible = Math.min(maxSpan, Math.max(MIN_SPAN, span))
+  const visible = Math.min(maxSpan, Math.max(MIN_SPAN, span ?? maxSpan))
   const middle = clampViewCentre(centre ?? timing?.endTime ?? 0, visible, [songStart, songEnd])
   const from = middle - visible / 2
   const to = middle + visible / 2

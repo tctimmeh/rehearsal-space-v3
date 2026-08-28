@@ -35,6 +35,18 @@ export const LoopIcon = ({ size = 18 }: { size?: number }) => (
   </Icon>
 )
 
+/*
+ * What the tool is now: a run of music with a stretch marked out on it. The
+ * ends are the handles you drag; the trace is what you drag them against.
+ */
+export const WaveformIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size} strokeWidth={1.6}>
+    <path d="M3 12h1.6M19.4 12H21" />
+    <path d="M7 5.5v13M17 5.5v13" />
+    <path d="M9.4 9.5v5M12 6.5v11M14.6 9.5v5" />
+  </Icon>
+)
+
 export const KebabIcon = ({ size = 18 }: { size?: number }) => (
   <Icon size={size}>
     <circle cx="12" cy="5" r="1.5" />
@@ -72,12 +84,6 @@ export const ScalesIcon = ({ size = 18 }: { size?: number }) => (
   </Icon>
 )
 
-export const AlignIcon = ({ size = 18 }: { size?: number }) => (
-  <Icon size={size}>
-    <path d="M2 12h3M8 12h3M14 12h3M20 12h2" />
-    <path d="M6.5 4v16M17.5 4v16" />
-  </Icon>
-)
 
 export const RhymesIcon = ({ size = 18 }: { size?: number }) => (
   <Icon size={size}>
