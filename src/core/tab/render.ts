@@ -28,8 +28,16 @@ import {
  * the line breaks — follows from that.
  */
 
-/** As many bars to a line as fit in this, and never fewer than one. */
-export const WRAP_COLUMNS = 76
+/**
+ * How wide the file is written, in characters: as many bars to a line as fit,
+ * and never fewer than one.
+ *
+ * Fixed, so that resizing the window never rewrites what is on disk — the
+ * screen lays itself out to whatever room it has and this is left alone. Wide
+ * enough to hold eight or nine plain bars, which is more than most editors
+ * will wrap and about as much as anybody wants to read across.
+ */
+export const WRAP_COLUMNS = 160
 
 const contentOf = (slot: Slot, string: number): string => slot.frets[string] ?? '-'
 
