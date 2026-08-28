@@ -153,6 +153,35 @@ describe('throwing a take away', () => {
   })
 })
 
+/**
+ * The tablature editor is a focusable div rather than a text field, because
+ * its cursor stands on a moment rather than between two characters. Nothing
+ * would otherwise recognise it as somewhere a keystroke is being typed, and
+ * space would play the song while somebody is writing a bar.
+ */
+describe('while something is being typed into', () => {
+  const typedInto = (element: HTMLElement) => {
+    document.body.append(element)
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
+    element.remove()
+  }
+
+  it('leaves the space bar alone in an editor that says it is being typed into', () => {
+    const editor = document.createElement('div')
+    editor.dataset['typing'] = 'true'
+
+    typedInto(editor)
+
+    expect(useTransport.getState().playing).toBe(false)
+  })
+
+  it('still answers it from anything else', () => {
+    typedInto(document.createElement('div'))
+
+    expect(useTransport.getState().playing).toBe(true)
+  })
+})
+
 describe('the tool keys', () => {
   it('show and hide the metronome on F1', () => {
     press({ key: 'F1' })

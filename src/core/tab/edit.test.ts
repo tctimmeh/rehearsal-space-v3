@@ -15,7 +15,7 @@ import {
   typeMute,
   type Editing
 } from './edit'
-import { render } from './render'
+import { placeOf, render } from './render'
 
 const start = (bars = 1): Editing => ({
   doc: { ...newTab(6), bars: newTab(6).bars.concat(Array.from({ length: bars - 1 }, () => newTab(6).bars[0] as never)) },
@@ -139,5 +139,58 @@ describe('tidying up when the cursor leaves', () => {
 
     expect(state.doc.bars).toHaveLength(2)
     expect(render(state.doc).split('\n\n').length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+/**
+ * The editor works on the document and shows the text; this is the one place
+ * the two have to agree. A cursor drawn in the wrong column is worse than no
+ * cursor at all.
+ */
+describe('where the cursor is in the drawing', () => {
+  const lines = (state: Editing) => render(state.doc).split('\n')
+
+  it('sits on the character it is standing on', () => {
+    const state = typeFret(start(), '7', Infinity)
+    const place = placeOf(state.doc, state.cursor)
+
+    expect(place).not.toBeNull()
+    expect(lines(state)[place?.line ?? 0]?.[place?.column ?? 0]).toBe('7')
+  })
+
+  it('follows the cursor along the slots', () => {
+    let state = moveRight(start())
+    state = typeFret(state, '9', Infinity)
+    const place = placeOf(state.doc, state.cursor)
+
+    expect(lines(state)[place?.line ?? 0]?.[place?.column ?? 0]).toBe('9')
+  })
+
+  it('follows it down the strings', () => {
+    let state = start()
+    for (let step = 0; step < 4; step += 1) state = moveDown(state)
+    state = typeFret(state, '5', Infinity)
+    const place = placeOf(state.doc, state.cursor)
+
+    expect(lines(state)[place?.line ?? 0]?.[place?.column ?? 0]).toBe('5')
+  })
+
+  /* Two-digit frets push everything after them right, and the cursor with it. */
+  it('keeps up when a bar widens under it', () => {
+    let state = typeFret(typeFret(start(), '1', Infinity), '2', 0)
+    state = moveRight(moveRight(state))
+    state = typeFret(state, '8', Infinity)
+    const place = placeOf(state.doc, state.cursor)
+
+    expect(lines(state)[place?.line ?? 0]?.[place?.column ?? 0]).toBe('8')
+  })
+
+  it('finds it in a bar on the second line', () => {
+    const doc = { ...newTab(6), bars: [...newTab(6).bars, ...newTab(6).bars, ...newTab(6).bars] }
+    const state: Editing = { doc, cursor: { bar: 2, beat: 0, slot: 0, string: 0 } }
+    const place = placeOf(doc, state.cursor, 40)
+
+    expect(place).not.toBeNull()
+    expect((place?.line ?? 0)).toBeGreaterThan(6)
   })
 })

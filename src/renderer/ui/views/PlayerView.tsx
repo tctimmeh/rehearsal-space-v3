@@ -7,6 +7,7 @@ import { Drawer, GadgetStrip, MixerDock, Stage, ToolRail } from '../shell'
 import { Button } from '../primitives'
 import { MetronomeGadget } from '../tools/MetronomeGadget'
 import { TunerGadget } from '../tools/TunerGadget'
+import { TabEditor } from '../tools/TabEditor'
 import { WaveformTool } from '../tools/WaveformTool'
 import { LyricsEditor } from '../tools/LyricsEditor'
 import { ChordChart } from '../tools/ChordChart'
@@ -29,6 +30,8 @@ const renderStage = (id: ToolId) => {
       return <LyricsEditor />
     case 'chords':
       return <ChordChart />
+    case 'tab':
+      return <TabEditor />
     case 'waveform':
       return <WaveformTool />
     default:

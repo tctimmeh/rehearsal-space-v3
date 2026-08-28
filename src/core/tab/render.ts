@@ -3,6 +3,7 @@ import {
   SIXTEENTH_MARKS,
   type Bar,
   type Beat,
+  type Cursor,
   type Slot,
   type TabDoc
 } from './document'
@@ -193,6 +194,46 @@ export function render(doc: TabDoc, wrapAt = WRAP_COLUMNS): string {
     ].join('\n')
   })
   return blocks.join('\n\n') + '\n'
+}
+
+/**
+ * Where the cursor is in the drawing, so something can be drawn over it.
+ *
+ * The editor works on the document and shows the text, and this is the one
+ * place the two meet. Counted in lines and columns of what `render` returns,
+ * blank lines between systems included.
+ */
+export function placeOf(
+  doc: TabDoc,
+  cursor: Cursor,
+  wrapAt = WRAP_COLUMNS
+): { line: number; column: number } | null {
+  let line = 0
+  let first = 0
+
+  for (const system of layOut(doc, wrapAt)) {
+    const rows = system.bars.length
+    const has = chordLine(system) !== null
+    /* The chord line if there is one, then the beat numbers. */
+    const top = line + (has ? 1 : 0) + 1
+
+    if (cursor.bar >= first && cursor.bar < first + rows) {
+      const placed = system.bars[cursor.bar - first]
+      if (placed === undefined) return null
+      const before = placed.bar.beats
+        .slice(0, cursor.beat)
+        .reduce((total, beat) => total + beat.slots.length, 0)
+      const columns = slotColumns(placed.widths)
+      const column = placed.at + (columns[before + cursor.slot] ?? 0)
+      return { line: top + cursor.string, column }
+    }
+
+    first += rows
+    /* The rows themselves, and the blank line between systems. */
+    line = top + doc.strings + 1
+  }
+
+  return null
 }
 
 /** One bar on its own, which is what the tests and the clipboard mostly want. */

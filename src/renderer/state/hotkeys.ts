@@ -5,10 +5,18 @@ import { useRecording } from '@renderer/state/recording'
 import { useTools } from '@renderer/state/tools'
 import { useTransport } from '@renderer/state/transport'
 
-/** A field has the cursor, so the keystroke belongs to what is being written. */
+/**
+ * Something with the cursor is taking the keystroke, so it is not ours.
+ *
+ * Fields and contenteditables say so themselves. An editor built out of a
+ * focusable div — tablature, where the cursor sits on a moment rather than
+ * between two characters — has to say so, and does it with `data-typing`.
+ * Without that, space plays the song while somebody is writing a bar.
+ */
 const isTyping = (target: EventTarget | null): boolean => {
   const element = target as HTMLElement | null
   if (element?.isContentEditable === true) return true
+  if (element?.dataset?.['typing'] === 'true') return true
   return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
 }
 

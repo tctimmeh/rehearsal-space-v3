@@ -7,6 +7,7 @@ import {
   ChordChartIcon,
   LyricsEditorIcon,
   RhymesIcon,
+  TablatureIcon,
   TunerIcon
 } from '../icons/uiIcons'
 
@@ -17,6 +18,7 @@ export const TOOL_ICONS: Record<ToolId, ComponentType<{ size?: number }>> = {
   tuner: TunerIcon,
   lyrics: LyricsEditorIcon,
   chords: ChordChartIcon,
+  tab: TablatureIcon,
   waveform: WaveformIcon,
   rhymes: RhymesIcon
 }
@@ -32,6 +34,7 @@ export const RAIL_ORDER: (ToolId | 'gap')[] = [
   'tuner',
   'gap',
   'waveform',
+  'tab',
   'lyrics',
   'chords',
   'gap',

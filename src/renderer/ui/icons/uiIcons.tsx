@@ -47,6 +47,14 @@ export const WaveformIcon = ({ size = 18 }: { size?: number }) => (
   </Icon>
 )
 
+/* Six strings with a fret number sitting on one of them. */
+export const TablatureIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size} strokeWidth={1.5}>
+    <path d="M3 6h18M3 9.6h18M3 13.2h6M15 13.2h6M3 16.8h18M3 20.4h18" />
+    <path d="M9.6 10.4h4.8v5.6H9.6z" fill="currentColor" stroke="none" opacity="0.9" />
+  </Icon>
+)
+
 export const KebabIcon = ({ size = 18 }: { size?: number }) => (
   <Icon size={size}>
     <circle cx="12" cy="5" r="1.5" />

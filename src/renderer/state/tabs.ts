@@ -19,6 +19,13 @@ interface TabsState {
   /** Which song and which of its files, so a swap is never saved over. */
   songId: string | null
   tabId: string | null
+  /**
+   * Where it lives, remembered rather than looked up when saving.
+   *
+   * By the time the last write of an outgoing song happens, the song store has
+   * already moved on to the next one, and there would be nowhere left to ask.
+   */
+  file: string | null
   doc: TabDoc
   /** Bumped when the document changes from outside the editor. */
   revision: number
@@ -43,14 +50,10 @@ const cancelPending = (): void => {
 const message = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
-const fileOf = (songId: string, tabId: string): string | null =>
-  useSong.getState().song?.id === songId
-    ? (useSong.getState().song?.tabs.find((tab) => tab.id === tabId)?.file ?? null)
-    : null
-
 export const useTabs = create<TabsState>((set, get) => ({
   songId: null,
   tabId: null,
+  file: null,
   doc: newTab(),
   revision: 0,
   saving: false,
@@ -62,6 +65,7 @@ export const useTabs = create<TabsState>((set, get) => ({
     set({
       songId,
       tabId: tab.id,
+      file: tab.file,
       doc: newTab(tab.strings),
       revision: get().revision + 1,
       saved: true,
@@ -80,7 +84,7 @@ export const useTabs = create<TabsState>((set, get) => ({
 
   close: () => {
     cancelPending()
-    set({ songId: null, tabId: null, doc: newTab(), saved: true, error: null })
+    set({ songId: null, tabId: null, file: null, doc: newTab(), saved: true, error: null })
   },
 
   edit: (doc) => {
@@ -96,10 +100,8 @@ export const useTabs = create<TabsState>((set, get) => ({
    */
   flush: async () => {
     cancelPending()
-    const { songId, tabId, doc } = get()
-    if (songId === null || tabId === null) return
-    const file = fileOf(songId, tabId)
-    if (file === null) return
+    const { songId, tabId, file, doc } = get()
+    if (songId === null || tabId === null || file === null) return
 
     const text = render(doc)
     set({ saving: true })
@@ -119,10 +121,26 @@ export const useTabs = create<TabsState>((set, get) => ({
   }
 }))
 
-/** Closes whatever was open when the song changes, having written it first. */
+/**
+ * Closes whatever was open when the song changes, having written it first.
+ *
+ * Writing takes a turn of the event loop, and by the time it is done the
+ * editor may have opened a file belonging to the song that has just arrived —
+ * on the first load it certainly has, since the song appearing is itself the
+ * change being answered. Closing then would shut a file nobody asked to close,
+ * and every keystroke after it would be dropped. So what was open is noted
+ * first, and only that is closed.
+ */
 export function followSongForTabs(): () => void {
   return useSong.subscribe((state, previous) => {
     if (state.song?.id === previous.song?.id) return
-    void useTabs.getState().flush().then(() => useTabs.getState().close())
+    const leaving = useTabs.getState().songId
+    if (leaving === null) return
+    void useTabs
+      .getState()
+      .flush()
+      .then(() => {
+        if (useTabs.getState().songId === leaving) useTabs.getState().close()
+      })
   })
 }
