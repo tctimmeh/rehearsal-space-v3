@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AT_START, deleteNote, moveDown, moveLeft, moveRight, moveUp, settle, typeFret, typeMute, type Editing } from '@core/tab/edit'
-import { placeOf, render } from '@core/tab/render'
+import { placeOf, render, WRAP_COLUMNS } from '@core/tab/render'
 import type { TabFile } from '@core/song/song'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
@@ -30,10 +30,19 @@ export function TabEditor() {
   const error = useTabs((state) => state.error)
 
   const [cursor, setCursor] = useState(AT_START)
+  /**
+   * How many characters fit across, which is how many bars go on a line.
+   *
+   * The file is written at a fixed width so that resizing the window never
+   * rewrites it, but there is no reason for the screen to be held to that —
+   * a wide window should show wide lines.
+   */
+  const [columns, setColumns] = useState(WRAP_COLUMNS)
   /* When the last digit was typed, so that two in quick succession make one
      number. Reset by moving, because a digit typed elsewhere is not this one. */
   const typedAt = useRef(0)
   const field = useRef<HTMLDivElement>(null)
+  const block = useRef<HTMLSpanElement>(null)
 
   const tab = song?.tabs.find((entry) => entry.id === tabId) ?? song?.tabs[0] ?? null
 
@@ -50,9 +59,28 @@ export function TabEditor() {
      to click on first. */
   useEffect(() => field.current?.focus(), [tabId])
 
-  const text = useMemo(() => render(doc), [doc])
+  /* Remeasure whenever there is more or less room, so bars fill the width. */
+  useEffect(() => {
+    const sheet = field.current
+    if (sheet === null) return
+    const measure = (): void => {
+      const fits = charactersAcross(sheet)
+      if (fits !== null) setColumns(fits)
+    }
+    measure()
+    const watching = new ResizeObserver(measure)
+    watching.observe(sheet)
+    return () => watching.disconnect()
+  }, [])
+
+  /* Somewhere off the bottom of a long tab is no use to whoever is typing. */
+  useEffect(() => {
+    block.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [cursor, columns])
+
+  const text = useMemo(() => render(doc, columns), [doc, columns])
   const lines = useMemo(() => text.split('\n'), [text])
-  const place = placeOf(doc, cursor)
+  const place = placeOf(doc, cursor, columns)
 
   if (song === null) return <p className="tool-placeholder">No song loaded.</p>
   if (tab === null) return <NoTabYet />
@@ -104,14 +132,14 @@ export function TabEditor() {
   }
 
   return (
-    <div className="tabs">
-      <div className="tabs__controls">
-        <span className="tabs__name">{tab.name}</span>
+    <div className="tablature">
+      <div className="tablature__controls">
+        <span className="tablature__name">{tab.name}</span>
         <span className="setting-note">{error ?? (saved ? 'Saved' : 'Saving…')}</span>
       </div>
 
       <div
-        className="well tabs__sheet"
+        className="well tablature__sheet"
         ref={field}
         tabIndex={0}
         role="textbox"
@@ -122,11 +150,13 @@ export function TabEditor() {
         onKeyDown={onKeyDown}
       >
         {lines.map((line, index) => (
-          <div className="tabs__line" key={index}>
+          <div className="tablature__line" key={index}>
             {place !== null && place.line === index ? (
               <>
                 {line.slice(0, place.column)}
-                <span className="tabs__cursor">{line[place.column] ?? ' '}</span>
+                <span className="tablature__cursor" ref={block}>
+                  {line[place.column] ?? ' '}
+                </span>
                 {line.slice(place.column + 1)}
               </>
             ) : (
@@ -138,6 +168,33 @@ export function TabEditor() {
     </div>
   )
 }
+
+/**
+ * How many characters fit across the sheet.
+ *
+ * Measured rather than assumed, because the answer depends on the font the
+ * window actually got. Null when there is nothing to measure — a window not
+ * laid out yet, or a test — and the caller keeps what it had.
+ */
+function charactersAcross(sheet: HTMLElement): number | null {
+  const probe = document.createElement('div')
+  probe.style.cssText = 'visibility:hidden;height:0;overflow:hidden'
+  const sample = document.createElement('span')
+  sample.style.whiteSpace = 'pre'
+  sample.textContent = '0'.repeat(100)
+  probe.append(sample)
+  sheet.append(probe)
+
+  const across = probe.getBoundingClientRect().width
+  const each = sample.getBoundingClientRect().width / 100
+  probe.remove()
+
+  if (across <= 0 || each <= 0) return null
+  return Math.max(MIN_COLUMNS, Math.floor(across / each))
+}
+
+/** Narrow enough to be unhelpful, but a bar has to go somewhere. */
+const MIN_COLUMNS = 24
 
 /** A song with no tablature yet, and the one button that changes that. */
 function NoTabYet() {

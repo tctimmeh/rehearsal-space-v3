@@ -794,25 +794,27 @@
 }
 
 /* ---------- tablature ---------- */
-.tabs {
+/* Named for what it is rather than for `tabs`, which is the tab strip at the
+   top of the window and was being turned on its side by this. */
+.tablature {
   display: flex;
   flex-direction: column;
   gap: 10px;
   height: 100%;
   min-height: 0;
 }
-.tabs__controls {
+.tablature__controls {
   display: flex;
   align-items: baseline;
   gap: 10px;
 }
-.tabs__name {
+.tablature__name {
   font-size: 12.5px;
   color: var(--text);
 }
 /* The sheet is read, so it is a well; the cursor is the only thing on it that
    is touched, and it is moved with the keyboard rather than clicked. */
-.tabs__sheet {
+.tablature__sheet {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -825,20 +827,20 @@
   white-space: pre;
   cursor: text;
 }
-.tabs__sheet:focus {
+.tablature__sheet:focus {
   outline: 1px solid var(--go-edge);
   outline-offset: -1px;
 }
-.tabs__line {
+.tablature__line {
   min-height: 20px;
 }
 /* A block, not a bar between characters: it is standing on a moment, not
    between two of them. */
-.tabs__cursor {
+.tablature__cursor {
   background: var(--go);
   color: var(--well);
   border-radius: 1px;
 }
-.tabs__sheet:not(:focus) .tabs__cursor {
+.tablature__sheet:not(:focus) .tablature__cursor {
   background: var(--text-faint);
 }

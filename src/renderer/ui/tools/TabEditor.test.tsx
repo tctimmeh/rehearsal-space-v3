@@ -7,6 +7,7 @@ import { newTab } from '@core/tab/document'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
 import { installBridge } from '@renderer/testing/bridge'
+import { installResizeObserver } from '@renderer/testing/resize'
 import { TabEditor } from './TabEditor'
 
 const withTab = (): Song => ({
@@ -17,6 +18,7 @@ const withTab = (): Song => ({
 
 beforeEach(() => {
   installBridge()
+  installResizeObserver()
   window.rehearsal.library.readTab = vi.fn(async () => '')
   window.rehearsal.library.writeTab = vi.fn(async () => undefined)
   useSong.setState({
@@ -93,7 +95,7 @@ describe('writing a fret', () => {
 
     /* The third string down, which is the third row of tablature — under the
        chordless beat-marker line. */
-    const rows = [...sheet().querySelectorAll('.tabs__line')].map((line) => line.textContent ?? '')
+    const rows = [...sheet().querySelectorAll('.tablature__line')].map((line) => line.textContent ?? '')
     const strings = rows.filter((row) => row.startsWith('|'))
     expect(strings[2]).toContain('5')
     expect(strings[0]).not.toContain('5')
