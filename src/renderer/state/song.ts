@@ -41,6 +41,8 @@ interface SongState {
   disarmRecording: () => void
   beginTake: () => void
   finishTake: () => Promise<void>
+  /** Ends a take without keeping any of it. */
+  discardTake: () => void
   separate: (request: SeparateRequest) => Promise<void>
   /** True while any of importing, downloading or separating is under way. */
   importing: boolean
@@ -243,6 +245,10 @@ export const useSong = create<SongState>((set, get) => ({
 
   beginTake: () => {
     recorder.beginTake((contextTime) => audioEngine.songTimeAt(contextTime))
+  },
+
+  discardTake: () => {
+    recorder.dropTake()
   },
 
   finishTake: async () => {

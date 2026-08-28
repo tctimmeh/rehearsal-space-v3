@@ -153,6 +153,13 @@ export class Recorder {
     }
   }
 
+  /** Stops keeping, and throws away everything since the take began. */
+  dropTake(): void {
+    this.capturing = false
+    this.node?.port.postMessage({ capturing: false })
+    this.blocks = []
+  }
+
   /** Lets the device go. Disarming does this; a take must be ended first. */
   close(): void {
     this.capturing = false

@@ -9,6 +9,8 @@ interface RecordingState {
   phase: RecordPhase
   /** Arms, disarms, or punches out of a take that is running. */
   toggle: () => void
+  /** Stops the player and throws the take away rather than keeping it. */
+  discard: () => void
 }
 
 /**
@@ -23,6 +25,21 @@ export const useRecording = create<RecordingState>((set, get) => ({
 
   toggle: () => {
     void apply(get().phase, 'toggle', set)
+  },
+
+  /*
+   * The order is the whole of it. Disarming first means the stop that follows
+   * finds nothing to finish, so the take is dropped rather than saved — going
+   * the other way round would write the very take being thrown away.
+   */
+  discard: () => {
+    if (get().phase !== 'recording') return
+    useSong.getState().discardTake()
+    set({ phase: 'off' })
+    audioEngine.setOpenEnded(false)
+    useSong.getState().disarmRecording()
+    useTransport.getState().stop()
+    useSong.getState().refreshBounds()
   }
 }))
 

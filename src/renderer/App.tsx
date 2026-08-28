@@ -2,17 +2,17 @@ import { useEffect } from 'react'
 
 import { useConfig } from './state/config'
 import { useSong } from './state/song'
-import { followEngineClock, useTransport } from './state/transport'
+import { followEngineClock } from './state/transport'
 import { followTransportForRecording } from './state/recording'
-import { followMetronomeBeats, useMetronome } from './state/metronome'
+import { followMetronomeBeats } from './state/metronome'
 import { followTuner } from './state/tuner'
 import { followSongForLyrics, useLyrics } from './state/lyrics'
-import { useTools } from './state/tools'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
 import { DropTarget, HeaderBar, ScrubBar, ToastStack } from './ui/shell'
 import { LibraryView } from './ui/views/LibraryView'
 import { PlayerView } from './ui/views/PlayerView'
+import { followHotkeys } from './state/hotkeys'
 
 export function App() {
   const view = useView((state) => state.view)
@@ -25,8 +25,7 @@ export function App() {
   useEffect(() => followMetronomeBeats(), [])
   useEffect(() => followTuner(), [])
   useEffect(() => followSongForLyrics(), [])
-  useGlobalSpaceBar()
-  useMetronomeHotkey()
+  useHotkeys()
   useSaveBeforeUnload()
 
   return (
@@ -70,42 +69,9 @@ function useBoot() {
   }, [])
 }
 
-/** Space toggles playback app-wide, except while typing into a field. */
-function useGlobalSpaceBar() {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || event.repeat) return
-      const target = event.target as HTMLElement | null
-      if (target?.isContentEditable) return
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
-      event.preventDefault()
-      useTransport.getState().toggle()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
-}
-
-/**
- * Tilde starts and stops the stand-alone metronome from anywhere, and brings
- * it out if it was put away — starting a click nobody can see would leave no
- * way to stop it but the same key again.
- */
-function useMetronomeHotkey() {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== '`' && event.key !== '~') return
-      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return
-      const target = event.target as HTMLElement | null
-      if (target?.isContentEditable) return
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
-      event.preventDefault()
-      if (!useTools.getState().open.metronome) useTools.getState().toggle('metronome')
-      useMetronome.getState().toggle()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+/** Every hotkey, on one listener. What each one means is in core. */
+function useHotkeys() {
+  useEffect(() => followHotkeys(), [])
 }
 
 /** Edits are coalesced, so a pending one has to be written before we go. */
