@@ -31,19 +31,31 @@ describe('finishing a take', () => {
     expect(stepRecording('recording', 'stop', playing)).toEqual({ phase: 'off', take: 'finish' })
   })
 
-  it('punches out on pause but stays ready for another', () => {
+  /* Pausing used to stay armed, so carrying on laid down a second take. It
+     meant a take could begin again without anybody asking for it. */
+  it('keeps the take and disarms on pause, the same as stopping', () => {
     expect(stepRecording('recording', 'pause', playing)).toEqual({
-      phase: 'armed',
+      phase: 'off',
       take: 'finish'
     })
   })
 
-  it('lays down a second take when the player carries on', () => {
+  it('plays back rather than recording again when the player carries on', () => {
     const paused = stepRecording('recording', 'pause', playing)
     expect(stepRecording(paused.phase, 'play', playing)).toEqual({
-      phase: 'recording',
-      take: 'begin'
+      phase: 'off',
+      take: null
     })
+  })
+
+  /* Waiting to record is not recording, so there is nothing to punch out of
+     and nothing to disarm. */
+  it('leaves an arming that never began alone', () => {
+    expect(stepRecording('armed', 'pause', false)).toEqual({ phase: 'armed', take: null })
+  })
+
+  it('abandons that arming on stop, though', () => {
+    expect(stepRecording('armed', 'stop', false)).toEqual({ phase: 'off', take: null })
   })
 
   it('punches out from the button without stopping the player', () => {

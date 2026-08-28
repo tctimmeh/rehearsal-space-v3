@@ -21,9 +21,10 @@ export interface RecordStep {
 /**
  * How the record button and the transport act on each other.
  *
- * Stopping the player abandons the whole idea — it stops, it finishes the
- * take, and it disarms. Pausing only punches out: still armed, so carrying on
- * lays down another take from where the player resumes.
+ * Breaking off the player ends the recording, whether by stopping or by
+ * pausing: the take is kept, and the arming goes with it. Carrying on
+ * afterwards plays back what was just laid down rather than quietly recording
+ * over the top of it — which is the point. Arming again is one key.
  */
 export function stepRecording(
   phase: RecordPhase,
@@ -41,8 +42,11 @@ export function stepRecording(
     return phase === 'armed' ? { phase: 'recording', take: 'begin' } : { phase, take: null }
   }
 
+  /* Pausing ends a take that is running, and leaves alone an arming that has
+     not begun one: waiting to record is not recording. Stopping abandons the
+     whole idea either way. */
   if (event === 'pause') {
-    return phase === 'recording' ? { phase: 'armed', take: 'finish' } : { phase, take: null }
+    return phase === 'recording' ? { phase: 'off', take: 'finish' } : { phase, take: null }
   }
 
   return { phase: 'off', take: phase === 'recording' ? 'finish' : null }

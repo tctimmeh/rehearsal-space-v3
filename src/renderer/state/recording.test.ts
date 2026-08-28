@@ -120,19 +120,28 @@ describe('finishing', () => {
     expect(song.disarmRecording).toHaveBeenCalled()
   })
 
-  it('punches out on pause and stays ready for another take', async () => {
+  /* Pausing used to leave it armed, so carrying on to hear what you had just
+     played recorded over the top of it instead. */
+  it('keeps the take and disarms on pause', async () => {
     await record()
 
     useTransport.getState().pause()
     await settle()
 
     expect(song.finishTake).toHaveBeenCalledTimes(1)
-    expect(useRecording.getState().phase).toBe('armed')
-    expect(song.disarmRecording).not.toHaveBeenCalled()
+    expect(useRecording.getState().phase).toBe('off')
+    expect(song.disarmRecording).toHaveBeenCalled()
+  })
+
+  it('plays back rather than recording again when the player carries on', async () => {
+    await record()
+    useTransport.getState().pause()
+    await settle()
 
     useTransport.getState().play()
     await settle()
-    expect(song.beginTake).toHaveBeenCalledTimes(2)
+
+    expect(song.beginTake).toHaveBeenCalledTimes(1)
   })
 
   it('punches out from the button without stopping the player', async () => {
@@ -168,14 +177,15 @@ describe('the timeline', () => {
     expect(song.refreshBounds).toHaveBeenCalled()
   })
 
-  it('stays open between takes while still armed', async () => {
+  /* The song is as long as its channels again once the take is down. */
+  it('closes the timeline when a take ends on a pause', async () => {
     await arm()
     useTransport.getState().play()
     await settle()
     useTransport.getState().pause()
     await settle()
 
-    expect(engine.isOpenEnded).toBe(true)
+    expect(engine.isOpenEnded).toBe(false)
   })
 })
 
