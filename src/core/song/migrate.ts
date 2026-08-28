@@ -11,6 +11,7 @@ import {
   type PitchOffset,
   type Song,
   type SongKey,
+  type TabFile,
   type WaveformSettings,
   WAVEFORM_TABS
 } from './song'
@@ -180,6 +181,20 @@ const RENAMED: Record<string, ToolId> = { align: 'waveform' }
 const renamedTool = (tool: unknown): unknown =>
   typeof tool === 'string' && tool in RENAMED ? RENAMED[tool] : tool
 
+/** A tab file only counts if it says where it is and what it is called. */
+function parseTabs(raw: unknown): TabFile[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((entry) => {
+    if (!isRecord(entry)) return []
+    const id = entry['id']
+    const file = entry['file']
+    const name = entry['name']
+    if (typeof id !== 'string' || typeof file !== 'string' || typeof name !== 'string') return []
+    if (id === '' || file === '') return []
+    return [{ id, file, name, strings: clamped(entry['strings'], 6, 3, 12) }]
+  })
+}
+
 function parseWaveform(raw: unknown, defaults: WaveformSettings): WaveformSettings {
   if (!isRecord(raw)) return defaults
   const tab = raw['tab']
@@ -241,6 +256,7 @@ export function migrateSong(raw: unknown, id: string): Song {
     key: parseKey(raw['key'], defaults.key),
     tags: parseTags(raw['tags']),
     openTools: openTools.map(renamedTool).filter((tool): tool is ToolId => isToolId(tool)),
+    tabs: parseTabs(raw['tabs']),
     waveform: parseWaveform(raw['waveform'], defaults.waveform)
   }
 }

@@ -1,5 +1,5 @@
 import { access, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join, normalize, relative } from 'node:path'
 
 import { migrateSong } from '@core/song/migrate'
 import { isSafeSongId, slugify, uniqueSlug } from '@core/song/slug'
@@ -34,6 +34,29 @@ let writeCounter = 0
  * move it out from under the second, which then fails on work that had in fact
  * succeeded.
  */
+/**
+ * Resolves a file inside a song's own folder, and refuses anything that climbs
+ * out of it.
+ *
+ * Every path that reaches here came from song.json, which is a plain file the
+ * user can edit and which travels with a song that might have been sent by
+ * somebody else. A channel called `../../.ssh/id_rsa` should read nothing.
+ */
+export function insideSong(directory: string, file: string): string {
+  /* `join` would quietly read this as relative and land inside the folder,
+     which is harmless but not what anybody wrote. Nothing legitimate is
+     absolute, so say so rather than reinterpreting it. */
+  if (isAbsolute(file)) {
+    throw new Error(`Refusing to touch anything outside the song folder: "${file}"`)
+  }
+  const target = normalize(join(directory, file))
+  const inside = relative(directory, target)
+  if (inside.startsWith('..') || isAbsolute(inside)) {
+    throw new Error(`Refusing to touch anything outside the song folder: "${file}"`)
+  }
+  return target
+}
+
 export async function writeAtomically(path: string, contents: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true })
   writeCounter += 1

@@ -76,6 +76,14 @@ export interface Song {
   /** Song-scoped tools reopen where you left them. */
   openTools: ToolId[]
   /**
+   * The song's tablature, one entry per file.
+   *
+   * Listed here rather than found by reading the folder, the same way channels
+   * are, so that the order and the names are the song's own rather than
+   * whatever the filesystem happens to return.
+   */
+  tabs: TabFile[]
+  /**
    * What the waveform tool was doing with this song, and to which channel.
    *
    * The zoom and pan are not here. They are worth remembering while the app is
@@ -83,6 +91,16 @@ export interface Song {
    * wheel.
    */
   waveform: WaveformSettings
+}
+
+export interface TabFile {
+  id: string
+  /** Relative to the song directory, e.g. `tabs/lead.txt`. */
+  file: string
+  /** What it is called on screen: "Lead", "Rhythm", "Bass". */
+  name: string
+  /** Six for a guitar, four for a bass. Fixed for the whole file. */
+  strings: number
 }
 
 export interface WaveformSettings {
@@ -189,6 +207,7 @@ export function newSong(id: string, now = new Date()): Song {
     loop: null,
     tags: [],
     openTools: [],
+    tabs: [],
     waveform: { tab: 'loop', channel: null }
   }
 }

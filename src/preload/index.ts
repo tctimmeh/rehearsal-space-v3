@@ -42,6 +42,9 @@ const api: RehearsalApi = {
     readLyrics: (songId) => ipcRenderer.invoke(IPC_CHANNELS.libraryReadLyrics, songId),
     writeLyrics: (songId, text) =>
       ipcRenderer.invoke(IPC_CHANNELS.libraryWriteLyrics, songId, text),
+    readTab: (songId, file) => ipcRenderer.invoke(IPC_CHANNELS.libraryReadTab, songId, file),
+    writeTab: (songId, file, text) =>
+      ipcRenderer.invoke(IPC_CHANNELS.libraryWriteTab, songId, file, text),
     downloadAudio: (songId, url) =>
       ipcRenderer.invoke(IPC_CHANNELS.libraryDownloadAudio, songId, url),
     separate: (songId, request) => ipcRenderer.invoke(IPC_CHANNELS.librarySeparate, songId, request),

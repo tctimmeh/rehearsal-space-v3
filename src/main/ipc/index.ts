@@ -20,7 +20,9 @@ import {
   readSong,
   readChannelAudio,
   readLyrics,
+  readTab,
   writeLyrics,
+  writeTab,
   readChannelPeaks,
   removeChannel,
   separateChannel,
@@ -136,6 +138,15 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.libraryWriteLyrics, (_event, songId: string, text: string) =>
     writeLyrics(songId, text)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.libraryReadTab, (_event, songId: string, file: string) =>
+    readTab(songId, file)
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.libraryWriteTab,
+    (_event, songId: string, file: string, text: string) => writeTab(songId, file, text)
   )
 
   ipcMain.handle(IPC_CHANNELS.libraryDownloadAudio, (_event, songId: string, url: string) =>

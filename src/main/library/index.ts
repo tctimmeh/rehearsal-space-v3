@@ -1,5 +1,5 @@
-import { isAbsolute, join, normalize, relative } from 'node:path'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, isAbsolute, join, normalize, relative } from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import type { AudioChannel, Song, SongSummary } from '@core/song/song'
@@ -8,7 +8,7 @@ import { readConfig, updateConfig } from '../config'
 import { downloadAudio } from '../import/download'
 import { importAudio } from '../import/importAudio'
 import { separateStems } from '../import/separate'
-import { createLibrary, writeAtomically } from './library'
+import { createLibrary, insideSong, writeAtomically } from './library'
 
 /** The library folder is a setting, so it is resolved per call rather than held. */
 const library = async () => createLibrary((await readConfig()).libraryPath)
@@ -77,15 +77,26 @@ export async function removeChannel(songId: string, channelId: string): Promise<
  * directory before anything is opened.
  */
 export async function readChannelAudio(songId: string, file: string): Promise<Buffer> {
-  const directory = await songDirectory(songId)
-  const target = normalize(join(directory, file))
-  const inside = relative(directory, target)
-  if (inside.startsWith('..') || isAbsolute(inside)) {
-    throw new Error(`Refusing to read outside the song folder: "${file}"`)
-  }
-  return readFile(target)
+  return readFile(insideSong(await songDirectory(songId), file))
 }
 
+
+/** Reads and writes one of a song's tablature files. */
+export async function readTab(songId: string, file: string): Promise<string> {
+  try {
+    return await readFile(insideSong(await songDirectory(songId), file), 'utf8')
+  } catch {
+    /* A tab file listed but not written yet is simply empty. */
+    return ''
+  }
+}
+
+export async function writeTab(songId: string, file: string, text: string): Promise<void> {
+  const directory = await songDirectory(songId)
+  const target = insideSong(directory, file)
+  await mkdir(dirname(target), { recursive: true })
+  await writeAtomically(target, text)
+}
 
 const LYRICS_FILE = 'lyrics.txt'
 

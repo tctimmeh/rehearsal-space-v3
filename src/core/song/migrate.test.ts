@@ -265,3 +265,34 @@ describe('what the waveform tool was doing', () => {
     expect(read({ tab: 'loop', channel: 7 }).channel).toBeNull()
   })
 })
+
+/**
+ * A song lists its tablature the way it lists its channels, so the order and
+ * the names are the song's own rather than whatever the folder happens to
+ * return.
+ */
+describe('the tablature a song has', () => {
+  const read = (tabs: unknown) => migrateSong({ schemaVersion: 1, tabs }, 'x').tabs
+
+  it('is kept', () => {
+    expect(read([{ id: 'lead', file: 'tabs/lead.txt', name: 'Lead', strings: 6 }])).toEqual([
+      { id: 'lead', file: 'tabs/lead.txt', name: 'Lead', strings: 6 }
+    ])
+  })
+
+  it('is empty in a song that has none', () => {
+    expect(migrateSong({ schemaVersion: 1 }, 'x').tabs).toEqual([])
+  })
+
+  it('drops an entry that does not say where it is', () => {
+    expect(read([{ id: 'lead', name: 'Lead' }])).toEqual([])
+  })
+
+  it('assumes six strings when it is not told', () => {
+    expect(read([{ id: 'a', file: 'tabs/a.txt', name: 'A' }])[0]?.strings).toBe(6)
+  })
+
+  it('is not a bass with a hundred strings', () => {
+    expect(read([{ id: 'a', file: 'tabs/a.txt', name: 'A', strings: 100 }])[0]?.strings).toBe(12)
+  })
+})

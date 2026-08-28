@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { createLibrary, writeAtomically, type SongLibrary } from './library'
+import { createLibrary, insideSong, writeAtomically, type SongLibrary } from './library'
 
 let root: string
 let library: SongLibrary
@@ -147,5 +147,31 @@ describe('writeAtomically', () => {
       Array.from({ length: 8 }, (_, index) => writeAtomically(target, `{"n":${index}}\n`))
     )
     expect((await readdir(root)).filter((name) => name.endsWith('.tmp'))).toEqual([])
+  })
+})
+
+/**
+ * Every path that reaches the filesystem came from song.json, which is a plain
+ * file the user can edit and which travels with a song somebody else may have
+ * sent. A channel or a tab file that climbs out of its own folder should read
+ * nothing at all.
+ */
+describe('staying inside a song folder', () => {
+  const song = '/library/a-song'
+
+  it('resolves an ordinary file', () => {
+    expect(insideSong(song, 'tabs/lead.txt')).toBe('/library/a-song/tabs/lead.txt')
+  })
+
+  it('refuses a path that climbs out', () => {
+    expect(() => insideSong(song, '../another-song/song.json')).toThrow(/outside the song folder/)
+  })
+
+  it('refuses one that climbs out and back in', () => {
+    expect(() => insideSong(song, 'tabs/../../../.ssh/id_rsa')).toThrow(/outside/)
+  })
+
+  it('refuses an absolute path', () => {
+    expect(() => insideSong(song, '/etc/passwd')).toThrow(/outside/)
   })
 })

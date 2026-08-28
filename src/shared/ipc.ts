@@ -47,6 +47,9 @@ export interface RehearsalApi {
     /** The song's words, as plain text. Empty for a song with none. */
     readLyrics(songId: string): Promise<string>
     writeLyrics(songId: string, text: string): Promise<void>
+    /** One of the song's tablature files. Empty for one not written yet. */
+    readTab(songId: string, file: string): Promise<string>
+    writeTab(songId: string, file: string, text: string): Promise<void>
     downloadAudio(songId: string, url: string): Promise<Song>
     separate(songId: string, request: SeparateRequest): Promise<Song>
     addRecording(songId: string, wav: Uint8Array, startTime: number, name: string): Promise<Song>
@@ -95,6 +98,8 @@ export const IPC_CHANNELS = {
   libraryReadLyrics: 'library:read-lyrics',
   rhymesFind: 'rhymes:find',
   libraryWriteLyrics: 'library:write-lyrics',
+  libraryReadTab: 'library:read-tab',
+  libraryWriteTab: 'library:write-tab',
   libraryDownloadAudio: 'library:download-audio',
   librarySeparate: 'library:separate',
   libraryAddRecording: 'library:add-recording',

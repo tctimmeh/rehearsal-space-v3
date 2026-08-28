@@ -7,6 +7,7 @@ import { followTransportForRecording } from './state/recording'
 import { followMetronomeBeats } from './state/metronome'
 import { followTuner } from './state/tuner'
 import { followSongForLyrics, useLyrics } from './state/lyrics'
+import { followSongForTabs, useTabs } from './state/tabs'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
 import { DropTarget, HeaderBar, ScrubBar, ToastStack } from './ui/shell'
@@ -25,6 +26,7 @@ export function App() {
   useEffect(() => followMetronomeBeats(), [])
   useEffect(() => followTuner(), [])
   useEffect(() => followSongForLyrics(), [])
+  useEffect(() => followSongForTabs(), [])
   useHotkeys()
   useSaveBeforeUnload()
 
@@ -79,7 +81,11 @@ function useSaveBeforeUnload() {
   useEffect(
     () =>
       window.rehearsal.app.onFlushRequest(async () => {
-        await Promise.all([useSong.getState().flush(), useLyrics.getState().flush()])
+        await Promise.all([
+          useSong.getState().flush(),
+          useLyrics.getState().flush(),
+          useTabs.getState().flush()
+        ])
       }),
     []
   )
