@@ -10,7 +10,9 @@ import {
   type LoopRegion,
   type PitchOffset,
   type Song,
-  type SongKey
+  type SongKey,
+  type WaveformSettings,
+  WAVEFORM_TABS
 } from './song'
 
 export class UnreadableSongError extends Error {}
@@ -178,6 +180,18 @@ const RENAMED: Record<string, ToolId> = { align: 'waveform' }
 const renamedTool = (tool: unknown): unknown =>
   typeof tool === 'string' && tool in RENAMED ? RENAMED[tool] : tool
 
+function parseWaveform(raw: unknown, defaults: WaveformSettings): WaveformSettings {
+  if (!isRecord(raw)) return defaults
+  const tab = raw['tab']
+  const channel = raw['channel']
+  return {
+    tab: WAVEFORM_TABS.includes(tab as WaveformSettings['tab'])
+      ? (tab as WaveformSettings['tab'])
+      : defaults.tab,
+    channel: typeof channel === 'string' ? channel : null
+  }
+}
+
 /** A region only survives if it is a region: two numbers, the right way round. */
 function parseLoop(raw: unknown): LoopRegion | null {
   if (!isRecord(raw)) return null
@@ -226,6 +240,7 @@ export function migrateSong(raw: unknown, id: string): Song {
     loop: parseLoop(raw['loop']),
     key: parseKey(raw['key'], defaults.key),
     tags: parseTags(raw['tags']),
-    openTools: openTools.map(renamedTool).filter((tool): tool is ToolId => isToolId(tool))
+    openTools: openTools.map(renamedTool).filter((tool): tool is ToolId => isToolId(tool)),
+    waveform: parseWaveform(raw['waveform'], defaults.waveform)
   }
 }

@@ -241,3 +241,27 @@ describe('a tool that has been renamed', () => {
     ).toEqual(['lyrics', 'waveform'])
   })
 })
+
+/**
+ * Which tab the waveform tool was on and which channel it was looking at come
+ * back with the song. The zoom does not: it is not worth a file.
+ */
+describe('what the waveform tool was doing', () => {
+  const read = (waveform: unknown) => migrateSong({ schemaVersion: 1, waveform }, 'x').waveform
+
+  it('is kept', () => {
+    expect(read({ tab: 'click', channel: 'bass' })).toEqual({ tab: 'click', channel: 'bass' })
+  })
+
+  it('starts on the loop region in a song that never had it open', () => {
+    expect(migrateSong({ schemaVersion: 1 }, 'x').waveform).toEqual({ tab: 'loop', channel: null })
+  })
+
+  it('falls back to the loop region when the tab is not one', () => {
+    expect(read({ tab: 'nonsense', channel: 'bass' }).tab).toBe('loop')
+  })
+
+  it('forgets a channel that is not a name', () => {
+    expect(read({ tab: 'loop', channel: 7 }).channel).toBeNull()
+  })
+})

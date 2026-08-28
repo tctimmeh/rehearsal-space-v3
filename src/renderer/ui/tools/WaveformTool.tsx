@@ -3,10 +3,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { solveMetronome, type MetronomeTiming } from '@core/metronome/solve'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import { clampViewCentre } from '@core/song/viewWindow'
-import type { AudioChannel, LoopRegion, MetronomeChannel } from '@core/song/song'
+import type { AudioChannel, LoopRegion, MetronomeChannel, Song } from '@core/song/song'
 import { formatClock, formatClockPrecise } from '@core/time'
 import { useAlign } from '@renderer/state/align'
-import { useWaveformView, viewOf } from '@renderer/state/waveformView'
+import { useWaveformView, windowOf } from '@renderer/state/waveformView'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
@@ -63,19 +63,22 @@ export function WaveformTool() {
   const audio = (song?.channels.filter((c) => c.kind === 'audio') ?? []) as AudioChannel[]
   const clicks = (song?.channels.filter((c) => c.kind === 'metronome') ?? []) as MetronomeChannel[]
 
-  /* Where this song was left. A song not looked at before opens on the whole
-     of itself, which is the only view that tells you what is there. */
-  const views = useWaveformView((state) => state.views)
+  /* The tab and the channel belong to the song and come back with it. */
+  const job: Job = song?.waveform.tab ?? 'loop'
+  const setJob = (tab: Job) => update({ waveform: { ...(song as Song).waveform, tab } })
+  const againstId = song?.waveform.channel ?? null
+  const setAgainstId = (channel: string | null) =>
+    update({ waveform: { ...(song as Song).waveform, channel } })
+
+  /* The zoom and pan only last as long as the app does. A song not looked at
+     this session opens on the whole of itself, which is the only view that
+     tells you what is there. */
+  const windows = useWaveformView((state) => state.windows)
   const remember = useWaveformView((state) => state.remember)
-  const kept = viewOf(views, song?.id ?? null)
+  const kept = windowOf(windows, song?.id ?? null)
   const keep = (patch: Partial<typeof kept>) => {
     if (song !== null) remember(song.id, patch)
   }
-
-  const job = kept.job
-  const setJob = (next: Job) => keep({ job: next })
-  const againstId = kept.channelId
-  const setAgainstId = (id: string | null) => keep({ channelId: id })
   const [clickId, setClickId] = useState<string | null>(null)
   const pointedAt = useAlign((state) => state.clickId)
 
@@ -86,8 +89,8 @@ export function WaveformTool() {
     if (pointedAt === null || song === null) return
     setClickId(pointedAt)
     const timing = song.channels.find((c) => c.id === pointedAt)
+    update({ waveform: { ...song.waveform, tab: 'click' } })
     remember(song.id, {
-      job: 'click',
       span: DEFAULT_SPAN,
       ...(timing !== undefined && timing.kind === 'metronome' ? { centre: timing.endTime } : {})
     })

@@ -56,7 +56,7 @@ beforeEach(() => {
   useAlign.setState({ clickId: null })
   /* The tool remembers where each song was left, which would otherwise carry
      from one test to the next. */
-  useWaveformView.setState({ views: {} })
+  useWaveformView.setState({ windows: {} })
   useSong.setState({ song: withClicks(click('click', 'Count-in', 0)) })
 })
 
@@ -220,9 +220,7 @@ describe('the loop region', () => {
     useTransport.setState({ start: 0, end: 120, position: 0 })
     /* A window four seconds wide from -2, so the pixels below mean something.
        Left to itself the tool would open on the whole song. */
-    useWaveformView.setState({
-      views: { 'a-song': { job: 'loop', channelId: null, span: 4, centre: 0 } }
-    })
+    useWaveformView.setState({ windows: { 'a-song': { span: 4, centre: 0 } } })
   })
 
   it('is not there until it is set', async () => {
@@ -363,10 +361,38 @@ describe('where the tool was left', () => {
     expect(screen.getByText(/^-?00:0[01]$/)).toBeTruthy()
   })
 
-  it('comes back to the tab it was left on', () => {
-    const { unmount } = render(<WaveformTool />)
+  /* The tab and the channel are kept on the song, so they come back with it
+     rather than only lasting as long as the app does. */
+  it('keeps the tab on the song', () => {
+    useSong.setState({
+      song: withClicks(click('click', 'Count-in', 0)),
+      update: (patch) =>
+        useSong.setState((state) => ({ song: { ...(state.song as Song), ...patch } }))
+    })
+    render(<WaveformTool />)
+
     pickClickJob()
-    unmount()
+
+    expect(useSong.getState().song?.waveform.tab).toBe('click')
+  })
+
+  it('keeps the channel on the song', () => {
+    useSong.setState({
+      song: { ...withClicks(click('click', 'Count-in', 0)) },
+      update: (patch) =>
+        useSong.setState((state) => ({ song: { ...(state.song as Song), ...patch } }))
+    })
+    render(<WaveformTool />)
+
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'music' } })
+
+    expect(useSong.getState().song?.waveform.channel).toBe('music')
+  })
+
+  it('opens on the tab the song was left on', () => {
+    useSong.setState({
+      song: { ...withClicks(click('click', 'Count-in', 0)), waveform: { tab: 'click', channel: null } }
+    })
 
     render(<WaveformTool />)
 
@@ -374,9 +400,7 @@ describe('where the tool was left', () => {
   })
 
   it('comes back to the zoom it was left at', () => {
-    useWaveformView.setState({
-      views: { 'a-song': { job: 'loop', channelId: null, span: 4, centre: 30 } }
-    })
+    useWaveformView.setState({ windows: { 'a-song': { span: 4, centre: 30 } } })
 
     render(<WaveformTool />)
 
@@ -385,9 +409,7 @@ describe('where the tool was left', () => {
   })
 
   it('keeps each song\'s place separately', () => {
-    useWaveformView.setState({
-      views: { 'a-song': { job: 'loop', channelId: null, span: 4, centre: 30 } }
-    })
+    useWaveformView.setState({ windows: { 'a-song': { span: 4, centre: 30 } } })
     useSong.setState({
       song: { ...withClicks(click('click', 'Count-in', 0)), id: 'another-song' }
     })

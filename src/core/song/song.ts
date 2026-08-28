@@ -75,7 +75,24 @@ export interface Song {
   tags: string[]
   /** Song-scoped tools reopen where you left them. */
   openTools: ToolId[]
+  /**
+   * What the waveform tool was doing with this song, and to which channel.
+   *
+   * The zoom and pan are not here. They are worth remembering while the app is
+   * open and not worth a file: panning would write one on every notch of the
+   * wheel.
+   */
+  waveform: WaveformSettings
 }
+
+export interface WaveformSettings {
+  /** Which job the tool was left on. */
+  tab: 'loop' | 'click'
+  /** The channel being looked at, or null for whichever comes first. */
+  channel: string | null
+}
+
+export const WAVEFORM_TABS = ['loop', 'click'] as const
 
 /** Both ends in song time, so a region may begin before 00:00 in a count-in. */
 export interface LoopRegion {
@@ -171,7 +188,8 @@ export function newSong(id: string, now = new Date()): Song {
     key: { tonic: 'C', mode: 'major' },
     loop: null,
     tags: [],
-    openTools: []
+    openTools: [],
+    waveform: { tab: 'loop', channel: null }
   }
 }
 

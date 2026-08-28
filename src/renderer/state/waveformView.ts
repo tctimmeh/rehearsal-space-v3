@@ -1,38 +1,40 @@
 import { create } from 'zustand'
 
 /**
- * Where the waveform tool was left, per song.
+ * How far into the song the waveform tool is zoomed, and where.
  *
- * Closing a tool and opening it again should not cost you the place you had
- * found — the zoom especially, which takes a few seconds of scrolling to get
- * back. Kept here rather than on the song because panning writes it on every
- * notch of the wheel, and none of it is worth a file.
+ * Worth remembering while the app is open, because a zoom takes a few seconds
+ * of scrolling to find again — and not worth a file, because panning would
+ * write one on every notch of the wheel. Which tab and which channel *are*
+ * worth a file, and live on the song.
  */
-export interface WaveformView {
-  job: 'loop' | 'click'
-  /** Which channel is being looked at, or null for whichever comes first. */
-  channelId: string | null
+export interface WaveformWindow {
   /** Seconds across the window, or null for the whole song. */
   span: number | null
-  /** Song time in the middle of the window, or null to let it settle. */
+  /** Song time in the middle of it, or null to let it settle. */
   centre: number | null
 }
 
-const FRESH: WaveformView = { job: 'loop', channelId: null, span: null, centre: null }
+const WHOLE_SONG: WaveformWindow = { span: null, centre: null }
 
 interface WaveformViewState {
-  views: Record<string, WaveformView>
-  remember: (songId: string, patch: Partial<WaveformView>) => void
+  windows: Record<string, WaveformWindow>
+  remember: (songId: string, patch: Partial<WaveformWindow>) => void
 }
 
 export const useWaveformView = create<WaveformViewState>((set) => ({
-  views: {},
+  windows: {},
   remember: (songId, patch) =>
     set((state) => ({
-      views: { ...state.views, [songId]: { ...(state.views[songId] ?? FRESH), ...patch } }
+      windows: {
+        ...state.windows,
+        [songId]: { ...(state.windows[songId] ?? WHOLE_SONG), ...patch }
+      }
     }))
 }))
 
-/** A song not looked at before opens on the whole of itself. */
-export const viewOf = (views: Record<string, WaveformView>, songId: string | null): WaveformView =>
-  (songId === null ? undefined : views[songId]) ?? FRESH
+/** A song not looked at this session opens on the whole of itself. */
+export const windowOf = (
+  windows: Record<string, WaveformWindow>,
+  songId: string | null
+): WaveformWindow => (songId === null ? undefined : windows[songId]) ?? WHOLE_SONG
