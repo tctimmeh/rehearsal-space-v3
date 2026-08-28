@@ -6,7 +6,7 @@ import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
-import { ALL_INPUTS, dropSilentInputs, pickInput } from '@core/audio/inputChannels'
+import { ALL_INPUTS, inputsWorthKeeping, pickInput } from '@core/audio/inputChannels'
 import { encodeWav } from '@core/audio/wav'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from './config'
@@ -267,25 +267,39 @@ export const useSong = create<SongState>((set, get) => ({
       earliest: transport.start
     })
 
-    /* Only the socket the instrument is in, so a two-input interface does not
-       produce a take with the guitar on one side and the room on the other —
-       and, whatever was asked for, not the sockets that had nothing in them. */
-    const kept = trimHead(
-      dropSilentInputs(
-        pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS)
-      ),
+    const captured = trimHead(
+      pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS),
       trimSeconds,
       take.sampleRate
     )
-    if ((kept[0]?.length ?? 0) === 0) {
+    if ((captured[0]?.length ?? 0) === 0) {
       set({ error: 'The recording captured nothing.' })
       return
     }
 
-    const wav = encodeWav(kept, take.sampleRate)
-    await runAdding(set, get, (song) =>
-      window.rehearsal.library.addRecording(song.id, wav, startTime, takeName(song))
-    )
+    /*
+     * A socket each, and each one mono.
+     *
+     * Two inputs are two things being played, not the two sides of one: a
+     * guitar in the first socket and a voice in the second are not a stereo
+     * image of anything, and writing them as one would put the guitar hard
+     * left and the voice hard right. So they arrive as separate channels, each
+     * centred, to be mixed by the person who played them. Sockets that had
+     * nothing in them do not arrive at all.
+     */
+    const worth = inputsWorthKeeping(captured)
+    const name = takeName(get().song as Song)
+    const named = (index: number): string =>
+      worth.length === 1 ? name : `${name} (input ${index + 1})`
+
+    for (const index of worth) {
+      const one = captured[index]
+      if (one === undefined) continue
+      const wav = encodeWav([one], take.sampleRate)
+      await runAdding(set, get, (song) =>
+        window.rehearsal.library.addRecording(song.id, wav, startTime, named(index))
+      )
+    }
   },
 
   downloadAudio: async (url) => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ALL_INPUTS,
   channelName,
-  dropSilentInputs,
+  inputsWorthKeeping,
   inputOptions,
   pickInput
 } from './inputChannels'
@@ -79,41 +79,47 @@ describe('channelName', () => {
 })
 
 /**
- * A two-socket interface arrives as one stereo stream, so taking it "as it
- * comes" with a guitar in the first socket alone gives a take that is hard
- * left and silent on the right. Measured from a real one: the played channel
- * peaked at -3 dBFS and the empty socket at -64.
+ * A two-socket interface arrives as one stereo stream, and taking it "as it
+ * comes" used to write both sides into one channel: a guitar in the first
+ * socket and a voice in the second came out hard left and hard right. They are
+ * two things being played, so they become two channels — and a socket with
+ * nothing in it becomes nothing at all.
  */
-describe('inputs with nothing plugged into them', () => {
+describe('which inputs are worth keeping', () => {
   const tone = (peak: number, length = 64) =>
     Float32Array.from({ length }, (_, i) => peak * Math.sin(i))
 
   const silence = (length = 64) => new Float32Array(length)
 
-  it('are dropped, so a lone guitar records as mono', () => {
-    expect(dropSilentInputs([tone(0.5), silence()])).toHaveLength(1)
+  it('keeps the one that was played', () => {
+    expect(inputsWorthKeeping([tone(0.5), silence()])).toEqual([0])
   })
 
-  it('are dropped whichever socket they are', () => {
-    const guitar = tone(0.5)
-    expect(dropSilentInputs([silence(), guitar])).toEqual([guitar])
+  it('does not mind which socket that was', () => {
+    expect(inputsWorthKeeping([silence(), tone(0.5)])).toEqual([1])
   })
 
-  it('leave a genuinely two-sided take alone', () => {
-    expect(dropSilentInputs([tone(0.5), tone(0.2)])).toHaveLength(2)
+  it('keeps both when both were played', () => {
+    expect(inputsWorthKeeping([tone(0.5), tone(0.2)])).toEqual([0, 1])
   })
 
-  /* Quiet is not the same as empty: a distant microphone is still a take. */
-  it('keep a channel that is merely quiet', () => {
-    expect(dropSilentInputs([tone(0.5), tone(0.02)])).toHaveLength(2)
+  /* A voice further from its microphone than a guitar is from its lead is
+     still a voice, and losing it would be far worse than an idle channel. */
+  it('keeps a part that is merely much quieter than the other', () => {
+    expect(inputsWorthKeeping([tone(0.6), tone(0.02)])).toEqual([0, 1])
   })
 
-  it('keep the interface\'s own noise rather than nothing at all', () => {
-    const hiss = tone(0.0002)
-    expect(dropSilentInputs([hiss])).toEqual([hiss])
+  /* What an unused input reads depends on the interface and on whether its
+     preamp is live at all, so it is judged against the socket beside it. */
+  it('keeps an open microphone hearing a quiet room', () => {
+    expect(inputsWorthKeeping([tone(0.5), tone(0.006)])).toEqual([0, 1])
   })
 
-  it('leave a take of nothing alone, for the caller to complain about', () => {
-    expect(dropSilentInputs([silence(), silence()])).toHaveLength(2)
+  it('drops a socket that is silent beside a loud one', () => {
+    expect(inputsWorthKeeping([tone(0.5), tone(0.0004)])).toEqual([0])
+  })
+
+  it('answers a take of nothing with all of it, for the caller to complain', () => {
+    expect(inputsWorthKeeping([silence(), silence()])).toEqual([0, 1])
   })
 })

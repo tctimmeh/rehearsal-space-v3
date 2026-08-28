@@ -26,35 +26,44 @@ export function pickInput(
 }
 
 /**
- * Quieter than this and nothing was plugged in: it is the interface's own
- * noise floor. An unused socket on a real one measures around -64 dBFS at its
- * loudest; anything actually connected, however gently played, is far above.
+ * How much quieter than the loudest input a socket must be before it counts as
+ * empty, and how quiet it must be in its own right. Both have to hold: a take
+ * where one part is simply far louder than the other is still a take of two
+ * things, and a quiet room down a live microphone is still a performance.
  */
-const SILENT_PEAK = 0.004
+const BESIDE_THE_LOUDEST = 0.032 /* about 30 dB below it */
+const QUIET_IN_ITSELF = 0.0018 /* about -55 dBFS */
 
-const carriesSignal = (channel: Float32Array): boolean => {
+const peakOf = (channel: Float32Array): number => {
+  let loudest = 0
   for (const sample of channel) {
-    if (Math.abs(sample) >= SILENT_PEAK) return true
+    const size = Math.abs(sample)
+    if (size > loudest) loudest = size
   }
-  return false
+  return loudest
 }
 
 /**
- * Drops the inputs that had nothing plugged into them.
+ * Which inputs had something plugged into them.
  *
- * Taking a two-socket interface as it comes is right when two things are
- * plugged in and wrong when one is: a guitar in the first socket alone gives a
- * take with the guitar hard left and silence hard right, which is what "both
- * together" turns out to mean most of the time. So an input that carried
- * nothing is not kept, and a lone guitar records as mono however the device
- * was asked for.
+ * An empty socket is judged against the ones beside it rather than against a
+ * number, because what an unused input reads depends on the interface and on
+ * whether its preamp is even live — a muted microphone gives near silence, an
+ * open one gives a room. Comparing them sidesteps having to know.
  *
- * All of them silent is left alone — that is a take of nothing, and the caller
- * says so in better words than an empty array would.
+ * All of them silent is answered with all of them: that is a take of nothing,
+ * and the caller says so in better words than an empty list would.
  */
-export function dropSilentInputs(channels: readonly Float32Array[]): Float32Array[] {
-  const heard = channels.filter((channel) => carriesSignal(channel))
-  return heard.length === 0 ? [...channels] : heard
+export function inputsWorthKeeping(channels: readonly Float32Array[]): number[] {
+  const peaks = channels.map(peakOf)
+  const loudest = Math.max(0, ...peaks)
+
+  const kept = peaks
+    .map((peak, index) => ({ peak, index }))
+    .filter(({ peak }) => peak >= QUIET_IN_ITSELF || peak >= loudest * BESIDE_THE_LOUDEST)
+    .map(({ index }) => index)
+
+  return kept.length === 0 ? channels.map((_, index) => index) : kept
 }
 
 /**
