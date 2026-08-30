@@ -136,14 +136,14 @@ describe('holding an arrow down', () => {
     press({ key: 'ArrowRight' })
     expect(useTransport.getState().position).toBe(43)
 
-    vi.advanceTimersByTime(400 + 150 * 3)
+    vi.advanceTimersByTime(300 + 150 * 3)
 
     expect(useTransport.getState().position).toBe(52)
   })
 
   it('stops when it is let go', () => {
     press({ key: 'ArrowRight' })
-    vi.advanceTimersByTime(400 + 150)
+    vi.advanceTimersByTime(300 + 150)
     lift({ key: 'ArrowRight' })
     const reached = useTransport.getState().position
 
@@ -154,7 +154,7 @@ describe('holding an arrow down', () => {
 
   it('does not run on after the window has gone away', () => {
     press({ key: 'ArrowRight' })
-    vi.advanceTimersByTime(400)
+    vi.advanceTimersByTime(300)
     window.dispatchEvent(new Event('blur'))
     const reached = useTransport.getState().position
 
@@ -174,17 +174,68 @@ describe('holding an arrow down', () => {
     expect(useTransport.getState().position).toBe(43)
   })
 
-  /* The stride is read afresh each time round, so reaching for Shift part-way
-     through a hold lengthens it without letting go of the arrow. */
-  it('follows a modifier pressed part-way through', () => {
+  /*
+   * A modifier reached for part-way through a hold arrives as a key of its
+   * own, not as another arrow. It must lengthen the stride rather than stop
+   * the hold — which is what it did, because a key the app does not answer
+   * for was being taken as a reason to let go.
+   */
+  it('goes further when Shift is reached for part-way through', () => {
     press({ key: 'ArrowRight' })
-    vi.advanceTimersByTime(400)
-    press({ key: 'ArrowRight', shiftKey: true, repeat: true })
+    vi.advanceTimersByTime(300)
+    press({ key: 'Shift', shiftKey: true })
     const reached = useTransport.getState().position
 
     vi.advanceTimersByTime(150)
 
     expect(useTransport.getState().position).toBe(reached + 10)
+  })
+
+  it('goes further again with Ctrl reached for as well', () => {
+    press({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(300)
+    press({ key: 'Shift', shiftKey: true })
+    press({ key: 'Control', shiftKey: true, ctrlKey: true })
+    const reached = useTransport.getState().position
+
+    vi.advanceTimersByTime(150)
+
+    expect(useTransport.getState().position).toBe(reached + 15)
+  })
+
+  it('goes back to the short stride when the modifier is let go', () => {
+    press({ key: 'ArrowRight' })
+    press({ key: 'Shift', shiftKey: true })
+    vi.advanceTimersByTime(300)
+    lift({ key: 'Shift', shiftKey: false })
+    const reached = useTransport.getState().position
+
+    vi.advanceTimersByTime(150)
+
+    expect(useTransport.getState().position).toBe(reached + 3)
+  })
+
+  it('does not keep going when a key it has no answer for takes the arrow over', () => {
+    press({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(300)
+    press({ key: 'Alt', altKey: true })
+    const reached = useTransport.getState().position
+
+    vi.advanceTimersByTime(5000)
+
+    expect(useTransport.getState().position).toBe(reached)
+  })
+
+  /* Another key doing its own job is no reason to stop scrubbing. */
+  it('carries on through a keystroke that means something else', () => {
+    press({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(300)
+    press({ key: 'l' })
+    const reached = useTransport.getState().position
+
+    vi.advanceTimersByTime(150)
+
+    expect(useTransport.getState().position).toBeGreaterThan(reached)
   })
 })
 

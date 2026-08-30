@@ -107,28 +107,28 @@ const perform: Record<HotkeyAction, (stroke: Keystroke) => void> = {
  */
 export function followHotkeys(): () => void {
   const onKeyDown = (event: KeyboardEvent): void => {
+    /* Reaching for Shift part-way through a hold arrives as a key of its own,
+       and every keyboard event carries what is held down with it — so the
+       stride being taken is kept up to date from whatever turns up next. */
+    if (held !== null) held.stroke = alsoHolding(held.stroke, event)
+
     const action = actionFor(event, isTyping(event.target))
-    if (action === null) {
-      /* A modifier pressed part-way through a hold changes the stride, and
-         arrives as a repeat of the arrow rather than as a key of its own. */
-      if (event.repeat) return
-      release()
-      return
-    }
+    if (action === null) return
     event.preventDefault()
-    if (event.repeat) {
-      /* The system's own repeat is left alone — its rate is the user's
-         setting for typing, not for scrubbing — but it is how a modifier
-         held down after the arrow makes itself known. */
-      if (held !== null) held.stroke = strokeOf(event)
-      return
-    }
+    /* The system's own repeat is not acted on: its rate is somebody's setting
+       for typing, and this has a cadence of its own below. */
+    if (event.repeat) return
     perform[action](strokeOf(event))
     if (REPEATING.has(action)) hold(action, strokeOf(event))
   }
 
   const onKeyUp = (event: KeyboardEvent): void => {
-    if (held !== null && event.key === held.stroke.key) release()
+    if (held === null) return
+    if (event.key === held.stroke.key) {
+      release()
+      return
+    }
+    held.stroke = alsoHolding(held.stroke, event)
   }
 
   window.addEventListener('keydown', onKeyDown)
@@ -154,7 +154,7 @@ export function followHotkeys(): () => void {
 const REPEATING = new Set<HotkeyAction>(['nudgeBack', 'nudgeForward'])
 
 /** Long enough that a single press is a single step, short enough to feel held. */
-const BEFORE_REPEATING_MS = 400
+const BEFORE_REPEATING_MS = 300
 const BETWEEN_REPEATS_MS = 150
 
 interface Held {
@@ -164,6 +164,15 @@ interface Held {
 }
 
 let held: Held | null = null
+
+/** The same keystroke, with whatever is being held down alongside it now. */
+const alsoHolding = (stroke: Keystroke, event: KeyboardEvent): Keystroke => ({
+  ...stroke,
+  shiftKey: event.shiftKey,
+  ctrlKey: event.ctrlKey,
+  metaKey: event.metaKey,
+  altKey: event.altKey
+})
 
 const strokeOf = (event: KeyboardEvent): Keystroke => ({
   key: event.key,
@@ -180,7 +189,16 @@ function hold(action: HotkeyAction, stroke: Keystroke): void {
   holding.timers.push(
     setTimeout(() => {
       holding.timers.push(
-        setInterval(() => perform[action](holding.stroke), BETWEEN_REPEATS_MS)
+        setInterval(() => {
+          /* Held to the same table as the press was: reaching for Alt turns
+             the arrow into something this does not answer for, and letting it
+             run on would be answering for it anyway. */
+          if (actionFor(holding.stroke) !== action) {
+            release()
+            return
+          }
+          perform[action](holding.stroke)
+        }, BETWEEN_REPEATS_MS)
       )
     }, BEFORE_REPEATING_MS)
   )
