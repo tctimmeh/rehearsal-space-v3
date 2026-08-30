@@ -1,6 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { AT_START, deleteNote, moveDown, moveLeft, moveRight, moveUp, settle, typeFret, typeMute, type Editing } from '@core/tab/edit'
+import {
+  AT_START,
+  deleteNote,
+  moveDown,
+  moveLeft,
+  moveRight,
+  moveUp,
+  QUICK_MS,
+  settle,
+  typeFret,
+  typeMute,
+  type Editing
+} from '@core/tab/edit'
+import {
+  begin as beginHistory,
+  canRedo,
+  canUndo,
+  redo,
+  remember,
+  undo,
+  type History
+} from '@core/tab/history'
 import { cursorAtPlace, placeOf, render, WRAP_COLUMNS } from '@core/tab/render'
 import type { TabFile } from '@core/song/song'
 import { useSong } from '@renderer/state/song'
@@ -43,6 +64,9 @@ export function TabEditor() {
   /* When the last digit was typed, so that two in quick succession make one
      number. Reset by moving, because a digit typed elsewhere is not this one. */
   const typedAt = useRef(0)
+  /* Every edit is a step of its own, except the second digit of a fret, which
+     joins the first — typing 12 is one act. */
+  const history = useRef<History>(beginHistory({ doc, cursor }))
   const field = useRef<HTMLDivElement>(null)
   const showing = useRef<HTMLDivElement>(null)
 
@@ -54,8 +78,12 @@ export function TabEditor() {
   }, [song?.id, tab?.id])
 
   /* A document swapped underneath — a different file, or one just read — has
-     no reason to keep a cursor that pointed into the old one. */
-  useEffect(() => setCursor(AT_START), [revision])
+     no reason to keep a cursor that pointed into the old one, nor a history of
+     edits to a document that is no longer here. */
+  useEffect(() => {
+    setCursor(AT_START)
+    history.current = beginHistory({ doc: useTabs.getState().doc, cursor: AT_START })
+  }, [revision])
 
   /* Opening the tool is asking to write in it, and there is nothing else here
      to click on first. */
@@ -122,11 +150,26 @@ export function TabEditor() {
     }
   }
 
-  const apply = (next: Editing, moved: boolean): void => {
+  const apply = (next: Editing, moved: boolean, joins = false): void => {
     if (moved) typedAt.current = 0
     const tidied = moved ? settle(next) : next
     setCursor(tidied.cursor)
-    if (tidied.doc !== doc) edit(tidied.doc)
+    if (tidied.doc === doc) {
+      /* Only the cursor moved, so there is nothing to take back — but where it
+         is now is where an undo should return to. */
+      history.current = { ...history.current, present: tidied }
+      return
+    }
+    history.current = remember(history.current, tidied, joins)
+    edit(tidied.doc)
+  }
+
+  /** Steps back or forward, putting the document and the cursor back together. */
+  const goTo = (history_: History): void => {
+    history.current = history_
+    typedAt.current = 0
+    setCursor(history_.present.cursor)
+    if (history_.present.doc !== doc) edit(history_.present.doc)
   }
 
   const moves: Record<string, (state: Editing, wrapAt: number) => Editing> = {
@@ -137,6 +180,19 @@ export function TabEditor() {
   }
 
   const onKeyDown = (event: React.KeyboardEvent): void => {
+    const held = event.ctrlKey || event.metaKey
+
+    if (held && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+      if (canUndo(history.current)) goTo(undo(history.current))
+      event.preventDefault()
+      return
+    }
+    if (held && (event.key.toLowerCase() === 'y' || (event.key.toLowerCase() === 'z' && event.shiftKey))) {
+      if (canRedo(history.current)) goTo(redo(history.current))
+      event.preventDefault()
+      return
+    }
+
     if (event.ctrlKey || event.metaKey || event.altKey) return
     const state: Editing = { doc, cursor }
 
@@ -150,7 +206,7 @@ export function TabEditor() {
     if (/^\d$/.test(event.key)) {
       /* Nothing typed yet at this spot, so nothing for a second digit to join. */
       const since = typedAt.current === 0 ? Infinity : Date.now() - typedAt.current
-      apply(typeFret(state, event.key, since), false)
+      apply(typeFret(state, event.key, since), false, since <= QUICK_MS)
       typedAt.current = Date.now()
       event.preventDefault()
       return

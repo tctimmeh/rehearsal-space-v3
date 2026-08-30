@@ -46,6 +46,13 @@ afterEach(() => {
 
 const sheet = () => screen.getByRole('textbox', { name: /Tablature/ })
 const drawn = () => sheet().textContent ?? ''
+/* The tablature itself, without the beat numbers above it — which contain
+   digits of their own and would answer for notes that are not there. */
+const strings = () =>
+  [...sheet().querySelectorAll('.tablature__line')]
+    .map((line) => line.textContent ?? '')
+    .filter((line) => line.startsWith('|'))
+    .join('\n')
 const press = (key: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(sheet(), { key, ...init })
 
@@ -180,5 +187,64 @@ describe('pointing at the tablature', () => {
     fireEvent.pointerDown(row, { clientX: 0 })
 
     expect(document.activeElement).toBe(sheet())
+  })
+})
+
+/**
+ * An edit to tablature is a discrete act, so every one is its own step — with
+ * one exception: the two digits of a fret are typed together and should come
+ * back together.
+ */
+describe('taking an edit back', () => {
+  const undo = () => press('z', { ctrlKey: true })
+  const redo = () => press('z', { ctrlKey: true, shiftKey: true })
+
+  it('takes back the last note', () => {
+    render(<TabEditor />)
+    press('7')
+
+    undo()
+
+    expect(strings()).not.toContain('7')
+  })
+
+  it('puts it back', () => {
+    render(<TabEditor />)
+    press('7')
+    undo()
+
+    redo()
+
+    expect(drawn()).toContain('7')
+  })
+
+  it('takes back both digits of a fret at once', () => {
+    render(<TabEditor />)
+    press('1')
+    press('2')
+    expect(strings()).toContain('-12-')
+
+    undo()
+
+    expect(strings()).not.toMatch(/[0-9]/)
+  })
+
+  it('does nothing at the beginning', () => {
+    render(<TabEditor />)
+    const before = drawn()
+
+    undo()
+
+    expect(drawn()).toBe(before)
+  })
+
+  it('takes back a note that was deleted', () => {
+    render(<TabEditor />)
+    press('9')
+    press('Backspace')
+
+    undo()
+
+    expect(drawn()).toContain('9')
   })
 })
