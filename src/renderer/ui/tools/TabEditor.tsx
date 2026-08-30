@@ -45,6 +45,7 @@ import { newTabFile } from '@core/tab/files'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
 import { Button, useSelectOnOpen } from '../primitives'
+import { TabKeysModal } from './TabKeysModal'
 
 /**
  * Writing tablature.
@@ -81,6 +82,8 @@ export function TabEditor() {
   const [each, setEach] = useState(0)
   /** True while the chord over the cursor's beat is being written. */
   const [naming, setNaming] = useState(false)
+  /** True while the list of what the editor answers to is up. */
+  const [showingKeys, setShowingKeys] = useState(false)
   /**
    * The beats picked out, counted straight through the document.
    *
@@ -425,7 +428,24 @@ export function TabEditor() {
           }}
         />
         <span className="setting-note">{error ?? (saved ? 'Saved' : 'Saving…')}</span>
+        <Button
+          className="tablature__help"
+          aria-label="Tablature keys"
+          title="Tablature keys"
+          onClick={() => setShowingKeys(true)}
+        >
+          ?
+        </Button>
       </div>
+
+      {showingKeys ? (
+        <TabKeysModal
+          onDismiss={() => {
+            setShowingKeys(false)
+            field.current?.focus()
+          }}
+        />
+      ) : null}
 
       <div
         className="well tablature__sheet"
@@ -691,9 +711,7 @@ function ChordField({
     if (naming) box.current?.focus()
   }, [naming])
 
-  if (!naming) {
-    return <span className="setting-note">Ctrl-↑ to name the chord</span>
-  }
+  if (!naming) return null
 
   return (
     <label className="tablature__chord">

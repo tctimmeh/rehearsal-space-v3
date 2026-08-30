@@ -808,6 +808,13 @@
   align-items: baseline;
   gap: 10px;
 }
+/* The editor has no buttons for what it does, so this is where what it does
+   is said. Square and out of the way, at the end of the row. */
+.tablature__help {
+  padding: 2px 8px;
+  font-family: var(--mono);
+  margin-left: 0;
+}
 .tablature__pick {
   display: flex;
   align-items: center;

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type Song } from '@core/song/song'
 import { newTab } from '@core/tab/document'
+import { TAB_KEY_COUNT } from '@core/tab/keys'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
 import { installBridge } from '@renderer/testing/bridge'
@@ -688,5 +689,44 @@ describe('renaming a tablature', () => {
     const field = screen.getByLabelText('Tablature name') as HTMLInputElement
     expect(field.selectionStart).toBe(0)
     expect(field.selectionEnd).toBe('Tab'.length)
+  })
+})
+
+/*
+ * The editor has no buttons for what it does — there is no button for typing a
+ * fret — so the keys have to be written down somewhere the editor can show.
+ */
+describe('the list of what the editor answers to', () => {
+  it('is not a line of prose in the way of the controls', () => {
+    render(<TabEditor />)
+
+    expect(screen.queryByText(/to name the chord/)).toBeNull()
+  })
+
+  it('opens from the button beside the saved indicator', () => {
+    render(<TabEditor />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tablature keys' }))
+
+    expect(screen.getByText('Tablature keys')).toBeTruthy()
+    expect(screen.getByText('Name the chord over this beat')).toBeTruthy()
+  })
+
+  it('accounts for every key it lists', () => {
+    render(<TabEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Tablature keys' }))
+
+    expect(screen.getAllByRole('term')).toHaveLength(TAB_KEY_COUNT)
+  })
+
+  /* Closing hands the cursor back, or the next fret typed would go nowhere. */
+  it('gives the tablature the cursor back when it closes', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    fireEvent.click(screen.getByRole('button', { name: 'Tablature keys' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(document.activeElement).toBe(sheet())
   })
 })
