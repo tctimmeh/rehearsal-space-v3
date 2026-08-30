@@ -861,6 +861,11 @@
   color: var(--well);
   border-radius: 1px;
 }
+/* The stretch picked out, whole beats at a time. */
+.tablature__picked {
+  background: rgba(111, 217, 154, 0.22);
+  border-radius: 2px;
+}
 .tablature__sheet:not(:focus) .tablature__cursor {
   background: var(--text-faint);
 }

@@ -369,3 +369,75 @@ describe('joins and chords', () => {
     expect(document.activeElement).toBe(sheet())
   })
 })
+
+/**
+ * Whole beats, never part of one. A bar's worth of music is all six strings at
+ * once, and taking the top string alone would take a shape nobody played.
+ */
+describe('picking out a stretch', () => {
+  const picked = () => sheet().querySelectorAll('.tablature__picked')
+
+  it('starts on the beat under the cursor', () => {
+    render(<TabEditor />)
+
+    press('s')
+
+    /* One run of picked columns on every string. */
+    expect(picked().length).toBe(6)
+  })
+
+  it('grows and shrinks with the arrows', () => {
+    render(<TabEditor />)
+    press('s')
+    const one = (picked()[0] as HTMLElement).textContent?.length ?? 0
+
+    press('ArrowRight')
+
+    expect((picked()[0] as HTMLElement).textContent?.length ?? 0).toBeGreaterThan(one)
+  })
+
+  it('empties what was picked, and keeps the rest', () => {
+    render(<TabEditor />)
+    press('7')
+    press('ArrowRight')
+    press('ArrowRight')
+    press('9')
+    press('s')
+    press('Delete')
+
+    /* The 9 was under the cursor and is gone; the 7 two slots back is not. */
+    expect(strings()).toContain('7')
+    expect(strings()).not.toContain('9')
+  })
+
+  it('lets go on escape', () => {
+    render(<TabEditor />)
+    press('s')
+
+    press('Escape')
+
+    expect(picked().length).toBe(0)
+  })
+
+  it('copies and pastes a stretch', () => {
+    render(<TabEditor />)
+    press('7')
+    press('s')
+    press('c')
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+
+    press('v')
+
+    /* The 7 now appears twice: where it was written and where it was put. */
+    expect(strings().match(/7/g)?.length).toBe(2)
+  })
+
+  it('cuts a stretch away', () => {
+    render(<TabEditor />)
+    press('7')
+    press('s')
+    press('x')
+
+    expect(strings()).not.toContain('7')
+  })
+})

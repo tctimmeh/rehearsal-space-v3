@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import {
   AT_START,
@@ -18,7 +18,17 @@ import {
   typeMute,
   type Editing
 } from '@core/tab/edit'
-import { TECHNIQUES, type Technique } from '@core/tab/document'
+import { TECHNIQUES, type Beat, type Technique } from '@core/tab/document'
+import {
+  asDocument,
+  beatAtIndex,
+  beatIndexOf,
+  clearBeats,
+  copyBeats,
+  pasteBeats,
+  totalBeats,
+  type Span
+} from '@core/tab/clip'
 import {
   begin as beginHistory,
   canRedo,
@@ -69,6 +79,14 @@ export function TabEditor() {
   const [each, setEach] = useState(0)
   /** True while the chord over the cursor's beat is being written. */
   const [naming, setNaming] = useState(false)
+  /**
+   * The beats picked out, counted straight through the document.
+   *
+   * Whole beats, never part of one: a bar's worth of music is all six strings
+   * at once, and taking the top string alone would take a shape nobody played.
+   */
+  const [span, setSpan] = useState<Span | null>(null)
+  const clipboard = useRef<Beat[]>([])
   /* When the last digit was typed, so that two in quick succession make one
      number. Reset by moving, because a digit typed elsewhere is not this one. */
   const typedAt = useRef(0)
@@ -130,6 +148,46 @@ export function TabEditor() {
     [text]
   )
   const place = placeOf(doc, cursor, columns)
+
+  /**
+   * Which columns of which lines are picked out.
+   *
+   * A beat runs from where it begins to where the next one does, so the range
+   * is taken from the beat after the last one selected — and where that is on
+   * another line, to the end of this one.
+   */
+  const picked = useMemo(() => {
+    const ranges = new Map<number, [number, number]>()
+    if (span === null) return ranges
+    const from = Math.min(span.from, span.to)
+    const to = Math.max(span.from, span.to)
+
+    for (let index = from; index <= to; index += 1) {
+      const at = beatAtIndex(doc, index)
+      if (at === null) continue
+      const head = placeOf(doc, { bar: at.bar, beat: at.beat, slot: 0, string: 0 }, columns)
+      if (head === null) continue
+
+      const after = beatAtIndex(doc, index + 1)
+      const tail =
+        after === null
+          ? null
+          : placeOf(doc, { bar: after.bar, beat: after.beat, slot: 0, string: 0 }, columns)
+      const end = tail !== null && tail.system === head.system ? tail.column : Infinity
+
+      for (let string = 0; string < doc.strings; string += 1) {
+        const line = head.line + string
+        const held = ranges.get(line)
+        ranges.set(
+          line,
+          held === undefined
+            ? [head.column, end]
+            : [Math.min(held[0], head.column), Math.max(held[1], end)]
+        )
+      }
+    }
+    return ranges
+  }, [span, doc, columns])
 
   if (song === null) return <p className="tool-placeholder">No song loaded.</p>
   if (tab === null) return <NoTabYet />
@@ -193,8 +251,68 @@ export function TabEditor() {
     ArrowDown: moveDown
   }
 
+  /** Puts the cursor on the first beat of a span, so typing carries on there. */
+  const leaveSelection = (at: number): void => {
+    const place = beatAtIndex(doc, at)
+    setSpan(null)
+    if (place !== null) setCursor({ ...cursor, bar: place.bar, beat: place.beat, slot: 0 })
+  }
+
+  const selectKeys = (event: React.KeyboardEvent, chosen: Span): boolean => {
+    const state: Editing = { doc, cursor }
+    const key = event.key.toLowerCase()
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      const to = Math.max(
+        0,
+        Math.min(totalBeats(doc) - 1, chosen.to + (event.key === 'ArrowRight' ? 1 : -1))
+      )
+      setSpan({ ...chosen, to })
+      return true
+    }
+
+    if (key === 'c') {
+      clipboard.current = copyBeats(doc, chosen)
+      void navigator.clipboard?.writeText(render(asDocument(clipboard.current, doc.strings)))
+      leaveSelection(chosen.from)
+      return true
+    }
+
+    if (key === 'x') {
+      clipboard.current = copyBeats(doc, chosen)
+      void navigator.clipboard?.writeText(render(asDocument(clipboard.current, doc.strings)))
+      apply({ ...state, doc: clearBeats(doc, chosen) }, false)
+      leaveSelection(Math.min(chosen.from, chosen.to))
+      return true
+    }
+
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      apply({ ...state, doc: clearBeats(doc, chosen) }, false)
+      leaveSelection(Math.min(chosen.from, chosen.to))
+      return true
+    }
+
+    if (event.key === 'Escape') {
+      leaveSelection(Math.min(chosen.from, chosen.to))
+      return true
+    }
+
+    return false
+  }
+
   const onKeyDown = (event: React.KeyboardEvent): void => {
     const held = event.ctrlKey || event.metaKey
+
+    /* Picking out beats has its own keys while it lasts. */
+    if (span !== null) {
+      if (selectKeys(event, span)) {
+        event.preventDefault()
+        return
+      }
+      if (!held) {
+        leaveSelection(Math.min(span.from, span.to))
+      }
+    }
 
     if (held && event.key.toLowerCase() === 'z' && !event.shiftKey) {
       if (canUndo(history.current)) goTo(undo(history.current))
@@ -226,6 +344,19 @@ export function TabEditor() {
       setNaming(true)
       event.preventDefault()
       return
+    }
+
+    if (!held && !event.altKey && event.key.toLowerCase() === 's') {
+      const at = beatIndexOf(doc, cursor)
+      setSpan({ from: at, to: at })
+      event.preventDefault()
+      return
+    }
+
+    if (event.key.toLowerCase() === 'v' && (held || !event.altKey)) {
+      if (clipboard.current.length > 0) {
+        return void step(event, { doc: pasteBeats(doc, cursor, clipboard.current), cursor })
+      }
     }
 
     if (event.ctrlKey || event.metaKey || event.altKey) return
@@ -301,15 +432,7 @@ export function TabEditor() {
               const index = lineOf(systems, system, offset)
               return (
                 <div className="tablature__line" key={offset} data-line={index}>
-                  {place !== null && place.line === index ? (
-                    <>
-                      {line.slice(0, place.column)}
-                      <span className="tablature__cursor">{line[place.column] ?? ' '}</span>
-                      {line.slice(place.column + 1)}
-                    </>
-                  ) : (
-                    line || ' '
-                  )}
+                  {drawLine(line, index, place, picked.get(index))}
                 </div>
               )
             })}
@@ -342,6 +465,41 @@ function charactersAcross(sheet: HTMLElement): { columns: number; each: number }
 
   if (across <= 0 || each <= 0) return null
   return { columns: Math.max(MIN_COLUMNS, Math.floor(across / each)), each }
+}
+
+/**
+ * One line, with whatever is on it: the block cursor, or the stretch picked
+ * out, or neither. Never both — while beats are being chosen there is nothing
+ * for a cursor standing on one moment to say.
+ */
+function drawLine(
+  line: string,
+  index: number,
+  place: { line: number; column: number } | null,
+  range: [number, number] | undefined
+): ReactNode {
+  if (range !== undefined) {
+    const [from, to] = range
+    return (
+      <>
+        {line.slice(0, from)}
+        <span className="tablature__picked">{line.slice(from, to)}</span>
+        {line.slice(to === Infinity ? line.length : to)}
+      </>
+    )
+  }
+
+  if (place !== null && place.line === index) {
+    return (
+      <>
+        {line.slice(0, place.column)}
+        <span className="tablature__cursor">{line[place.column] ?? ' '}</span>
+        {line.slice(place.column + 1)}
+      </>
+    )
+  }
+
+  return line || ' '
 }
 
 /**
