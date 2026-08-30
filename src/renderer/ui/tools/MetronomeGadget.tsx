@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { beatOfMeasure, BEATS_MAX, BEATS_MIN } from '@core/metronome/pulse'
+import { beatOfMeasure, BEATS_MAX, BEATS_MIN, BPM_MAX, BPM_MIN } from '@core/metronome/pulse'
 import { METRONOME_SAMPLE_LABEL, METRONOME_SAMPLES } from '@core/song/song'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from '@renderer/state/config'
 import { useMetronome } from '@renderer/state/metronome'
 import { NumberField, Readout, RepeatButton } from '../primitives'
-
-const BPM_MIN = 20
-const BPM_MAX = 300
 
 export function MetronomeGadget() {
   const settings = useConfig((state) => state.config?.metronome)

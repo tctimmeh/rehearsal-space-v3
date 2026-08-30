@@ -132,11 +132,13 @@ describe('holding an arrow down', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
+  /* The press itself, then a step at the end of the wait and every 150ms
+     after it: four in all by the time 600ms have gone by. */
   it('keeps going while it is held', () => {
     press({ key: 'ArrowRight' })
     expect(useTransport.getState().position).toBe(43)
 
-    vi.advanceTimersByTime(300 + 150 * 3)
+    vi.advanceTimersByTime(300 + 150 * 2)
 
     expect(useTransport.getState().position).toBe(52)
   })
@@ -236,6 +238,94 @@ describe('holding an arrow down', () => {
     vi.advanceTimersByTime(150)
 
     expect(useTransport.getState().position).toBeGreaterThan(reached)
+  })
+})
+
+/*
+ * Ordinary characters, so they only mean tempo while there is a metronome on
+ * screen to tune. Anywhere else they are somebody typing a dash.
+ */
+describe('the tempo keys', () => {
+  const bpm = () => useConfig.getState().config?.metronome.bpm
+
+  /* Only the tempo is read from here, so only the tempo is stood up. */
+  const settingsAt = (tempo: number) =>
+    ({ metronome: { bpm: tempo, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' } }) as never
+
+  beforeEach(() => {
+    useConfig.setState({
+      config: settingsAt(100),
+      /* Saving is a trip to the main process; here it is just kept. */
+      set: (async (patch: never) => void useConfig.setState({ config: patch })) as never
+    })
+    useTools.setState({ open: { ...useTools.getState().open, metronome: true } })
+  })
+
+  afterEach(() => {
+    useTools.setState({ open: { ...useTools.getState().open, metronome: false } })
+  })
+
+  it('step the tempo down and up', () => {
+    press({ key: '-' })
+    expect(bpm()).toBe(99)
+
+    press({ key: '=' })
+    press({ key: '=' })
+    expect(bpm()).toBe(101)
+  })
+
+  it('do the same thing shifted', () => {
+    press({ key: '_' })
+    press({ key: '_' })
+
+    expect(bpm()).toBe(98)
+  })
+
+  it('do nothing while the metronome is put away', () => {
+    useTools.setState({ open: { ...useTools.getState().open, metronome: false } })
+
+    press({ key: '=' })
+
+    expect(bpm()).toBe(100)
+  })
+
+  it('stay inside what the metronome can be set to', () => {
+    useConfig.setState({ config: settingsAt(20) })
+
+    press({ key: '-' })
+
+    expect(bpm()).toBe(20)
+  })
+
+  describe('held down', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it('keep stepping, and wind up the longer they are held', () => {
+      press({ key: '=' })
+      expect(bpm()).toBe(101)
+
+      /* The wait, then six steps at the plain rate. */
+      vi.advanceTimersByTime(420 + 110 * 5)
+      expect(bpm()).toBe(107)
+
+      /* Past six it winds up, so the next stretch goes further per second. */
+      vi.advanceTimersByTime(110 * 5)
+      expect(bpm()).toBeGreaterThan(112)
+    })
+
+    /* `+` is Shift and `=`, so letting Shift go first turns the key that comes
+       up into a different one from the key that went down. */
+    it('let go when the key comes up shifted differently from how it went down', () => {
+      press({ key: '+', code: 'Equal', shiftKey: true })
+      vi.advanceTimersByTime(420 + 110)
+      lift({ key: '=', code: 'Equal', shiftKey: false })
+      const reached = bpm()
+
+      vi.advanceTimersByTime(5000)
+
+      expect(bpm()).toBe(reached)
+    })
   })
 })
 

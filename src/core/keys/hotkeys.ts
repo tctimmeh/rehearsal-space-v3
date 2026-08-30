@@ -14,6 +14,8 @@ export type HotkeyAction =
   | 'armRecording'
   | 'toStart'
   | 'loop'
+  | 'tempoDown'
+  | 'tempoUp'
   | 'metronomeRunning'
   | 'metronomeTool'
   | 'tunerTool'
@@ -150,6 +152,22 @@ const BINDINGS: Binding[] = [
     keys: 'L',
     does: 'Go round the loop region, or stop going round',
     group: 'Playing'
+  },
+  {
+    action: 'tempoDown',
+    /* Shift is ignored: the same key writes `_`, and reaching for it to get a
+       bigger step is a reasonable thing to try. */
+    matches: (s) => (s.key === '-' || s.key === '_') && !s.ctrlKey && !s.metaKey && !s.altKey,
+    keys: '-',
+    does: 'Slow the metronome down, while it is out',
+    group: 'Tools'
+  },
+  {
+    action: 'tempoUp',
+    matches: (s) => (s.key === '=' || s.key === '+') && !s.ctrlKey && !s.metaKey && !s.altKey,
+    keys: '=',
+    does: 'Speed the metronome up, while it is out',
+    group: 'Tools'
   },
   {
     action: 'metronomeRunning',

@@ -20,6 +20,13 @@ export const useConfig = create<ConfigState>((set, get) => ({
   },
 
   set: async (patch) => {
+    /* Kept here before it is sent. Writing a setting is a trip to the main
+       process, and a knob turned or a key held moves faster than one comes
+       back — so a second change reckoned from a value that has not caught up
+       is a change that never happens. The answer still wins when it arrives,
+       which is what clamps anything out of range. */
+    const known = get().config
+    if (known !== null) set({ config: { ...known, ...patch } })
     set({ config: await window.rehearsal.config.set(patch) })
   },
 

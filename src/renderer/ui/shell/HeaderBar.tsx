@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { useConfig } from '@renderer/state/config'
 import { useDialog } from '@renderer/state/dialog'
+import { useNewSong } from '@renderer/state/newSong'
 import { useSong } from '@renderer/state/song'
 import {
   CENTS_MAX,
@@ -338,6 +339,7 @@ function SongIdentity() {
 
 function AppMenu() {
   const [open, setOpen] = useState(false)
+  const newSong = useNewSong()
   const dialog = useDialog((state) => state.dialog)
   const setDialog = useDialog((state) => state.show)
   const revealLibraryFolder = useConfig((state) => state.revealLibraryFolder)
@@ -363,6 +365,8 @@ function AppMenu() {
 
       {open ? (
         <div className="menu" role="menu">
+          <MenuItem label="New song" onClick={choose(() => void newSong())} />
+          <div className="menu__sep" />
           <MenuItem label="Settings" shortcut="Ctrl+," onClick={choose(() => setDialog('settings'))} />
           <MenuItem label="Recording…" onClick={choose(() => setDialog('recording'))} />
           <MenuItem label="External tools…" onClick={choose(() => setDialog('tools'))} />

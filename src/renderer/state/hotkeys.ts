@@ -7,6 +7,7 @@ import {
 } from '@core/keys/hotkeys'
 import { useConfig } from '@renderer/state/config'
 import { useDialog } from '@renderer/state/dialog'
+import { BPM_MAX, BPM_MIN } from '@core/metronome/pulse'
 import { useMetronome } from '@renderer/state/metronome'
 import { useRecording } from '@renderer/state/recording'
 import { useTools } from '@renderer/state/tools'
@@ -42,6 +43,23 @@ const nudge = (stroke: Keystroke, way: 1 | -1): void => {
   const sizes = useConfig.getState().config?.nudge ?? DEFAULT_NUDGE
   const transport = useTransport.getState()
   transport.seek(transport.position + way * nudgeFor(stroke, sizes))
+}
+
+/**
+ * Tempo, but only while the metronome is out.
+ *
+ * These are ordinary characters, and taking them when there is nothing on
+ * screen to tune would be taking them for nothing.
+ *
+ * Read from the config rather than from anything held here: a key held down
+ * steps faster than React commits, and a step reckoned from a stale tempo is
+ * a step that never happens.
+ */
+const stepTempo = (delta: number): void => {
+  if (!useTools.getState().open.metronome) return
+  const bpm = useConfig.getState().config?.metronome.bpm
+  if (bpm === undefined) return
+  useMetronome.getState().change({ bpm: Math.min(BPM_MAX, Math.max(BPM_MIN, bpm + delta)) })
 }
 
 const perform: Record<HotkeyAction, (stroke: Keystroke) => void> = {
@@ -86,6 +104,9 @@ const perform: Record<HotkeyAction, (stroke: Keystroke) => void> = {
     if (!transport.playing) transport.play()
   },
 
+  tempoDown: () => stepTempo(-1),
+  tempoUp: () => stepTempo(1),
+
   metronomeRunning: () => {
     show('metronome')
     useMetronome.getState().toggle()
@@ -119,12 +140,12 @@ export function followHotkeys(): () => void {
        for typing, and this has a cadence of its own below. */
     if (event.repeat) return
     perform[action](strokeOf(event))
-    if (REPEATING.has(action)) hold(action, strokeOf(event))
+    hold(action, strokeOf(event))
   }
 
   const onKeyUp = (event: KeyboardEvent): void => {
     if (held === null) return
-    if (event.key === held.stroke.key) {
+    if (sameKey(event, held.stroke)) {
       release()
       return
     }
@@ -144,26 +165,53 @@ export function followHotkeys(): () => void {
   }
 }
 
+/** How a key that keeps going while it is held down paces itself. */
+interface Pace {
+  /** Long enough that a single press is a single step. */
+  first: number
+  every: number
+  /** Repeats at the plain rate before winding up to the quicker one. */
+  after?: number
+  then?: number
+}
+
 /**
- * Keys that keep going while they are held down.
+ * Keys that keep going while they are held down, and how fast.
  *
  * On our own cadence rather than the system's key repeat, which is set for
  * typing and differs from machine to machine — a stride of several seconds at
  * somebody's chosen character rate would cross a song in an eyeblink.
+ *
+ * The playhead moves at one steady rate, because the modifiers are already
+ * how you ask it to go faster. Tempo steps by one and has no such thing, so it
+ * winds up the way the buttons beside it do: nobody is going to press a key
+ * sixty times to get from 100 to 160.
  */
-const REPEATING = new Set<HotkeyAction>(['nudgeBack', 'nudgeForward'])
-
-/** Long enough that a single press is a single step, short enough to feel held. */
-const BEFORE_REPEATING_MS = 300
-const BETWEEN_REPEATS_MS = 150
+const REPEATING: Partial<Record<HotkeyAction, Pace>> = {
+  nudgeBack: { first: 300, every: 150 },
+  nudgeForward: { first: 300, every: 150 },
+  tempoDown: { first: 420, every: 110, after: 6, then: 45 },
+  tempoUp: { first: 420, every: 110, after: 6, then: 45 }
+}
 
 interface Held {
   action: HotkeyAction
   stroke: Keystroke
-  timers: ReturnType<typeof setTimeout>[]
+  timer: ReturnType<typeof setTimeout> | null
+  fired: number
 }
 
 let held: Held | null = null
+
+/**
+ * Whether a key going up is the one being held.
+ *
+ * By where it is on the keyboard rather than what it writes, because what it
+ * writes changes: `+` is Shift and `=`, and letting Shift go first turns the
+ * key that comes up into a different one from the key that went down.
+ */
+const sameKey = (event: KeyboardEvent, stroke: Keystroke): boolean =>
+  event.code !== '' && stroke.code !== '' ? event.code === stroke.code : event.key === stroke.key
 
 /** The same keystroke, with whatever is being held down alongside it now. */
 const alsoHolding = (stroke: Keystroke, event: KeyboardEvent): Keystroke => ({
@@ -184,32 +232,32 @@ const strokeOf = (event: KeyboardEvent): Keystroke => ({
 })
 
 function hold(action: HotkeyAction, stroke: Keystroke): void {
+  const pace = REPEATING[action]
+  /* Another key doing its own job is no reason to stop what is already
+     being held, so a key that does not repeat leaves the hold alone. */
+  if (pace === undefined) return
+
   release()
-  const holding: Held = { action, stroke, timers: [] }
-  holding.timers.push(
-    setTimeout(() => {
-      holding.timers.push(
-        setInterval(() => {
-          /* Held to the same table as the press was: reaching for Alt turns
-             the arrow into something this does not answer for, and letting it
-             run on would be answering for it anyway. */
-          if (actionFor(holding.stroke) !== action) {
-            release()
-            return
-          }
-          perform[action](holding.stroke)
-        }, BETWEEN_REPEATS_MS)
-      )
-    }, BEFORE_REPEATING_MS)
-  )
+  const holding: Held = { action, stroke, timer: null, fired: 0 }
+  const again = (): void => {
+    /* Held to the same table as the press was: reaching for Alt turns the key
+       into something this does not answer for, and letting it run on would be
+       answering for it anyway. */
+    if (actionFor(holding.stroke) !== action) {
+      release()
+      return
+    }
+    perform[action](holding.stroke)
+    holding.fired += 1
+    const woundUp = pace.after !== undefined && holding.fired > pace.after
+    holding.timer = setTimeout(again, woundUp ? (pace.then ?? pace.every) : pace.every)
+  }
+  holding.timer = setTimeout(again, pace.first)
   held = holding
 }
 
 function release(): void {
   if (held === null) return
-  for (const timer of held.timers) {
-    clearTimeout(timer)
-    clearInterval(timer)
-  }
+  if (held.timer !== null) clearTimeout(held.timer)
   held = null
 }

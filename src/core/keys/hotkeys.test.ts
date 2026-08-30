@@ -141,6 +141,29 @@ describe('how far an arrow goes', () => {
   })
 })
 
+describe('the tempo keys', () => {
+  it('take a step either way', () => {
+    expect(press({ key: '-' })).toBe('tempoDown')
+    expect(press({ key: '=' })).toBe('tempoUp')
+  })
+
+  /* The same physical keys write these with Shift, and reaching for Shift to
+     get a bigger step is a reasonable thing to try. */
+  it('mean the same thing shifted', () => {
+    expect(press({ key: '_' })).toBe('tempoDown')
+    expect(press({ key: '+' })).toBe('tempoUp')
+  })
+
+  it('leave the zoom and the window manager their own', () => {
+    expect(press({ key: '-', ctrlKey: true })).toBeNull()
+    expect(press({ key: '=', altKey: true })).toBeNull()
+  })
+
+  it('are characters, so they belong to whoever is typing', () => {
+    expect(press({ key: '-' }, true)).toBeNull()
+  })
+})
+
 describe('the list of them', () => {
   const everything = HOTKEY_GROUPS.flatMap((group) => hotkeysInGroup(group))
 

@@ -12,6 +12,10 @@ export interface Pulse {
 export const BEATS_MIN = 1
 export const BEATS_MAX = 16
 
+/** What the stand-alone metronome can be set to: slower is a drone, faster a blur. */
+export const BPM_MIN = 20
+export const BPM_MAX = 300
+
 export const clampBeats = (beats: number): number =>
   Number.isFinite(beats) ? Math.min(BEATS_MAX, Math.max(BEATS_MIN, Math.round(beats))) : 4
 

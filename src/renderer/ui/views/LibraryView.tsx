@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 
 import type { SongSummary } from '@core/song/song'
 import { addTag, knownTags, matchesTags, removeTag } from '@core/song/tags'
+import { useNewSong } from '@renderer/state/newSong'
 import { useSong } from '@renderer/state/song'
 import { useView } from '@renderer/state/view'
 import { Button, Modal } from '../primitives'
@@ -10,7 +11,8 @@ import { TagInput } from './TagInput'
 type SortKey = 'title' | 'artist'
 
 export function LibraryView() {
-  const { songs, song, create, load, remove, tagSong } = useSong()
+  const { songs, song, load, remove, tagSong } = useSong()
+  const newSong = useNewSong()
   const setView = useView((state) => state.setView)
   const [sort, setSort] = useState<SortKey>('title')
   /* An id, so the dialog cannot show a title that has since changed. */
@@ -42,11 +44,6 @@ export function LibraryView() {
     setView('player')
   }
 
-  /* A new song is made in order to work on it, the same as opening one. */
-  const newSong = async () => {
-    await create()
-    setView('player')
-  }
 
   return (
     <div className="library">
