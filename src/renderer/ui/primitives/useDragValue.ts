@@ -70,6 +70,9 @@ export function useDragValue({
 
   const onWheel = useCallback(
     (event: React.WheelEvent<HTMLElement>) => {
+      /* Answered here, so it is not answered again by whatever this sits in.
+         Without this, nudging a fader in the mixer also slides the mixer. */
+      event.stopPropagation()
       const direction = event.deltaY < 0 ? 1 : -1
       const amount = step * (event.shiftKey ? FINE_FACTOR : 1)
       onChange(quantize(value + direction * amount, min, max, step))

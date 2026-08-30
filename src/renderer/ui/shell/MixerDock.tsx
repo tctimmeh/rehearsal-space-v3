@@ -71,7 +71,7 @@ export function MixerDock() {
     <div className="dock">
       <span className="dock__label">Mix</span>
 
-      <div className="strips">
+      <div className="strips" onWheel={scrollAlong}>
         {song.channels.map((channel) => (
           <ChannelStrip
             key={channel.id}
@@ -297,4 +297,24 @@ function ChannelStrip({
       </div>
     </div>
   )
+}
+
+/** A wheel notch reported as lines rather than pixels, in pixels. */
+const A_LINE = 16
+
+/**
+ * Sends the wheel along the row of strips.
+ *
+ * A mouse wheel gives its notches as `deltaY`, and there is nothing above or
+ * below the mixer to spend them on — the strips run sideways. A notch is about
+ * a hundred pixels, which is about one strip, so this lands where you would
+ * expect without a speed to tune.
+ *
+ * A trackpad swiped sideways already arrives as `deltaX` and is scrolled by
+ * the browser; adding it again here would move twice as far as the finger.
+ */
+function scrollAlong(event: React.WheelEvent<HTMLElement>): void {
+  if (event.deltaX !== 0) return
+  const notch = event.deltaMode === 1 ? event.deltaY * A_LINE : event.deltaY
+  event.currentTarget.scrollLeft += notch
 }

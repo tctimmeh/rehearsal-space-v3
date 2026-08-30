@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -294,5 +294,78 @@ describe('adding a channel', () => {
     dock()
 
     expect(screen.getByText(/drop a file on the window/)).toBeTruthy()
+  })
+})
+
+/*
+ * The strips run sideways and a mouse wheel gives its notches as deltaY, so
+ * without this the wheel does nothing at all over the mixer.
+ */
+describe('the wheel over the mixer', () => {
+  const strips = () => document.querySelector('.strips') as HTMLElement
+
+  /* jsdom has no layout, so nothing is scrollable; the property is stood up
+     here so what the handler does with it can be seen. */
+  const watchScrolling = (element: HTMLElement) => {
+    let along = 0
+    Object.defineProperty(element, 'scrollLeft', {
+      configurable: true,
+      get: () => along,
+      set: (value: number) => {
+        along = value
+      }
+    })
+    return () => along
+  }
+
+  it('sends it along the strips', () => {
+    dock()
+    const along = watchScrolling(strips())
+
+    fireEvent.wheel(strips(), { deltaY: 100 })
+
+    expect(along()).toBe(100)
+  })
+
+  it('goes back the other way', () => {
+    dock()
+    const along = watchScrolling(strips())
+
+    fireEvent.wheel(strips(), { deltaY: 100 })
+    fireEvent.wheel(strips(), { deltaY: -60 })
+
+    expect(along()).toBe(40)
+  })
+
+  it('reckons a notch reported in lines as pixels', () => {
+    dock()
+    const along = watchScrolling(strips())
+
+    fireEvent.wheel(strips(), { deltaY: 3, deltaMode: 1 })
+
+    expect(along()).toBe(48)
+  })
+
+  /* A trackpad swiped sideways is already scrolled by the browser; adding it
+     again would move twice as far as the finger. */
+  it('leaves a sideways swipe to the browser', () => {
+    dock()
+    const along = watchScrolling(strips())
+
+    fireEvent.wheel(strips(), { deltaX: 80, deltaY: 0 })
+
+    expect(along()).toBe(0)
+  })
+
+  /* A fader answers the wheel itself, and answering it twice would slide the
+     mixer out from under the hand setting a level. */
+  it('does not slide the mixer when the wheel is spent on a fader', () => {
+    dock()
+    const along = watchScrolling(strips())
+    const fader = screen.getByRole('slider', { name: 'Bass take2 level' })
+
+    fireEvent.wheel(fader, { deltaY: 100 })
+
+    expect(along()).toBe(0)
   })
 })
