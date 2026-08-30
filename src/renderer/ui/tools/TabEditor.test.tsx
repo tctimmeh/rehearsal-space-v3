@@ -123,6 +123,39 @@ describe('what it saves', () => {
       expect.stringContaining('9')
     )
   })
+
+  it('does not save because the cursor moved', async () => {
+    await useTabs.getState().open('a-song', {
+      id: 'tab',
+      file: 'tabs/tab.txt',
+      name: 'Tab',
+      strings: 6
+    })
+    render(<TabEditor />)
+    vi.clearAllMocks()
+
+    for (const key of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'ArrowRight']) {
+      press(key)
+    }
+    await useTabs.getState().flush()
+
+    expect(useTabs.getState().saved).toBe(true)
+    expect(window.rehearsal.library.writeTab).not.toHaveBeenCalled()
+  })
+
+  it('still saves the sixteenth that closes up as the cursor leaves the beat', async () => {
+    render(<TabEditor />)
+    press('ArrowRight', { shiftKey: true })
+    press('9')
+    await useTabs.getState().flush()
+    vi.clearAllMocks()
+
+    press('Delete')
+    press('ArrowDown')
+    await useTabs.getState().flush()
+
+    expect(window.rehearsal.library.writeTab).toHaveBeenCalled()
+  })
 })
 
 /**

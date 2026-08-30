@@ -148,20 +148,28 @@ export function normalise(doc: TabDoc, keep?: { bar: number; beat: number }): Ta
 
   const kept = bars.slice(0, last + 1)
   const spare = bars[last + 1]
-  const shape = spare ?? bars[last] ?? emptyBar(doc.strings)
+  /* A bar made to follow the last real one is in the same time as it. */
+  const shape = bars[last] ?? emptyBar(doc.strings)
 
-  /* The cursor may be standing in that spare bar, having just made room for a
-     sixteenth in it — which is empty, and would be swept away with the bar if
-     the bar were built afresh. */
-  const standing = keep?.bar === last + 1 && spare !== undefined
-  kept.push(standing ? (spare as Bar) : emptyBar(doc.strings, beatCount(shape)))
+  /* A spare bar that is already there is kept rather than built afresh. It is
+     empty and collapsed, which is all a new one would be — and the cursor may
+     be standing in it, having just made room for a sixteenth that an empty
+     replacement would sweep away. */
+  kept.push(spare ?? emptyBar(doc.strings, beatCount(shape)))
 
-  return { ...doc, bars: kept }
+  /* Nothing drifted, so nothing changed. Worth saying by handing back the same
+     document rather than an equal one: the callers ask whether the document
+     moved, and every cursor key comes through here. */
+  return unmoved(doc.bars, kept) ? doc : { ...doc, bars: kept }
 }
 
-const collapseBar = (bar: Bar, keep: number | null): Bar => ({
-  beats: bar.beats.map((beat, index) => (index === keep ? beat : collapseBeat(beat)))
-})
+const unmoved = (before: Bar[], after: Bar[]): boolean =>
+  before.length === after.length && before.every((bar, index) => bar === after[index])
+
+const collapseBar = (bar: Bar, keep: number | null): Bar => {
+  const beats = bar.beats.map((beat, index) => (index === keep ? beat : collapseBeat(beat)))
+  return beats.every((beat, index) => beat === bar.beats[index]) ? bar : { beats }
+}
 
 /**
  * A sixteenth with nothing in it goes away again.

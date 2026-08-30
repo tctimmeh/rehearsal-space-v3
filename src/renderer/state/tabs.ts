@@ -75,7 +75,9 @@ export const useTabs = create<TabsState>((set, get) => ({
       const text = await window.rehearsal.library.readTab(songId, tab.file)
       /* The song or the file may have been swapped while this was being read. */
       if (get().songId !== songId || get().tabId !== tab.id) return
-      const doc = text.trim() === '' ? newTab(tab.strings) : parse(text)
+      /* Settled on the way in, so that the first cursor key does not find a
+         document to tidy and turn moving about into an edit. */
+      const doc = normalise(text.trim() === '' ? newTab(tab.strings) : parse(text))
       set({ doc, revision: get().revision + 1 })
     } catch (error) {
       set({ error: `Could not read the tab: ${message(error)}` })
@@ -100,6 +102,12 @@ export const useTabs = create<TabsState>((set, get) => ({
    */
   flush: async () => {
     cancelPending()
+    /* Nothing is waiting to be written. Any write already in flight is still
+       worth waiting for, which is what callers are asking about. */
+    if (get().saved) {
+      await writing
+      return
+    }
     const { songId, tabId, file, doc } = get()
     if (songId === null || tabId === null || file === null) return
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { newTab, type Cursor, type TabDoc } from './document'
+import { newTab, normalise, type Cursor, type TabDoc } from './document'
 import {
   AT_START,
   deleteNote,
@@ -477,5 +477,31 @@ describe('naming a chord', () => {
     state = typeFret(state, '2', 0)
 
     expect(state.doc.bars[0]?.beats[1]?.chord).toBe('E')
+  })
+})
+
+/*
+ * Every cursor key settles the document on its way through, so a tidy document
+ * has to come back as the same one — otherwise moving about looks like editing
+ * and the editor spends its time saving a file nobody changed.
+ */
+describe('settling a document that is already settled', () => {
+  it('hands the same document back', () => {
+    const doc = normalise(newTab(6))
+
+    expect(settle({ doc, cursor: AT_START }).doc).toBe(doc)
+  })
+
+  it('hands the same document back from wherever the cursor is standing', () => {
+    const doc = normalise(newTab(6))
+
+    expect(settle({ doc, cursor: { bar: 0, beat: 3, slot: 1, string: 5 } }).doc).toBe(doc)
+    expect(settle({ doc, cursor: { bar: 1, beat: 0, slot: 0, string: 0 } }).doc).toBe(doc)
+  })
+
+  it('still closes a sixteenth that was emptied and left behind', () => {
+    const opened = subdivide({ doc: normalise(newTab(6)), cursor: AT_START }, 1)
+
+    expect(settle({ ...opened, cursor: { ...opened.cursor, bar: 1 } }).doc).not.toBe(opened.doc)
   })
 })
