@@ -173,6 +173,10 @@ export const useTransport = create<TransportState>((set, get) => ({
   setBounds: (start, end) => {
     audioEngine.setBounds(start, end)
     set({ start, end })
+    /* The playhead cannot stand outside the song. Removing a channel can end
+       it behind where the playhead had got to. */
+    const position = Math.min(end, Math.max(start, get().position))
+    if (position !== get().position) get().seek(position)
   },
 
   /* The region belongs to the song, so it arrives from there. Losing it stops

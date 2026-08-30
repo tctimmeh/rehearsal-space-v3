@@ -474,6 +474,14 @@ function applySongState(song: Song): void {
   transport.setLooping(false)
   transport.setLoop(song.loop)
 
+  /* At its own beginning, which is not where the last song began. Stopping put
+     the playhead at the start of the song being left, and a song with a longer
+     count-in than that one starts behind it — so pressing play would come in
+     partway through the count. Read afresh, because the bounds have just
+     moved under the copy taken above. */
+  const arrived = useTransport.getState()
+  arrived.seek(arrived.start)
+
   const songScoped = (id: ToolId) => TOOL_META[id].scope === 'song'
   useTools.getState().setOpenScoped(songScoped, song.openTools)
 }

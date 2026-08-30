@@ -315,3 +315,93 @@ describe('the library list', () => {
     expect(useSong.getState().songs[1]).toEqual(listed('b-side', 'B Side', 'Someone'))
   })
 })
+
+/*
+ * Where a song begins is its own business: a count-in is part of the song, so
+ * a song with four bars of clicks before 00:00 starts further back than one
+ * with two. Loading used to leave the playhead wherever stopping the last song
+ * had put it, which for a longer count-in is partway through the count.
+ */
+describe('where the playhead sits when a song arrives', () => {
+  const withCountIn = (id: string, seconds: number): Song => ({
+    ...newSong(id),
+    id,
+    channels: [
+      {
+        id: 'c1',
+        kind: 'audio',
+        name: 'Take',
+        subject: 'guitar',
+        gain: 0,
+        muted: false,
+        soloed: false,
+        file: 'audio/take.wav',
+        startTime: -seconds,
+        duration: seconds + 60,
+        origin: { type: 'record' }
+      } as Channel
+    ]
+  })
+
+  it('goes to the new song, not to where the last one began', async () => {
+    const { useSong, useTransport } = await harness()
+    window.rehearsal.library.load = vi.fn(async (id: string) =>
+      withCountIn(id, id === 'short' ? 2 : 5)
+    ) as never
+
+    await useSong.getState().load('short')
+    expect(useTransport.getState().position).toBe(-2)
+
+    await useSong.getState().load('long')
+
+    expect(useTransport.getState().start).toBe(-5)
+    expect(useTransport.getState().position).toBe(-5)
+  })
+
+  it('goes forward to it as readily as back', async () => {
+    const { useSong, useTransport } = await harness()
+    window.rehearsal.library.load = vi.fn(async (id: string) =>
+      withCountIn(id, id === 'long' ? 5 : 2)
+    ) as never
+
+    await useSong.getState().load('long')
+    await useSong.getState().load('short')
+
+    expect(useTransport.getState().position).toBe(-2)
+  })
+
+  it('sits at 00:00 for a song with no count-in at all', async () => {
+    const { useSong, useTransport } = await harness()
+    window.rehearsal.library.load = vi.fn(async (id: string) =>
+      id === 'long' ? withCountIn(id, 5) : newSong(id)
+    ) as never
+
+    await useSong.getState().load('long')
+    await useSong.getState().load('plain')
+
+    expect(useTransport.getState().position).toBe(0)
+  })
+})
+
+/* The playhead cannot stand outside the song it is in. */
+describe('when the song stops reaching as far as the playhead', () => {
+  it('brings the playhead back to the end of what is left', async () => {
+    const { useTransport } = await harness()
+    useTransport.getState().setBounds(0, 120)
+    useTransport.getState().seek(90)
+
+    useTransport.getState().setBounds(0, 40)
+
+    expect(useTransport.getState().position).toBe(40)
+  })
+
+  it('leaves it alone when it is still inside', async () => {
+    const { useTransport } = await harness()
+    useTransport.getState().setBounds(0, 120)
+    useTransport.getState().seek(30)
+
+    useTransport.getState().setBounds(-5, 120)
+
+    expect(useTransport.getState().position).toBe(30)
+  })
+})
