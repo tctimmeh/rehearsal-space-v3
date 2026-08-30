@@ -8,7 +8,9 @@ import {
   moveRight,
   moveUp,
   QUICK_MS,
+  setBeats,
   settle,
+  subdivide,
   typeFret,
   typeMute,
   type Editing
@@ -164,6 +166,12 @@ export function TabEditor() {
     edit(tidied.doc)
   }
 
+  /** An edit made by a key that also has to stop the browser doing its own thing. */
+  const step = (event: React.KeyboardEvent, next: Editing): void => {
+    apply(next, false)
+    event.preventDefault()
+  }
+
   /** Steps back or forward, putting the document and the cursor back together. */
   const goTo = (history_: History): void => {
     history.current = history_
@@ -193,8 +201,21 @@ export function TabEditor() {
       return
     }
 
-    if (event.ctrlKey || event.metaKey || event.altKey) return
     const state: Editing = { doc, cursor }
+
+    /* Shift makes room for a sixteenth beside the cursor. */
+    if (event.shiftKey && !held && !event.altKey) {
+      if (event.key === 'ArrowRight') return void step(event, subdivide(state, 1))
+      if (event.key === 'ArrowLeft') return void step(event, subdivide(state, -1))
+    }
+
+    /* Control changes how many beats the bar is in. */
+    if (held && !event.shiftKey && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
+      const beats = doc.bars[cursor.bar]?.beats.length ?? 4
+      return void step(event, setBeats(state, beats + (event.key === 'ArrowRight' ? 1 : -1)))
+    }
+
+    if (event.ctrlKey || event.metaKey || event.altKey) return
 
     const move = moves[event.key]
     if (move !== undefined) {

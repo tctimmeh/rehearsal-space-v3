@@ -136,8 +136,10 @@ export const beatCount = (bar: Bar): number => bar.beats.length
  * at the end to write into: without it there would be no way to start a bar
  * that does not exist yet.
  */
-export function normalise(doc: TabDoc): TabDoc {
-  const bars = doc.bars.map(collapseBar)
+export function normalise(doc: TabDoc, keep?: { bar: number; beat: number }): TabDoc {
+  const bars = doc.bars.map((bar, index) =>
+    collapseBar(bar, keep?.bar === index ? keep.beat : null)
+  )
 
   /* Everything after the last bar with anything in it is spare, and one spare
      bar is all that is wanted. */
@@ -145,20 +147,29 @@ export function normalise(doc: TabDoc): TabDoc {
   while (last >= 0 && barIsEmpty(bars[last] as Bar)) last -= 1
 
   const kept = bars.slice(0, last + 1)
-  const shape = bars[last + 1] ?? bars[last] ?? emptyBar(doc.strings)
-  kept.push(emptyBar(doc.strings, beatCount(shape)))
+  const spare = bars[last + 1]
+  const shape = spare ?? bars[last] ?? emptyBar(doc.strings)
+
+  /* The cursor may be standing in that spare bar, having just made room for a
+     sixteenth in it — which is empty, and would be swept away with the bar if
+     the bar were built afresh. */
+  const standing = keep?.bar === last + 1 && spare !== undefined
+  kept.push(standing ? (spare as Bar) : emptyBar(doc.strings, beatCount(shape)))
 
   return { ...doc, bars: kept }
 }
 
-const collapseBar = (bar: Bar): Bar => ({ beats: bar.beats.map(collapseBeat) })
+const collapseBar = (bar: Bar, keep: number | null): Bar => ({
+  beats: bar.beats.map((beat, index) => (index === keep ? beat : collapseBeat(beat)))
+})
 
 /**
  * A sixteenth with nothing in it goes away again.
  *
  * The beat and its `&` always stay, however empty: they are what a beat is.
- * Only the `e` and the `a` come and go, and only once the cursor has left,
- * which is the caller's business rather than this function's.
+ * Only the `e` and the `a` come and go — and not while the cursor is standing
+ * in the beat, or emptying a sixteenth would close the gap under whoever is
+ * about to type into it. Which beat to leave alone is the caller's to say.
  */
 function collapseBeat(beat: Beat): Beat {
   const kept = beat.slots.filter(

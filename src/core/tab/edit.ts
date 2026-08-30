@@ -1,8 +1,17 @@
 import {
+  BEATS_MAX,
+  BEATS_MIN,
+  emptyBeat,
+  emptySlot,
   HIGHEST_FRET,
   isFret,
   normalise,
+  OFF_BEAT,
+  ON_BEAT,
+  barIsEmpty,
+  type Beat,
   type Cursor,
+  type Sixteenth,
   type Slot,
   type TabDoc
 } from './document'
@@ -181,15 +190,138 @@ export const deleteNote = (state: Editing): Editing => ({
   doc: withSlot(state.doc, state.cursor, (slot) => put(slot, state.cursor.string, null))
 })
 
+/* ---------------------------------------------------------------- rhythm -- */
+
+/** Changes one beat, leaving the rest of the document as it was. */
+function withBeat(doc: TabDoc, at: Cursor, change: (beat: Beat) => Beat): TabDoc {
+  return {
+    ...doc,
+    bars: doc.bars.map((bar, barIndex) =>
+      barIndex !== at.bar
+        ? bar
+        : {
+            ...bar,
+            beats: bar.beats.map((beat, beatIndex) =>
+              beatIndex !== at.beat ? beat : change(beat)
+            )
+          }
+    )
+  }
+}
+
+const holds = (beat: Beat, at: Sixteenth): boolean => beat.slots.some((slot) => slot.at === at)
+
+const withSixteenth = (beat: Beat, at: Sixteenth, strings: number): Beat => ({
+  ...beat,
+  slots: [...beat.slots, emptySlot(strings, at)].sort((one, other) => one.at - other.at)
+})
+
+/**
+ * Makes room for a sixteenth beside the cursor, and stands on it.
+ *
+ * A beat is the beat and its eighth; the two sixteenths between them are added
+ * one at a time, which is what the arrow means. To the right of the beat is
+ * its `e`, to the right of the eighth is its `a`, and to the left of a beat is
+ * the `a` of the beat before it — so the same gap can be opened from either
+ * side of it, whichever the cursor happens to be standing on.
+ */
+export function subdivide(state: Editing, towards: -1 | 1): Editing {
+  const { doc, cursor } = state
+  const beat = doc.bars[cursor.bar]?.beats[cursor.beat]
+  const here = beat?.slots[cursor.slot]
+  if (beat === undefined || here === undefined) return state
+
+  /* To the left of a beat is the end of the one before it. */
+  if (towards === -1 && here.at === ON_BEAT) {
+    const before = beforeBeat(state)
+    return before === null ? state : subdivideAt(state, before, 3)
+  }
+
+  const wanted: Sixteenth | null =
+    towards === 1
+      ? here.at === ON_BEAT
+        ? 1
+        : here.at === OFF_BEAT
+          ? 3
+          : null
+      : here.at === OFF_BEAT
+        ? 1
+        : null
+
+  return wanted === null ? state : subdivideAt(state, cursor, wanted)
+}
+
+/** The last beat before the cursor's, which may be in the bar before it. */
+function beforeBeat(state: Editing): Cursor | null {
+  const { doc, cursor } = state
+  if (cursor.beat > 0) return { ...cursor, beat: cursor.beat - 1, slot: 0 }
+  if (cursor.bar === 0) return null
+  const bar = doc.bars[cursor.bar - 1]
+  if (bar === undefined) return null
+  return { ...cursor, bar: cursor.bar - 1, beat: bar.beats.length - 1, slot: 0 }
+}
+
+function subdivideAt(state: Editing, at: Cursor, wanted: Sixteenth): Editing {
+  const beat = state.doc.bars[at.bar]?.beats[at.beat]
+  if (beat === undefined) return state
+
+  const doc = holds(beat, wanted)
+    ? state.doc
+    : withBeat(state.doc, at, (found) => withSixteenth(found, wanted, state.doc.strings))
+
+  const slots = doc.bars[at.bar]?.beats[at.beat]?.slots ?? []
+  const slot = slots.findIndex((one) => one.at === wanted)
+  return { doc, cursor: { ...at, slot: Math.max(0, slot) } }
+}
+
+/**
+ * Changes how many beats the bar under the cursor is in.
+ *
+ * Three to twelve. If nothing after this bar has been written yet then this is
+ * not a change to one bar but a decision about the piece, so the empty bars
+ * after it follow — otherwise only the bar under the cursor changes, and the
+ * music already written keeps the shape it was written in.
+ */
+export function setBeats(state: Editing, beats: number): Editing {
+  const { doc, cursor } = state
+  const wanted = Math.max(BEATS_MIN, Math.min(BEATS_MAX, beats))
+  const here = doc.bars[cursor.bar]
+  if (here === undefined || here.beats.length === wanted) return state
+
+  const rest = doc.bars.slice(cursor.bar + 1)
+  const followsOn = rest.every(barIsEmpty)
+
+  const bars = doc.bars.map((bar, index) => {
+    if (index < cursor.bar) return bar
+    if (index > cursor.bar && !followsOn) return bar
+    return inBeats(bar, wanted, doc.strings)
+  })
+
+  const beat = Math.min(cursor.beat, wanted - 1)
+  const slot = Math.min(cursor.slot, (bars[cursor.bar]?.beats[beat]?.slots.length ?? 1) - 1)
+  return { doc: { ...doc, bars }, cursor: { ...cursor, beat, slot: Math.max(0, slot) } }
+}
+
+/** Lengthens a bar with empty beats, or shortens it from the end. */
+const inBeats = (bar: { beats: Beat[] }, beats: number, strings: number): { beats: Beat[] } => ({
+  beats:
+    bar.beats.length >= beats
+      ? bar.beats.slice(0, beats)
+      : [
+          ...bar.beats,
+          ...Array.from({ length: beats - bar.beats.length }, () => emptyBeat(strings))
+        ]
+})
+
 /**
  * Tidies up and keeps the cursor somewhere real.
  *
- * Called when the cursor leaves a beat rather than on every keystroke, because
- * collapsing an emptied sixteenth under whoever is typing moves the ground
- * they are standing on.
+ * The beat the cursor is standing in is left as it is: emptying a sixteenth
+ * should not close the gap under somebody who is about to type into it. It
+ * closes when they leave, which is what calling this on every move amounts to.
  */
 export function settle(state: Editing): Editing {
-  const doc = normalise(state.doc)
+  const doc = normalise(state.doc, { bar: state.cursor.bar, beat: state.cursor.beat })
   const bar = Math.min(state.cursor.bar, doc.bars.length - 1)
   const index = Math.min(positionIn(state.doc, state.cursor), flatten(doc, bar).length - 1)
   const string = Math.max(0, Math.min(state.cursor.string, doc.strings - 1))

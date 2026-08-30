@@ -248,3 +248,66 @@ describe('taking an edit back', () => {
     expect(drawn()).toContain('9')
   })
 })
+
+describe('rhythm', () => {
+  it('makes room for a sixteenth on shift and right', () => {
+    render(<TabEditor />)
+
+    press('ArrowRight', { shiftKey: true })
+    press('9')
+
+    /* Beat one now reads 1 e &, and the 9 is on the e. */
+    expect(drawn()).toContain('1 e &')
+    expect(strings()).toContain('-9-')
+  })
+
+  it('makes room to the left as well', () => {
+    render(<TabEditor />)
+
+    press('ArrowRight')
+    press('ArrowLeft', { shiftKey: true })
+    press('4')
+
+    expect(drawn()).toContain('1 e &')
+    expect(strings()).toContain('-4-')
+  })
+
+  it('closes the gap again once the cursor leaves and nothing was written', () => {
+    render(<TabEditor />)
+    press('ArrowRight', { shiftKey: true })
+    expect(drawn()).toContain('1 e &')
+
+    for (let step = 0; step < 3; step += 1) press('ArrowRight')
+
+    expect(drawn()).not.toContain('1 e &')
+  })
+
+  it('changes how many beats the bar is in', () => {
+    render(<TabEditor />)
+
+    press('ArrowRight', { ctrlKey: true })
+    press('ArrowRight', { ctrlKey: true })
+
+    expect(drawn()).toContain('6')
+  })
+
+  it('will not go below three', () => {
+    render(<TabEditor />)
+
+    for (let step = 0; step < 6; step += 1) press('ArrowLeft', { ctrlKey: true })
+
+    expect(drawn()).toContain('3')
+    expect(drawn()).not.toContain('4')
+  })
+
+  it('can be taken back like anything else', () => {
+    render(<TabEditor />)
+    press('ArrowRight', { shiftKey: true })
+    press('9')
+
+    press('z', { ctrlKey: true })
+    press('z', { ctrlKey: true })
+
+    expect(drawn()).not.toContain('1 e &')
+  })
+})

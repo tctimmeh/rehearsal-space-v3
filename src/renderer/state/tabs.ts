@@ -1,5 +1,5 @@
 import type { TabFile } from '@core/song/song'
-import { newTab, type TabDoc } from '@core/tab/document'
+import { newTab, normalise, type TabDoc } from '@core/tab/document'
 import { parse } from '@core/tab/parse'
 import { render } from '@core/tab/render'
 import { useSong } from '@renderer/state/song'
@@ -103,12 +103,14 @@ export const useTabs = create<TabsState>((set, get) => ({
     const { songId, tabId, file, doc } = get()
     if (songId === null || tabId === null || file === null) return
 
-    const text = render(doc)
+    /* A sixteenth that has been emptied but not yet left is a state the editor
+       holds and the drawing cannot spell, so the file gets the tidy version. */
+    const text = render(normalise(doc))
     set({ saving: true })
     writing = writing.then(async () => {
       try {
         await window.rehearsal.library.writeTab(songId, file, text)
-        if (get().songId === songId && get().tabId === tabId && render(get().doc) === text) {
+        if (get().songId === songId && get().tabId === tabId && render(normalise(get().doc)) === text) {
           set({ saved: true, error: null })
         }
       } catch (error) {

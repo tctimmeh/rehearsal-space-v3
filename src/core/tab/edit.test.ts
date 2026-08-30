@@ -10,7 +10,9 @@ import {
   moveRight,
   moveUp,
   QUICK_MS,
+  setBeats,
   settle,
+  subdivide,
   typeFret,
   typeMute,
   type Editing
@@ -271,5 +273,137 @@ describe('pointing at a place in the drawing', () => {
 
   it('answers with something for a line off the end of the drawing', () => {
     expect(cursorAtPlace(newTab(6), 999, 4)).not.toBeNull()
+  })
+})
+
+/**
+ * A beat is the beat and its eighth; the two sixteenths between them are added
+ * one at a time. The same gap can be opened from either side of it, which is
+ * what the sketch means by saying the `a` can be made from the beat after it.
+ */
+describe('making room for a sixteenth', () => {
+  const beatOf = (state: Editing) => state.doc.bars[0]?.beats[state.cursor.beat]
+  const positions = (state: Editing) => beatOf(state)?.slots.map((slot) => slot.at)
+
+  it('opens the e to the right of a beat', () => {
+    const state = subdivide(start(), 1)
+
+    expect(positions(state)).toEqual([0, 1, 2])
+  })
+
+  it('opens the a to the right of the eighth', () => {
+    const state = subdivide(moveRight(start()), 1)
+
+    expect(positions(state)).toEqual([0, 2, 3])
+  })
+
+  it('opens the e to the left of the eighth', () => {
+    const state = subdivide(moveRight(start()), -1)
+
+    expect(positions(state)).toEqual([0, 1, 2])
+  })
+
+  it('stands on the new one, ready to be typed into', () => {
+    const state = subdivide(start(), 1)
+
+    expect(beatOf(state)?.slots[state.cursor.slot]?.at).toBe(1)
+    expect(fretAt(state.doc, state.cursor)).toBeNull()
+  })
+
+  /* To the left of a beat is the end of the beat before it. */
+  it('opens the a of the beat before, from the beat after', () => {
+    let state = start()
+    for (let step = 0; step < 2; step += 1) state = moveRight(state)
+    expect(state.cursor.beat).toBe(1)
+
+    state = subdivide(state, -1)
+
+    expect(state.cursor.beat).toBe(0)
+    expect(state.doc.bars[0]?.beats[0]?.slots.map((slot) => slot.at)).toEqual([0, 2, 3])
+  })
+
+  it('does nothing at the very beginning, where there is nothing before', () => {
+    expect(subdivide(start(), -1)).toEqual(start())
+  })
+
+  it('does not open one twice', () => {
+    const once = subdivide(start(), 1)
+
+    expect(positions(subdivide(once, 1))).toEqual([0, 1, 2])
+  })
+})
+
+describe('emptying a sixteenth', () => {
+  const opened = (): Editing => {
+    const state = subdivide(start(), 1)
+    return typeFret(state, '5', Infinity)
+  }
+
+  /* It stays open while the cursor is in the beat, so that what was just
+     deleted can be typed again without the gap closing underneath. */
+  it('leaves the gap while the cursor is still in the beat', () => {
+    const state = settle(deleteNote(opened()))
+
+    expect(state.doc.bars[0]?.beats[0]?.slots).toHaveLength(3)
+  })
+
+  it('closes it once the cursor has gone', () => {
+    let state = settle(deleteNote(opened()))
+    for (let step = 0; step < 3; step += 1) state = settle(moveRight(state))
+
+    expect(state.doc.bars[0]?.beats[0]?.slots).toHaveLength(2)
+  })
+
+  it('keeps it when there is still something in it', () => {
+    let state = opened()
+    for (let step = 0; step < 3; step += 1) state = settle(moveRight(state))
+
+    expect(state.doc.bars[0]?.beats[0]?.slots).toHaveLength(3)
+  })
+})
+
+describe('how many beats a bar is in', () => {
+  const beats = (state: Editing, bar = 0) => state.doc.bars[bar]?.beats.length
+
+  it('grows and shrinks', () => {
+    expect(beats(setBeats(start(), 6))).toBe(6)
+    expect(beats(setBeats(start(), 3))).toBe(3)
+  })
+
+  it('will not go past three or twelve', () => {
+    expect(beats(setBeats(start(), 1))).toBe(3)
+    expect(beats(setBeats(start(), 99))).toBe(12)
+  })
+
+  /* Nothing written after it yet, so this is a decision about the piece rather
+     than about one bar. */
+  it('carries on into the empty bars after it', () => {
+    const state = setBeats(settle(typeFret(start(), '7', Infinity)), 6)
+
+    expect(beats(state, 0)).toBe(6)
+    expect(beats(state, 1)).toBe(6)
+  })
+
+  it('leaves music that is already written in the shape it was written in', () => {
+    let state = settle(typeFret(start(), '7', Infinity))
+    /* Write something in the second bar too. */
+    state = { doc: state.doc, cursor: { bar: 1, beat: 0, slot: 0, string: 0 } }
+    state = settle(typeFret(state, '9', Infinity))
+    state = { doc: state.doc, cursor: { bar: 0, beat: 0, slot: 0, string: 0 } }
+
+    state = setBeats(state, 7)
+
+    expect(beats(state, 0)).toBe(7)
+    expect(beats(state, 1)).toBe(4)
+  })
+
+  it('keeps the cursor inside the bar when it shrinks', () => {
+    let state = setBeats(start(), 12)
+    state = { ...state, cursor: { bar: 0, beat: 11, slot: 1, string: 0 } }
+
+    state = setBeats(state, 3)
+
+    expect(state.cursor.beat).toBeLessThan(3)
+    expect(state.doc.bars[0]?.beats[state.cursor.beat]?.slots[state.cursor.slot]).toBeDefined()
   })
 })
