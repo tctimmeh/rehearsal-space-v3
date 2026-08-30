@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { newTab, normalise, type Cursor, type TabDoc } from './document'
+import { newTab, normalise, setStrings, type Cursor, type TabDoc } from './document'
 import {
   AT_START,
   deleteNote,
@@ -503,5 +503,60 @@ describe('settling a document that is already settled', () => {
     const opened = subdivide({ doc: normalise(newTab(6)), cursor: AT_START }, 1)
 
     expect(settle({ ...opened, cursor: { ...opened.cursor, bar: 1 } }).doc).not.toBe(opened.doc)
+  })
+})
+
+/*
+ * Strings are added and taken away at the bottom, which is where an instrument
+ * gains and loses them: a guitar's seventh string is a low B under the rest,
+ * not a new top string that renumbers everything written above it.
+ */
+describe('writing for a different instrument', () => {
+  const withFrets = (): TabDoc => {
+    let state = { doc: newTab(6), cursor: AT_START }
+    state = typeFret({ ...state, cursor: { ...AT_START, string: 0 } }, '3', Infinity)
+    state = typeFret({ ...state, cursor: { ...AT_START, string: 5 } }, '7', Infinity)
+    return state.doc
+  }
+
+  it('leaves what is written where it is when a string is added', () => {
+    const wider = setStrings(withFrets(), 7)
+
+    expect(wider.strings).toBe(7)
+    expect(fretAt(wider, { ...AT_START, string: 0 })).toBe('3')
+    expect(fretAt(wider, { ...AT_START, string: 5 })).toBe('7')
+    expect(fretAt(wider, { ...AT_START, string: 6 })).toBeNull()
+  })
+
+  it('takes the bottom string away, and what was written on it', () => {
+    const narrower = setStrings(withFrets(), 5)
+
+    expect(narrower.strings).toBe(5)
+    expect(fretAt(narrower, { ...AT_START, string: 0 })).toBe('3')
+    expect(narrower.bars[0]?.beats[0]?.slots[0]?.frets).toHaveLength(5)
+  })
+
+  it('gives every slot of every bar the same number of strings', () => {
+    const wider = setStrings(subdivide({ doc: newTab(6), cursor: AT_START }, 1).doc, 8)
+
+    for (const bar of wider.bars) {
+      for (const beat of bar.beats) {
+        for (const slot of beat.slots) {
+          expect(slot.frets).toHaveLength(8)
+          expect(slot.after).toHaveLength(8)
+        }
+      }
+    }
+  })
+
+  it('will not go past a bass at one end or an eight-string at the other', () => {
+    expect(setStrings(newTab(6), 1).strings).toBe(4)
+    expect(setStrings(newTab(6), 30).strings).toBe(8)
+  })
+
+  it('hands the same document back when it is already that instrument', () => {
+    const doc = newTab(6)
+
+    expect(setStrings(doc, 6)).toBe(doc)
   })
 })

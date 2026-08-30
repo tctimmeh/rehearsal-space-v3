@@ -110,6 +110,44 @@ export const emptyBar = (strings: number, beats = 4): Bar => ({
   beats: Array.from({ length: beats }, () => emptyBeat(strings))
 })
 
+/**
+ * How many strings a tablature can be written for: a four-string bass at one
+ * end, an eight-string guitar at the other. A twelve-string is six.
+ */
+export const STRINGS_MIN = 4
+export const STRINGS_MAX = 8
+
+/**
+ * Rewrites the document for a different instrument.
+ *
+ * Strings are added and taken away at the bottom, which is where an instrument
+ * gains and loses them: the seventh string of a guitar is a low B below the
+ * rest, not a new top string that renumbers everything written above it. So
+ * what is already written stays where it was, and anything on a string that
+ * has gone goes with it.
+ */
+export function setStrings(doc: TabDoc, wanted: number): TabDoc {
+  const strings = Math.min(STRINGS_MAX, Math.max(STRINGS_MIN, Math.round(wanted)))
+  if (strings === doc.strings) return doc
+
+  const resize = <T,>(had: T[], fill: T): T[] =>
+    Array.from({ length: strings }, (_, string) => had[string] ?? fill)
+
+  return {
+    strings,
+    bars: doc.bars.map((bar) => ({
+      beats: bar.beats.map((beat) => ({
+        ...beat,
+        slots: beat.slots.map((slot) => ({
+          ...slot,
+          frets: resize(slot.frets, null),
+          after: resize(slot.after, '-' as Technique)
+        }))
+      }))
+    }))
+  }
+}
+
 export const newTab = (strings = 6, beats = 4): TabDoc => ({
   strings,
   bars: [emptyBar(strings, beats)]

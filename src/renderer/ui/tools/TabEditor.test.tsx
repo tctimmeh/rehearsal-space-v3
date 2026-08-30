@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type Song } from '@core/song/song'
@@ -494,8 +494,11 @@ describe('several tablatures for one song', () => {
     useTabs.setState({ songId: 'a-song', tabId: 'lead', file: 'tabs/lead.txt' })
     render(<TabEditor />)
 
-    expect(screen.getByLabelText('Which tablature')).toBeTruthy()
-    expect(screen.getAllByRole('option').map((one) => one.textContent)).toEqual(['Lead', 'Rhythm'])
+    const picker = screen.getByLabelText('Which tablature')
+    expect(within(picker).getAllByRole('option').map((one) => one.textContent)).toEqual([
+      'Lead',
+      'Rhythm'
+    ])
   })
 
   it('adds one, and it is the one being written', async () => {
@@ -728,5 +731,85 @@ describe('the list of what the editor answers to', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
 
     expect(document.activeElement).toBe(sheet())
+  })
+})
+
+/* A song may hold a guitar part and a bass part, so the instrument belongs to
+   the file rather than to the app. */
+describe('how many strings a tablature is for', () => {
+  const pick = (count: number) =>
+    fireEvent.change(screen.getByLabelText('Strings'), { target: { value: String(count) } })
+
+  it('offers a bass through to an eight-string', () => {
+    render(<TabEditor />)
+
+    expect(
+      within(screen.getByLabelText('Strings'))
+        .getAllByRole('option')
+        .map((one) => one.textContent)
+    ).toEqual(['4', '5', '6', '7', '8'])
+  })
+
+  it('starts on the six a guitar has', () => {
+    render(<TabEditor />)
+
+    expect((screen.getByLabelText('Strings') as HTMLSelectElement).value).toBe('6')
+  })
+
+  it('draws the tablature on as many lines as are asked for', () => {
+    render(<TabEditor />)
+
+    pick(4)
+
+    expect(strings().split('\n')).toHaveLength(4)
+  })
+
+  it('notes it on the song, so the next file started here is the same', async () => {
+    render(<TabEditor />)
+
+    pick(4)
+
+    await waitFor(() => expect(useSong.getState().song?.tabs[0]?.strings).toBe(4))
+  })
+
+  it('writes it to the file that way', async () => {
+    render(<TabEditor />)
+
+    pick(7)
+    await useTabs.getState().flush()
+
+    const written = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
+    expect(written.trim().split('\n').filter((line) => line.startsWith('|'))).toHaveLength(7)
+  })
+
+  /* The cursor cannot stand on a string that is no longer there, and would be
+     drawn nowhere at all if it tried. */
+  it('brings the cursor up off a string that has gone', () => {
+    render(<TabEditor />)
+    for (let step = 0; step < 5; step += 1) press('ArrowDown')
+
+    pick(4)
+
+    expect(sheet().querySelectorAll('.tablature__cursor').length).toBe(1)
+  })
+
+  it('takes what was written on that string with it', () => {
+    render(<TabEditor />)
+    for (let step = 0; step < 5; step += 1) press('ArrowDown')
+    press('9')
+    expect(strings()).toContain('9')
+
+    pick(4)
+
+    expect(strings()).not.toContain('9')
+  })
+
+  it('leaves alone what was written on a string that stays', () => {
+    render(<TabEditor />)
+    press('7')
+
+    pick(4)
+
+    expect(strings().split('\n')[0]).toContain('7')
   })
 })

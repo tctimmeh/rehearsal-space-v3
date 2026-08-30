@@ -18,7 +18,14 @@ import {
   typeMute,
   type Editing
 } from '@core/tab/edit'
-import { TECHNIQUES, type Beat, type Technique } from '@core/tab/document'
+import {
+  setStrings,
+  STRINGS_MAX,
+  STRINGS_MIN,
+  TECHNIQUES,
+  type Beat,
+  type Technique
+} from '@core/tab/document'
 import {
   asDocument,
   beatAtIndex,
@@ -61,6 +68,7 @@ import { TabKeysModal } from './TabKeysModal'
  */
 export function TabEditor() {
   const song = useSong((state) => state.song)
+  const updateSong = useSong((state) => state.update)
   const doc = useTabs((state) => state.doc)
   const revision = useTabs((state) => state.revision)
   const openTab = useTabs((state) => state.open)
@@ -413,10 +421,44 @@ export function TabEditor() {
     }
   }
 
+  /**
+   * A different instrument for this file.
+   *
+   * The document is what gets drawn and written down, so it is what changes;
+   * the song's own note of the count is kept in step so that the next file
+   * started here is for the same instrument.
+   */
+  const changeStrings = (wanted: number): void => {
+    const next = setStrings(doc, wanted)
+    if (next === doc) return
+    setSpan(null)
+    apply({ doc: next, cursor: { ...cursor, string: Math.min(cursor.string, next.strings - 1) } }, false)
+    void updateSong({
+      tabs: song.tabs.map((entry) =>
+        entry.id === tab.id ? { ...entry, strings: next.strings } : entry
+      )
+    })
+  }
+
   return (
     <div className="tablature">
       <div className="tablature__controls">
         <TabPicker tabs={song.tabs} showing={tab} />
+        <label className="tablature__pick">
+          <span>Strings</span>
+          <select
+            className="well input"
+            value={doc.strings}
+            aria-label="Strings"
+            onChange={(event) => changeStrings(Number(event.target.value))}
+          >
+            {STRING_COUNTS.map((count) => (
+              <option key={count} value={count}>
+                {count}
+              </option>
+            ))}
+          </select>
+        </label>
         <ChordField
           naming={naming}
           beat={cursor.beat + 1}
@@ -604,6 +646,12 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
     </>
   )
 }
+
+/** Four for a bass, six for a guitar, and the ones either side of them. */
+const STRING_COUNTS = Array.from(
+  { length: STRINGS_MAX - STRINGS_MIN + 1 },
+  (_, step) => STRINGS_MIN + step
+)
 
 const INK_CLASS: Record<Ink, string> = {
   note: 'tablature__note',
