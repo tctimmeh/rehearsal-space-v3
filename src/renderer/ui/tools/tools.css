@@ -835,6 +835,7 @@
 /* The sheet is read, so it is a well; the cursor is the only thing on it that
    is touched, and it is moved with the keyboard rather than clicked. */
 .tablature__sheet {
+  --tab-row: 17px;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -842,11 +843,11 @@
   border-radius: var(--radius);
   font-family: var(--mono);
   font-size: 13px;
-  line-height: 17px;
-  /* The dashes are scaffolding. Nearly every character on the sheet is one,
-     so they set the quietest level and everything worth reading rises off
-     them. */
-  color: var(--text-faint);
+  line-height: var(--tab-row);
+  /* Between the two text greys: quieter than anything being read, but not so
+     far down that counting a bar out is a squint. */
+  --tab-quiet: color-mix(in srgb, var(--text-dim) 55%, var(--text-faint));
+  color: var(--tab-quiet);
   white-space: pre;
   cursor: text;
 }
@@ -861,10 +862,10 @@
   padding-bottom: 4px;
 }
 .tablature__system + .tablature__system {
-  margin-top: 17px;
+  margin-top: var(--tab-row);
 }
 .tablature__line {
-  min-height: 17px;
+  min-height: var(--tab-row);
 }
 /* What is actually played, and what is read first. Weight as well as colour,
    because the bar lines are bright too and the notes still come first — in a
@@ -878,17 +879,65 @@
 .tablature__beat {
   color: var(--text);
 }
-/* Where one bar ends and the next begins, which is how the eye finds its way
-   across a page of this. Drawn at full strength: a pipe is one thin character
-   and a dimmed one disappears into the dashes either side of it. */
+/*
+ * The staff, drawn rather than spelled.
+ *
+ * On disk a string is a row of dashes and a bar line is a pipe, because that
+ * is what opens in any editor. On screen they are what they stand for: a rule
+ * down the character's centre and a rule along the row's. The characters stay
+ * in the markup underneath — they are what is measured, clicked on, selected
+ * and copied — and only their ink is taken away.
+ *
+ * Both rules are centred on the line box rather than on the glyph, and the
+ * bar's is exactly one row tall, so the bars of stacked rows meet and read as
+ * one line down the staff.
+ */
+.tablature__string,
 .tablature__bar {
-  color: var(--text);
+  position: relative;
+  color: transparent;
+}
+.tablature__string::before,
+.tablature__bar::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+}
+/* Along the row, from wherever the last note ended to wherever the next
+   begins — which is where a string is drawn on paper too. */
+.tablature__string::before {
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-50%);
+  background: var(--tab-quiet);
+}
+/* A run of dashes reaches the edge of its own characters, and a bar line is
+   drawn down the middle of one — so where the two meet there is half a
+   character of nothing between them. The string reaches across it. */
+.tablature__bar + .tablature__string::before {
+  left: -0.5ch;
+}
+.tablature__string:has(+ .tablature__bar)::before {
+  right: -0.5ch;
+}
+/* Down through the row, and into the rows above and below it. */
+.tablature__bar::before {
+  left: 50%;
+  width: 1px;
+  height: var(--tab-row);
+  transform: translate(-50%, -50%);
+  background: var(--text-dim);
+}
+/* The cursor is a block of its own and the string does not run through it;
+   under it the dash is drawn as a dash again. */
+.tablature__cursor::before {
+  display: none;
 }
 /* The sixteenths either side of the eighth. Something you go looking for when
    you are counting one out, and otherwise texture. */
 .tablature__sub {
-  color: var(--text-faint);
-  opacity: 0.65;
+  opacity: 0.75;
 }
 /* Chords name the bar underneath them; they read with the beats, not over. */
 .tablature__name {

@@ -578,6 +578,7 @@ const INK_CLASS: Record<Ink, string> = {
   bar: 'tablature__bar',
   sub: 'tablature__sub',
   chord: 'tablature__name',
+  string: 'tablature__string',
   plain: ''
 }
 
