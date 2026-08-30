@@ -843,7 +843,10 @@
   font-family: var(--mono);
   font-size: 13px;
   line-height: 17px;
-  color: var(--text-dim);
+  /* The dashes are scaffolding. Nearly every character on the sheet is one,
+     so they set the quietest level and everything worth reading rises off
+     them. */
+  color: var(--text-faint);
   white-space: pre;
   cursor: text;
 }
@@ -851,10 +854,11 @@
   outline: 1px solid var(--go-edge);
   outline-offset: -1px;
 }
-/* Scrolled to a whole system at a time, with room to breathe against the edge
-   rather than the beat numbers sitting flush against it. */
+/* Scrolled to a whole system at a time, with room to breathe against the edge:
+   the beats a note is counted against are as much a part of it as the note. */
 .tablature__system {
   scroll-margin: 14px;
+  padding-bottom: 4px;
 }
 .tablature__system + .tablature__system {
   margin-top: 17px;
@@ -862,8 +866,37 @@
 .tablature__line {
   min-height: 17px;
 }
+/* What is actually played, and what is read first. Weight as well as colour,
+   because the bar lines are bright too and the notes still come first — in a
+   monospace face a heavier glyph is the same width, so the grid holds. */
+.tablature__note {
+  color: var(--text);
+  font-weight: 600;
+}
+/* The count. On its own line, so it can be as bright as the notes without
+   crowding them. */
+.tablature__beat {
+  color: var(--text);
+}
+/* Where one bar ends and the next begins, which is how the eye finds its way
+   across a page of this. Drawn at full strength: a pipe is one thin character
+   and a dimmed one disappears into the dashes either side of it. */
+.tablature__bar {
+  color: var(--text);
+}
+/* The sixteenths either side of the eighth. Something you go looking for when
+   you are counting one out, and otherwise texture. */
+.tablature__sub {
+  color: var(--text-faint);
+  opacity: 0.65;
+}
+/* Chords name the bar underneath them; they read with the beats, not over. */
+.tablature__name {
+  color: var(--text-dim);
+}
 /* A block, not a bar between characters: it is standing on a moment, not
-   between two of them. */
+   between two of them. The marks come after the inks so that a cursor over a
+   note wins the colour it inverts against. */
 .tablature__cursor {
   background: var(--go);
   color: var(--well);
@@ -876,10 +909,4 @@
 }
 .tablature__sheet:not(:focus) .tablature__cursor {
   background: var(--text-faint);
-}
-/* Scrolled to a bar at a time, with room to breathe against the edge: the
-   beats a note is counted against are as much a part of it as the note. */
-.tablature__system {
-  scroll-margin: 14px;
-  padding-bottom: 4px;
 }

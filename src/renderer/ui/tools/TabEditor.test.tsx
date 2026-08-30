@@ -553,3 +553,55 @@ describe('getting out of choosing beats', () => {
     expect(sheet().querySelectorAll('.tablature__cursor').length).toBe(1)
   })
 })
+
+describe('weighting what matters', () => {
+  const inked = (className: string) =>
+    [...sheet().querySelectorAll(className)].map((one) => one.textContent ?? '')
+
+  it('draws a fret as a note and the dashes around it as neither', () => {
+    render(<TabEditor />)
+    press('7')
+
+    expect(inked('.tablature__note')).toEqual(['7'])
+  })
+
+  it('keeps both digits of a two-digit fret in one note', () => {
+    render(<TabEditor />)
+    press('1')
+    press('2')
+    /* Out from under the cursor, which otherwise takes the digit it stands on
+       for its own and splits the number in two. */
+    press('ArrowRight')
+
+    expect(inked('.tablature__note')).toEqual(['12'])
+  })
+
+  it('marks the bar lines, and does not confuse them with what is between them', () => {
+    render(<TabEditor />)
+
+    expect(inked('.tablature__bar').every((one) => /^\|+$/.test(one))).toBe(true)
+    expect(inked('.tablature__bar').length).toBeGreaterThan(0)
+  })
+
+  it('marks the count above the strings, and the sixteenths apart from it', () => {
+    render(<TabEditor />)
+    /* Opening a sixteenth is what puts an `e` on the marker line, alongside
+       the `&` of the eighth it was opened against. */
+    press('ArrowRight', { shiftKey: true })
+
+    expect(inked('.tablature__beat')).toContain('1')
+    expect(inked('.tablature__sub')).toEqual(['e'])
+    /* The eighth is not a sixteenth and is not dimmed with them. */
+    expect(drawn()).toContain('&')
+    expect(inked('.tablature__sub')).not.toContain('&')
+  })
+
+  it('leaves the cursor its own colour where it stands on a note', () => {
+    render(<TabEditor />)
+    press('9')
+
+    const cursor = sheet().querySelector('.tablature__cursor') as HTMLElement
+    expect(cursor.textContent).toBe('9')
+    expect(cursor.classList.contains('tablature__note')).toBe(true)
+  })
+})

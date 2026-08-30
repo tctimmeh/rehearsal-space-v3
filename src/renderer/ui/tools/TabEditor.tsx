@@ -38,6 +38,7 @@ import {
   undo,
   type History
 } from '@core/tab/history'
+import { inkOf, rowsOf, type Ink, type Row } from '@core/tab/ink'
 import { cursorAtPlace, placeOf, render, WRAP_COLUMNS } from '@core/tab/render'
 import type { TabFile } from '@core/song/song'
 import { newTabFile } from '@core/tab/files'
@@ -427,22 +428,25 @@ export function TabEditor() {
         onKeyDown={onKeyDown}
         onPointerDown={onPointerDown}
       >
-        {systems.map((block, system) => (
-          <div
-            className="tablature__system"
-            key={system}
-            ref={place?.system === system ? showing : undefined}
-          >
-            {block.map((line, offset) => {
-              const index = lineOf(systems, system, offset)
-              return (
-                <div className="tablature__line" key={offset} data-line={index}>
-                  {drawLine(line, index, place, picked.get(index))}
-                </div>
-              )
-            })}
-          </div>
-        ))}
+        {systems.map((block, system) => {
+          const rows = rowsOf(block.length, doc.strings)
+          return (
+            <div
+              className="tablature__system"
+              key={system}
+              ref={place?.system === system ? showing : undefined}
+            >
+              {block.map((line, offset) => {
+                const index = lineOf(systems, system, offset)
+                return (
+                  <div className="tablature__line" key={offset} data-line={index}>
+                    {drawLine(line, rows[offset] ?? 'string', index, place, picked.get(index))}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -568,39 +572,84 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
   )
 }
 
+const INK_CLASS: Record<Ink, string> = {
+  note: 'tablature__note',
+  beat: 'tablature__beat',
+  bar: 'tablature__bar',
+  sub: 'tablature__sub',
+  chord: 'tablature__name',
+  plain: ''
+}
+
+/** The stretch of a line drawn as something other than what it is made of. */
+interface Marked {
+  from: number
+  to: number
+  className: string
+}
+
 /**
- * One line, with whatever is on it: the block cursor, or the stretch picked
- * out, or neither. Never both — while beats are being chosen there is nothing
- * for a cursor standing on one moment to say.
+ * One line, weighted by what each character is, and carrying whatever is on
+ * it: the block cursor, or the stretch picked out, or neither. Never both —
+ * while beats are being chosen there is nothing for a cursor standing on one
+ * moment to say.
+ *
+ * Characters are gathered into the longest runs that look alike, so a bar of
+ * dashes stays one piece of text rather than becoming a span apiece.
  */
 function drawLine(
   line: string,
+  row: Row,
   index: number,
   place: { line: number; column: number } | null,
   range: [number, number] | undefined
 ): ReactNode {
-  if (range !== undefined) {
-    const [from, to] = range
-    return (
-      <>
-        {line.slice(0, from)}
-        <span className="tablature__picked">{line.slice(from, to)}</span>
-        {line.slice(to === Infinity ? line.length : to)}
-      </>
+  const standing = place !== null && place.line === index ? place.column : null
+  const marked: Marked | null =
+    range !== undefined
+      ? { from: range[0], to: range[1], className: 'tablature__picked' }
+      : standing !== null
+        ? { from: standing, to: standing + 1, className: 'tablature__cursor' }
+        : null
+
+  /* The cursor can stand past the end of a line, where the trailing dashes
+     were trimmed away; it still has to be drawn, on a space. */
+  const text = line.padEnd(standing === null ? 0 : standing + 1, ' ')
+  if (text === '') return ' '
+
+  const inks = inkOf(text, row)
+  const parts: ReactNode[] = []
+  let run = ''
+  let wearing = ''
+
+  const flush = (): void => {
+    if (run === '') return
+    parts.push(
+      wearing === '' ? (
+        run
+      ) : (
+        <span key={parts.length} className={wearing}>
+          {run}
+        </span>
+      )
     )
+    run = ''
   }
 
-  if (place !== null && place.line === index) {
-    return (
-      <>
-        {line.slice(0, place.column)}
-        <span className="tablature__cursor">{line[place.column] ?? ' '}</span>
-        {line.slice(place.column + 1)}
-      </>
-    )
+  for (let column = 0; column < text.length; column += 1) {
+    const inside = marked !== null && column >= marked.from && column < marked.to
+    const classes = [INK_CLASS[inks[column] ?? 'plain'], inside ? marked.className : '']
+      .filter((name) => name !== '')
+      .join(' ')
+    if (classes !== wearing) {
+      flush()
+      wearing = classes
+    }
+    run += text[column]
   }
+  flush()
 
-  return line || ' '
+  return <>{parts}</>
 }
 
 /**

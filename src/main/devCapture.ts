@@ -20,6 +20,11 @@ export function requestedCapturePath(): string | null {
 }
 
 export async function captureAndExit(window: BrowserWindow, path: string): Promise<void> {
+  /* A window that is never shown is never composited, and capturePage hands
+     back whichever frame it happened to paint first — the app mid-boot, before
+     the song has loaded. Showing it without taking focus gets it drawn for
+     real, at the cost of it appearing briefly on screen. */
+  window.showInactive()
   await new Promise((resolve) => setTimeout(resolve, settleMs()))
   const image = await window.webContents.capturePage()
   await writeFile(path, image.toPNG())
