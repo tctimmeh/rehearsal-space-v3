@@ -10,6 +10,9 @@ import {
   moveRight,
   moveUp,
   QUICK_MS,
+  chordAt,
+  joinWith,
+  nameChord,
   setBeats,
   settle,
   subdivide,
@@ -405,5 +408,74 @@ describe('how many beats a bar is in', () => {
 
     expect(state.cursor.beat).toBeLessThan(3)
     expect(state.doc.bars[0]?.beats[state.cursor.beat]?.slots[state.cursor.slot]).toBeDefined()
+  })
+})
+
+/**
+ * A slide is not a note; it is what happens between two of them, so it lives
+ * in the join rather than on either side.
+ */
+describe('joining two notes', () => {
+  const joinAt = (state: Editing) =>
+    state.doc.bars[0]?.beats[state.cursor.beat]?.slots[state.cursor.slot]?.after[state.cursor.string]
+
+  it('writes a slide after the note under the cursor', () => {
+    expect(joinAt(joinWith(typeFret(start(), '4', Infinity), '/'))).toBe('/')
+  })
+
+  it('takes it off again when it is typed twice', () => {
+    const once = joinWith(start(), '/')
+
+    expect(joinAt(joinWith(once, '/'))).toBe('-')
+  })
+
+  it('replaces one with another', () => {
+    const slide = joinWith(start(), '/')
+
+    expect(joinAt(joinWith(slide, '^'))).toBe('^')
+  })
+
+  it('belongs to one string, not to the moment', () => {
+    const state = joinWith(start(), '/')
+
+    expect(state.doc.bars[0]?.beats[0]?.slots[0]?.after[1]).toBe('-')
+  })
+
+  /* The sketch shows a slide into a note with nothing before it, which its own
+     prose forbids. The join carries it, so an empty slot can carry one too. */
+  it('can be written with no note before it', () => {
+    const state = joinWith(start(), '/')
+
+    expect(fretAt(state.doc, state.cursor)).toBeNull()
+    expect(joinAt(state)).toBe('/')
+  })
+})
+
+describe('naming a chord', () => {
+  it('writes it above the beat the cursor is in', () => {
+    const state = nameChord(moveRight(moveRight(start())), 'Am')
+
+    expect(state.doc.bars[0]?.beats[1]?.chord).toBe('Am')
+  })
+
+  it('reads back what is there', () => {
+    const state = nameChord(start(), 'Dm7')
+
+    expect(chordAt(state.doc, state.cursor)).toBe('Dm7')
+  })
+
+  it('rubs it out when it is emptied', () => {
+    const named = nameChord(start(), 'Am')
+
+    expect(nameChord(named, '   ').doc.bars[0]?.beats[0]?.chord).toBeNull()
+  })
+
+  /* Above the beat, not at a column: widening the bar takes it along. */
+  it('stays over its beat when the bar widens', () => {
+    let state = nameChord(moveRight(moveRight(start())), 'E')
+    state = typeFret(state, '1', Infinity)
+    state = typeFret(state, '2', 0)
+
+    expect(state.doc.bars[0]?.beats[1]?.chord).toBe('E')
   })
 })

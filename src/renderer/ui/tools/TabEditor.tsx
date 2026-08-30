@@ -7,6 +7,9 @@ import {
   moveLeft,
   moveRight,
   moveUp,
+  chordAt,
+  joinWith,
+  nameChord,
   QUICK_MS,
   setBeats,
   settle,
@@ -15,6 +18,7 @@ import {
   typeMute,
   type Editing
 } from '@core/tab/edit'
+import { TECHNIQUES, type Technique } from '@core/tab/document'
 import {
   begin as beginHistory,
   canRedo,
@@ -63,6 +67,8 @@ export function TabEditor() {
   const [columns, setColumns] = useState(WRAP_COLUMNS)
   /** How wide one character is, for turning a click into a column. */
   const [each, setEach] = useState(0)
+  /** True while the chord over the cursor's beat is being written. */
+  const [naming, setNaming] = useState(false)
   /* When the last digit was typed, so that two in quick succession make one
      number. Reset by moving, because a digit typed elsewhere is not this one. */
   const typedAt = useRef(0)
@@ -215,7 +221,18 @@ export function TabEditor() {
       return void step(event, setBeats(state, beats + (event.key === 'ArrowRight' ? 1 : -1)))
     }
 
+    /* Up out of the tablature is where the chords are written. */
+    if (held && event.key === 'ArrowUp') {
+      setNaming(true)
+      event.preventDefault()
+      return
+    }
+
     if (event.ctrlKey || event.metaKey || event.altKey) return
+
+    if (TECHNIQUES.includes(event.key as Technique) && event.key !== '-') {
+      return void step(event, joinWith(state, event.key as Technique))
+    }
 
     const move = moves[event.key]
     if (move !== undefined) {
@@ -249,6 +266,16 @@ export function TabEditor() {
     <div className="tablature">
       <div className="tablature__controls">
         <span className="tablature__name">{tab.name}</span>
+        <ChordField
+          naming={naming}
+          beat={cursor.beat + 1}
+          chord={chordAt(doc, cursor)}
+          onChange={(chord) => apply(nameChord({ doc, cursor }, chord), false)}
+          onDone={() => {
+            setNaming(false)
+            field.current?.focus()
+          }}
+        />
         <span className="setting-note">{error ?? (saved ? 'Saved' : 'Saving…')}</span>
       </div>
 
@@ -315,6 +342,56 @@ function charactersAcross(sheet: HTMLElement): { columns: number; each: number }
 
   if (across <= 0 || each <= 0) return null
   return { columns: Math.max(MIN_COLUMNS, Math.floor(across / each)), each }
+}
+
+/**
+ * Where a chord is written.
+ *
+ * A field rather than a cursor in the drawing: a chord is ordinary text and
+ * wants ordinary text editing — backspace, arrows within the word — which a
+ * block cursor standing on a moment cannot give. It is written over the beat
+ * the cursor is in, and appears above that beat in the drawing as it is typed.
+ */
+function ChordField({
+  naming,
+  beat,
+  chord,
+  onChange,
+  onDone
+}: {
+  naming: boolean
+  beat: number
+  chord: string
+  onChange: (chord: string) => void
+  onDone: () => void
+}) {
+  const box = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (naming) box.current?.focus()
+  }, [naming])
+
+  if (!naming) {
+    return <span className="setting-note">Ctrl-↑ to name the chord</span>
+  }
+
+  return (
+    <label className="tablature__chord">
+      <span>Chord over beat {beat}</span>
+      <input
+        ref={box}
+        className="well input"
+        value={chord}
+        aria-label="Chord"
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' || event.key === 'Enter' || event.key === 'ArrowDown') {
+            onDone()
+            event.preventDefault()
+          }
+        }}
+      />
+    </label>
+  )
 }
 
 /**

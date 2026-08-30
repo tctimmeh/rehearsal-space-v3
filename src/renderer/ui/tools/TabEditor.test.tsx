@@ -311,3 +311,61 @@ describe('rhythm', () => {
     expect(drawn()).not.toContain('1 e &')
   })
 })
+
+describe('joins and chords', () => {
+  it('writes a slide after the note under the cursor', () => {
+    render(<TabEditor />)
+
+    press('4')
+    press('/')
+
+    expect(strings()).toContain('-4/')
+  })
+
+  it('takes the slide off when it is typed again', () => {
+    render(<TabEditor />)
+    press('4')
+    press('/')
+
+    press('/')
+
+    expect(strings()).toContain('-4-')
+  })
+
+  it('replaces one join with another', () => {
+    render(<TabEditor />)
+    press('4')
+    press('/')
+
+    press('^')
+
+    expect(strings()).toContain('-4^')
+  })
+
+  it('opens the chord field on control and up', () => {
+    render(<TabEditor />)
+
+    press('ArrowUp', { ctrlKey: true })
+
+    expect(screen.getByLabelText('Chord')).toBeTruthy()
+  })
+
+  it('writes the chord over the beat the cursor is in, and shows it', () => {
+    render(<TabEditor />)
+    press('ArrowUp', { ctrlKey: true })
+
+    fireEvent.change(screen.getByLabelText('Chord'), { target: { value: 'Am' } })
+
+    expect(drawn()).toContain('Am')
+  })
+
+  it('goes back to the tablature on escape', () => {
+    render(<TabEditor />)
+    press('ArrowUp', { ctrlKey: true })
+
+    fireEvent.keyDown(screen.getByLabelText('Chord'), { key: 'Escape' })
+
+    expect(screen.queryByLabelText('Chord')).toBeNull()
+    expect(document.activeElement).toBe(sheet())
+  })
+})

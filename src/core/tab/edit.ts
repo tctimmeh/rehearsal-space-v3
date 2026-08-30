@@ -13,7 +13,8 @@ import {
   type Cursor,
   type Sixteenth,
   type Slot,
-  type TabDoc
+  type TabDoc,
+  type Technique
 } from './document'
 import { cursorAtPlace, laidOut, placeOf, WRAP_COLUMNS } from './render'
 
@@ -189,6 +190,42 @@ export const deleteNote = (state: Editing): Editing => ({
   ...state,
   doc: withSlot(state.doc, state.cursor, (slot) => put(slot, state.cursor.string, null))
 })
+
+/**
+ * Writes a slide, a hammer-on or a pull-off after the note under the cursor.
+ *
+ * It goes in the join rather than on either note, which is where it belongs:
+ * it is what happens between two of them. Typing the one already there takes
+ * it off again, and typing a different one replaces it.
+ */
+export function joinWith(state: Editing, technique: Technique): Editing {
+  const held = slotAt(state.doc, state.cursor)?.after[state.cursor.string] ?? '-'
+  const wanted = held === technique ? '-' : technique
+  return {
+    ...state,
+    doc: withSlot(state.doc, state.cursor, (slot) => ({
+      ...slot,
+      after: slot.after.map((join, index) => (index === state.cursor.string ? wanted : join))
+    }))
+  }
+}
+
+/**
+ * Writes the chord above the beat the cursor is in.
+ *
+ * Above the beat rather than at a column, so that widening the bar underneath
+ * carries the chord with it instead of leaving it pointing at the wrong place.
+ */
+export const nameChord = (state: Editing, chord: string): Editing => ({
+  ...state,
+  doc: withBeat(state.doc, state.cursor, (beat) => ({
+    ...beat,
+    chord: chord.trim() === '' ? null : chord.trim()
+  }))
+})
+
+export const chordAt = (doc: TabDoc, cursor: Cursor): string =>
+  doc.bars[cursor.bar]?.beats[cursor.beat]?.chord ?? ''
 
 /* ---------------------------------------------------------------- rhythm -- */
 
