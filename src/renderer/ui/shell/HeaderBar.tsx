@@ -22,7 +22,7 @@ import {
   RecordIcon,
   StopIcon
 } from '../icons/uiIcons'
-import { IconButton, Knob, Tabs, useDismiss } from '../primitives'
+import { IconButton, Knob, Tabs, useDismiss, useSelectOnOpen } from '../primitives'
 import { AdvancedModal } from './AdvancedModal'
 import { ShortcutsModal } from './ShortcutsModal'
 import { SettingsModal } from './SettingsModal'
@@ -273,6 +273,7 @@ function SongIdentity() {
   const update = useSong((state) => state.update)
   const [open, setOpen] = useState(false)
   const wrap = useDismiss<HTMLDivElement>(open, () => setOpen(false))
+  const selectName = useSelectOnOpen<HTMLInputElement>()
 
   if (song === null) {
     return (
@@ -313,6 +314,7 @@ function SongIdentity() {
               aria-label="Name"
               value={song.title}
               autoFocus
+              ref={selectName}
               onChange={(event) => void update({ title: event.target.value })}
             />
           </label>

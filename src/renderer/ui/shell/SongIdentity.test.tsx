@@ -146,3 +146,43 @@ describe('the song name in the header', () => {
     expect(screen.queryByRole('button', { name: 'Song name and artist' })).toBeNull()
   })
 })
+
+/*
+ * The name that is there is nearly always the wrong one — that is why the box
+ * is open — so the useful thing is to be able to start typing over it.
+ */
+describe('opening the rename box', () => {
+  it('picks out the whole name, ready to be typed over', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+
+    await open(user)
+
+    const field = screen.getByLabelText('Name') as HTMLInputElement
+    expect(document.activeElement).toBe(field)
+    expect(field.selectionStart).toBe(0)
+    expect(field.selectionEnd).toBe('Comeback Season'.length)
+  })
+
+  it('so that typing replaces it rather than adding to it', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+
+    await open(user)
+    await user.keyboard('Sundown')
+
+    expect(value(screen.getByLabelText('Name'))).toBe('Sundown')
+  })
+
+  /* The selection is made as the field arrives, not on every keystroke into
+     it, or the second character typed would replace the first. */
+  it('does not pick the name out again while it is being typed', async () => {
+    const user = userEvent.setup()
+    render(<HeaderBar />)
+
+    await open(user)
+    await user.keyboard('ab')
+
+    expect(value(screen.getByLabelText('Name'))).toBe('ab')
+  })
+})

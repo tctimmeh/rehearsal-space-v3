@@ -44,7 +44,7 @@ import type { TabFile } from '@core/song/song'
 import { newTabFile } from '@core/tab/files'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
-import { Button } from '../primitives'
+import { Button, useSelectOnOpen } from '../primitives'
 
 /**
  * Writing tablature.
@@ -320,6 +320,17 @@ export function TabEditor() {
       }
     }
 
+    /* Escape steps out of the tablature altogether. Every key lands here
+       while this has the cursor, including the app's own, so there has to be
+       a way of putting it down that is not reaching for the mouse. Leaving a
+       selection is the first thing Escape does, and is handled above; this is
+       what it means once there is nothing left to leave. */
+    if (event.key === 'Escape') {
+      field.current?.blur()
+      event.preventDefault()
+      return
+    }
+
     if (held && event.key.toLowerCase() === 'z' && !event.shiftKey) {
       if (canUndo(history.current)) goTo(undo(history.current))
       event.preventDefault()
@@ -490,6 +501,7 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
   const open = useTabs((state) => state.open)
   const flush = useTabs((state) => state.flush)
   const [renaming, setRenaming] = useState(false)
+  const selectName = useSelectOnOpen<HTMLInputElement>()
 
   const show = (id: string): void => {
     const wanted = tabs.find((tab) => tab.id === id)
@@ -534,6 +546,7 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
         <input
           className="well input"
           autoFocus
+          ref={selectName}
           defaultValue={showing.name}
           aria-label="Tablature name"
           onChange={(event) => rename(event.target.value)}

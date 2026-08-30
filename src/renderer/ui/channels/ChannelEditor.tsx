@@ -5,7 +5,7 @@ import {
 } from '@core/song/channelSubject'
 import type { Channel } from '@core/song/song'
 import { SubjectIcon } from '../icons/subjectIcons'
-import { Button, Modal } from '../primitives'
+import { Button, Modal, useSelectOnOpen } from '../primitives'
 
 /** Name and instrument: the two things a wrong guess gets wrong. */
 export function ChannelEditor({
@@ -17,6 +17,8 @@ export function ChannelEditor({
   onChange: (patch: Partial<Channel>) => void
   onDone: () => void
 }) {
+  const selectName = useSelectOnOpen<HTMLInputElement>()
+
   return (
     <Modal
       title="Edit channel"
@@ -30,7 +32,14 @@ export function ChannelEditor({
           id="channel-name"
           className="well input"
           value={channel.name}
+          autoFocus
+          ref={selectName}
           onChange={(event) => onChange({ name: event.target.value })}
+          /* The name saves as it is typed, so Enter has nothing left to mean
+             but done. */
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') onDone()
+          }}
         />
       </div>
 

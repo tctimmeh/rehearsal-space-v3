@@ -638,3 +638,55 @@ describe('weighting what matters', () => {
     expect(cursor.classList.contains('tablature__note')).toBe(true)
   })
 })
+
+/*
+ * Every key lands in the editor while it has the cursor, the app's own keys
+ * included, so there has to be a way of putting it down that is not reaching
+ * for the mouse.
+ */
+describe('stepping out of the tablature', () => {
+  it('lets go of the cursor on Escape', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    expect(document.activeElement).toBe(sheet())
+
+    press('Escape')
+
+    expect(document.activeElement).not.toBe(sheet())
+  })
+
+  /* Escape has a nearer job while beats are picked out, and does that first. */
+  it('leaves the selection first, and keeps the cursor', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('s')
+
+    press('Escape')
+
+    expect(sheet().querySelectorAll('.tablature__picked').length).toBe(0)
+    expect(document.activeElement).toBe(sheet())
+  })
+
+  it('lets go on a second Escape, once there is nothing left to leave', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('s')
+
+    press('Escape')
+    press('Escape')
+
+    expect(document.activeElement).not.toBe(sheet())
+  })
+})
+
+describe('renaming a tablature', () => {
+  it('picks the name out, ready to be typed over', () => {
+    render(<TabEditor />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+
+    const field = screen.getByLabelText('Tablature name') as HTMLInputElement
+    expect(field.selectionStart).toBe(0)
+    expect(field.selectionEnd).toBe('Tab'.length)
+  })
+})
