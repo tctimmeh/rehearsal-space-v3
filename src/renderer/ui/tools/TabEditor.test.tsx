@@ -441,3 +441,66 @@ describe('picking out a stretch', () => {
     expect(strings()).not.toContain('7')
   })
 })
+
+/**
+ * A song's lead line and its rhythm part are different pieces of writing, not
+ * one long one, so they are separate files listed on the song.
+ */
+describe('several tablatures for one song', () => {
+  const twoTabs = (): Song => ({
+    ...withTab(),
+    tabs: [
+      { id: 'lead', file: 'tabs/lead.txt', name: 'Lead', strings: 6 },
+      { id: 'rhythm', file: 'tabs/rhythm.txt', name: 'Rhythm', strings: 6 }
+    ]
+  })
+
+  it('offers them all to choose between', () => {
+    useSong.setState({ song: twoTabs() })
+    useTabs.setState({ songId: 'a-song', tabId: 'lead', file: 'tabs/lead.txt' })
+    render(<TabEditor />)
+
+    expect(screen.getByLabelText('Which tablature')).toBeTruthy()
+    expect(screen.getAllByRole('option').map((one) => one.textContent)).toEqual(['Lead', 'Rhythm'])
+  })
+
+  it('adds one, and it is the one being written', async () => {
+    render(<TabEditor />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(useSong.getState().song?.tabs).toHaveLength(2))
+    expect(useSong.getState().song?.tabs[1]?.file).not.toBe(
+      useSong.getState().song?.tabs[0]?.file
+    )
+  })
+
+  it('renames the one being written', () => {
+    render(<TabEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+
+    fireEvent.change(screen.getByLabelText('Tablature name'), { target: { value: 'Bass' } })
+
+    expect(useSong.getState().song?.tabs[0]?.name).toBe('Bass')
+  })
+
+  it('will not remove the only one there is', () => {
+    render(<TabEditor />)
+
+    expect(screen.getByRole('button', { name: 'Remove' })).toHaveProperty('disabled', true)
+  })
+
+  /* The entry goes; the file it was written into stays where it is. */
+  it('removes one without touching what was written', () => {
+    useSong.setState({
+      song: twoTabs(),
+      update: (patch) => useSong.setState((state) => ({ song: { ...(state.song as Song), ...patch } }))
+    })
+    useTabs.setState({ songId: 'a-song', tabId: 'lead', file: 'tabs/lead.txt' })
+    render(<TabEditor />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(useSong.getState().song?.tabs.map((tab) => tab.id)).toEqual(['rhythm'])
+  })
+})

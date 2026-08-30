@@ -40,6 +40,7 @@ import {
 } from '@core/tab/history'
 import { cursorAtPlace, placeOf, render, WRAP_COLUMNS } from '@core/tab/render'
 import type { TabFile } from '@core/song/song'
+import { newTabFile } from '@core/tab/files'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
 import { Button } from '../primitives'
@@ -396,7 +397,7 @@ export function TabEditor() {
   return (
     <div className="tablature">
       <div className="tablature__controls">
-        <span className="tablature__name">{tab.name}</span>
+        <TabPicker tabs={song.tabs} showing={tab} />
         <ChordField
           naming={naming}
           beat={cursor.beat + 1}
@@ -465,6 +466,102 @@ function charactersAcross(sheet: HTMLElement): { columns: number; each: number }
 
   if (across <= 0 || each <= 0) return null
   return { columns: Math.max(MIN_COLUMNS, Math.floor(across / each)), each }
+}
+
+/**
+ * Which of a song's tablatures is being written, and the making and unmaking
+ * of them.
+ *
+ * A song has a lead line and a rhythm part and a bass, and they are different
+ * pieces of writing rather than one long one — so they are separate files,
+ * listed on the song, and this is where you move between them.
+ */
+function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
+  const song = useSong((state) => state.song)
+  const update = useSong((state) => state.update)
+  const open = useTabs((state) => state.open)
+  const flush = useTabs((state) => state.flush)
+  const [renaming, setRenaming] = useState(false)
+
+  const show = (id: string): void => {
+    const wanted = tabs.find((tab) => tab.id === id)
+    if (song === null || wanted === undefined || wanted.id === showing.id) return
+    /* What is on screen is written before something else takes its place. */
+    void flush().then(() => open(song.id, wanted))
+  }
+
+  const add = (): void => {
+    if (song === null) return
+    const made = newTabFile(song.tabs, 'Tab', showing.strings)
+    void update({ tabs: [...song.tabs, made] })
+    void flush().then(() => open(song.id, made))
+  }
+
+  const rename = (name: string): void => {
+    if (song === null || name.trim() === '') return
+    update({
+      tabs: song.tabs.map((tab) => (tab.id === showing.id ? { ...tab, name: name.trim() } : tab))
+    })
+  }
+
+  /*
+   * Removing one leaves its file where it is.
+   *
+   * Nothing else in the app deletes a file somebody wrote without asking, and
+   * a tablature is somebody's work — the entry goes, the writing stays, and a
+   * mistake costs a line in song.json rather than an afternoon.
+   */
+  const remove = (): void => {
+    if (song === null || song.tabs.length <= 1) return
+    const left = song.tabs.filter((tab) => tab.id !== showing.id)
+    void update({ tabs: left })
+    const next = left[0]
+    if (next !== undefined) void flush().then(() => open(song.id, next))
+  }
+
+  if (renaming) {
+    return (
+      <label className="tablature__chord">
+        <span>Name</span>
+        <input
+          className="well input"
+          autoFocus
+          defaultValue={showing.name}
+          aria-label="Tablature name"
+          onChange={(event) => rename(event.target.value)}
+          onBlur={() => setRenaming(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === 'Escape') setRenaming(false)
+          }}
+        />
+      </label>
+    )
+  }
+
+  return (
+    <>
+      <label className="tablature__pick">
+        <span>Tablature</span>
+        <select
+          className="well input"
+          value={showing.id}
+          aria-label="Which tablature"
+          onChange={(event) => show(event.target.value)}
+        >
+          {tabs.map((tab) => (
+            <option key={tab.id} value={tab.id}>
+              {tab.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Button onClick={() => setRenaming(true)}>Rename</Button>
+      <Button onClick={add}>Add</Button>
+      <Button onClick={remove} disabled={tabs.length <= 1}>
+        Remove
+      </Button>
+    </>
+  )
 }
 
 /**
