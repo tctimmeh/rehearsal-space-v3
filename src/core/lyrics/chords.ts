@@ -86,9 +86,21 @@ export function isChordLine(line: string): boolean {
   return words.every((word) => isChordToken(word.text) || CHART_MARKS.has(word.text))
 }
 
-/** `[Verse 2]`, `[Chorus]`, `[x2]` — a marker, written the way people write it. */
+const SECTION_MARK = /^\s*\[[^\]]+\]\s*/
+
+/**
+ * `[Verse 2]`, `[Chorus]`, `[x2]` — a marker, written the way people write it.
+ *
+ * A remark may follow it, because that is where one belongs: `[ Chorus ] (x2)`
+ * is still a chorus, and how many times round is exactly the sort of thing
+ * somebody writes beside the name. Only remarks may follow, though — a marker
+ * with words after it is a line of the song that happens to open with a
+ * bracket, and colouring the whole thing as a heading would be wrong.
+ */
 export function isSectionLine(line: string): boolean {
-  return /^\s*\[[^\]]+\]\s*$/.test(line)
+  const mark = SECTION_MARK.exec(line)
+  if (mark === null) return false
+  return piecesOf(line.slice(mark[0].length)).every((piece) => piece.comment)
 }
 
 /** A line marked as not finished: a placeholder, or words that need another go. */

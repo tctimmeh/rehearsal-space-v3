@@ -54,9 +54,29 @@ describe('section markers', () => {
     expect(isSectionLine('I said [nothing] at all')).toBe(false)
     expect(isSectionLine('[]')).toBe(false)
   })
+
+  /* How many times round is exactly the sort of thing written beside the name
+     of a section. */
+  it('lets a remark follow the marker', () => {
+    expect(isSectionLine('[ Chorus ]   ( x2 )')).toBe(true)
+    expect(isSectionLine('[Intro] (quietly)')).toBe(true)
+    expect(isSectionLine('[Chorus] (x2) (last time only)')).toBe(true)
+  })
+
+  /* A marker with words after it is a line of the song that happens to open
+     with a bracket, and a heading is the wrong colour for it. */
+  it('does not let anything else follow it', () => {
+    expect(isSectionLine('[Chorus] and then it ends')).toBe(false)
+    expect(isSectionLine('[Chorus] x2')).toBe(false)
+    expect(isSectionLine('[Chorus] (x2) and out')).toBe(false)
+  })
 })
 
 describe('classifyLine', () => {
+  it('calls a marker with a remark beside it a section', () => {
+    expect(classifyLine('[ Chorus ]   ( x2 )')).toBe('section')
+  })
+
   it('sorts a song into its kinds of line', () => {
     expect(classifyLine('[Verse]')).toBe('section')
     expect(classifyLine('C  G  Am')).toBe('chords')
