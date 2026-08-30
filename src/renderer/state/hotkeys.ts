@@ -1,4 +1,11 @@
-import { actionFor, type HotkeyAction } from '@core/keys/hotkeys'
+import {
+  actionFor,
+  DEFAULT_NUDGE,
+  nudgeFor,
+  type HotkeyAction,
+  type Keystroke
+} from '@core/keys/hotkeys'
+import { useConfig } from '@renderer/state/config'
 import { useDialog } from '@renderer/state/dialog'
 import { useMetronome } from '@renderer/state/metronome'
 import { useRecording } from '@renderer/state/recording'
@@ -25,8 +32,23 @@ const show = (id: 'metronome' | 'tuner'): void => {
   if (!useTools.getState().open[id]) useTools.getState().toggle(id)
 }
 
-const perform: Record<HotkeyAction, () => void> = {
+/**
+ * Moves the playhead by however far the modifiers are asking for.
+ *
+ * The music does not stop, the same way going to the start does not: this is
+ * for finding the passage again while it is still running.
+ */
+const nudge = (stroke: Keystroke, way: 1 | -1): void => {
+  const sizes = useConfig.getState().config?.nudge ?? DEFAULT_NUDGE
+  const transport = useTransport.getState()
+  transport.seek(transport.position + way * nudgeFor(stroke, sizes))
+}
+
+const perform: Record<HotkeyAction, (stroke: Keystroke) => void> = {
   playPause: () => useTransport.getState().toggle(),
+
+  nudgeBack: (stroke) => nudge(stroke, -1),
+  nudgeForward: (stroke) => nudge(stroke, 1),
 
   /* Arm, then play — or carry on playing, since arming mid-song starts the
      take there and then rather than waiting for the next press. */
@@ -85,13 +107,91 @@ const perform: Record<HotkeyAction, () => void> = {
  */
 export function followHotkeys(): () => void {
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat) return
     const action = actionFor(event, isTyping(event.target))
-    if (action === null) return
+    if (action === null) {
+      /* A modifier pressed part-way through a hold changes the stride, and
+         arrives as a repeat of the arrow rather than as a key of its own. */
+      if (event.repeat) return
+      release()
+      return
+    }
     event.preventDefault()
-    perform[action]()
+    if (event.repeat) {
+      /* The system's own repeat is left alone — its rate is the user's
+         setting for typing, not for scrubbing — but it is how a modifier
+         held down after the arrow makes itself known. */
+      if (held !== null) held.stroke = strokeOf(event)
+      return
+    }
+    perform[action](strokeOf(event))
+    if (REPEATING.has(action)) hold(action, strokeOf(event))
+  }
+
+  const onKeyUp = (event: KeyboardEvent): void => {
+    if (held !== null && event.key === held.stroke.key) release()
   }
 
   window.addEventListener('keydown', onKeyDown)
-  return () => window.removeEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  /* A key held while the window goes away is never let go of, and the playhead
+     would run on by itself. */
+  window.addEventListener('blur', release)
+  return () => {
+    release()
+    window.removeEventListener('keydown', onKeyDown)
+    window.removeEventListener('keyup', onKeyUp)
+    window.removeEventListener('blur', release)
+  }
+}
+
+/**
+ * Keys that keep going while they are held down.
+ *
+ * On our own cadence rather than the system's key repeat, which is set for
+ * typing and differs from machine to machine — a stride of several seconds at
+ * somebody's chosen character rate would cross a song in an eyeblink.
+ */
+const REPEATING = new Set<HotkeyAction>(['nudgeBack', 'nudgeForward'])
+
+/** Long enough that a single press is a single step, short enough to feel held. */
+const BEFORE_REPEATING_MS = 400
+const BETWEEN_REPEATS_MS = 150
+
+interface Held {
+  action: HotkeyAction
+  stroke: Keystroke
+  timers: ReturnType<typeof setTimeout>[]
+}
+
+let held: Held | null = null
+
+const strokeOf = (event: KeyboardEvent): Keystroke => ({
+  key: event.key,
+  code: event.code,
+  shiftKey: event.shiftKey,
+  ctrlKey: event.ctrlKey,
+  metaKey: event.metaKey,
+  altKey: event.altKey
+})
+
+function hold(action: HotkeyAction, stroke: Keystroke): void {
+  release()
+  const holding: Held = { action, stroke, timers: [] }
+  holding.timers.push(
+    setTimeout(() => {
+      holding.timers.push(
+        setInterval(() => perform[action](holding.stroke), BETWEEN_REPEATS_MS)
+      )
+    }, BEFORE_REPEATING_MS)
+  )
+  held = holding
+}
+
+function release(): void {
+  if (held === null) return
+  for (const timer of held.timers) {
+    clearTimeout(timer)
+    clearInterval(timer)
+  }
+  held = null
 }

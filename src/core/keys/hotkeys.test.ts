@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
   actionFor,
   BINDING_COUNT,
+  DEFAULT_NUDGE,
   HOTKEY_GROUPS,
   hotkeysInGroup,
+  nudgeFor,
   type Keystroke
 } from './hotkeys'
 
@@ -97,6 +99,48 @@ describe('while typing', () => {
  * against. A help page that lies about a shortcut is worse than none, so the
  * thing to guard is that the two cannot drift apart.
  */
+describe('the arrow keys', () => {
+  it('move the playhead either way', () => {
+    expect(press({ key: 'ArrowLeft' })).toBe('nudgeBack')
+    expect(press({ key: 'ArrowRight' })).toBe('nudgeForward')
+  })
+
+  /* The modifiers choose how far rather than what, so all four combinations
+     are the same pair of keys. */
+  it('still mean the same thing with the modifiers that size them', () => {
+    expect(press({ key: 'ArrowLeft', ctrlKey: true })).toBe('nudgeBack')
+    expect(press({ key: 'ArrowRight', shiftKey: true })).toBe('nudgeForward')
+    expect(press({ key: 'ArrowRight', ctrlKey: true, shiftKey: true })).toBe('nudgeForward')
+  })
+
+  it('leaves the window manager its own', () => {
+    expect(press({ key: 'ArrowLeft', altKey: true })).toBeNull()
+    expect(press({ key: 'ArrowRight', metaKey: true })).toBeNull()
+  })
+
+  it('belong to the cursor while somebody is typing', () => {
+    expect(press({ key: 'ArrowLeft' }, true)).toBeNull()
+  })
+})
+
+describe('how far an arrow goes', () => {
+  const far = (patch: Partial<Keystroke>) => nudgeFor(stroke(patch), DEFAULT_NUDGE)
+
+  it('is a short step on its own and a longer one for each modifier', () => {
+    expect(far({})).toBe(3)
+    expect(far({ ctrlKey: true })).toBe(6)
+    expect(far({ shiftKey: true })).toBe(10)
+    expect(far({ ctrlKey: true, shiftKey: true })).toBe(15)
+  })
+
+  it('is whatever it has been set to', () => {
+    const sizes = { plain: 1, ctrl: 2, shift: 4, both: 8 }
+
+    expect(nudgeFor(stroke({ shiftKey: true }), sizes)).toBe(4)
+    expect(nudgeFor(stroke({ ctrlKey: true, shiftKey: true }), sizes)).toBe(8)
+  })
+})
+
 describe('the list of them', () => {
   const everything = HOTKEY_GROUPS.flatMap((group) => hotkeysInGroup(group))
 
@@ -117,6 +161,25 @@ describe('the list of them', () => {
     expect(written).toContain('Shift + Space')
     expect(written).toContain('Ctrl + Space')
     expect(written).toContain('Shift + R')
+  })
+
+  /* The arrows do whatever they have been set to, so the list has to read the
+     settings rather than repeat the numbers it was written with. */
+  it('says how far the arrows are set to go', () => {
+    const [arrow] = hotkeysInGroup('Playing', { plain: 2, ctrl: 5, shift: 9, both: 30 }).filter(
+      (entry) => entry.keys === '←'
+    )
+
+    expect(arrow?.does).toContain('2s')
+    expect(arrow?.does).toContain('5s')
+    expect(arrow?.does).toContain('9s')
+    expect(arrow?.does).toContain('30s')
+  })
+
+  it('says that the arrows keep going while they are held', () => {
+    const rows = hotkeysInGroup('Playing').filter((entry) => entry.keys === '→')
+
+    expect(rows[0]?.does).toMatch(/hold/i)
   })
 
   it('puts each one in exactly one group', () => {

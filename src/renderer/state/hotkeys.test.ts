@@ -21,11 +21,15 @@ const { useTransport } = await import('./transport')
 const { useRecording } = await import('./recording')
 const { useTools } = await import('./tools')
 const { useSong } = await import('./song')
+const { useConfig } = await import('./config')
 
 let unwire = () => undefined as void
 
 const press = (init: KeyboardEventInit) =>
   window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }))
+
+const lift = (init: KeyboardEventInit) =>
+  window.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, ...init }))
 
 beforeEach(() => {
   unwire = followHotkeys()
@@ -39,6 +43,8 @@ beforeEach(() => {
     playedFrom: null
   })
   useRecording.setState({ phase: 'off' })
+  /* No config loaded, so the keys fall back to what they are shipped set to. */
+  useConfig.setState({ config: null })
   vi.clearAllMocks()
 })
 
@@ -63,6 +69,122 @@ describe('Home', () => {
     expect(useTransport.getState().playing).toBe(true)
     expect(engine.pause).not.toHaveBeenCalled()
     expect(engine.stop).not.toHaveBeenCalled()
+  })
+})
+
+describe('the arrow keys', () => {
+  it('step the playhead back and forward', () => {
+    press({ key: 'ArrowRight' })
+    expect(useTransport.getState().position).toBe(43)
+
+    press({ key: 'ArrowLeft' })
+    expect(useTransport.getState().position).toBe(40)
+  })
+
+  it('take a longer stride for each modifier', () => {
+    press({ key: 'ArrowRight', ctrlKey: true })
+    expect(useTransport.getState().position).toBe(46)
+
+    press({ key: 'ArrowRight', shiftKey: true })
+    expect(useTransport.getState().position).toBe(56)
+
+    press({ key: 'ArrowRight', ctrlKey: true, shiftKey: true })
+    expect(useTransport.getState().position).toBe(71)
+  })
+
+  it('go however far the settings say', () => {
+    useConfig.setState({
+      config: { nudge: { plain: 25, ctrl: 1, shift: 1, both: 1 } } as never
+    })
+
+    press({ key: 'ArrowRight' })
+
+    expect(useTransport.getState().position).toBe(65)
+  })
+
+  /* The same as going to the start: this is for finding the passage again
+     while it is still running. */
+  it('do not stop the music', () => {
+    useTransport.setState({ playing: true })
+
+    press({ key: 'ArrowLeft' })
+
+    expect(useTransport.getState().playing).toBe(true)
+    expect(engine.pause).not.toHaveBeenCalled()
+  })
+
+  it('stay inside the song', () => {
+    press({ key: 'ArrowLeft', ctrlKey: true, shiftKey: true })
+    press({ key: 'ArrowLeft', ctrlKey: true, shiftKey: true })
+    press({ key: 'ArrowLeft', ctrlKey: true, shiftKey: true })
+    press({ key: 'ArrowLeft', ctrlKey: true, shiftKey: true })
+
+    expect(useTransport.getState().position).toBe(0)
+  })
+})
+
+/**
+ * Held down, an arrow keeps moving — on the app's own cadence rather than the
+ * system's key repeat, whose rate is somebody's setting for typing and would
+ * cross a whole song in an eyeblink.
+ */
+describe('holding an arrow down', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('keeps going while it is held', () => {
+    press({ key: 'ArrowRight' })
+    expect(useTransport.getState().position).toBe(43)
+
+    vi.advanceTimersByTime(400 + 150 * 3)
+
+    expect(useTransport.getState().position).toBe(52)
+  })
+
+  it('stops when it is let go', () => {
+    press({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(400 + 150)
+    lift({ key: 'ArrowRight' })
+    const reached = useTransport.getState().position
+
+    vi.advanceTimersByTime(5000)
+
+    expect(useTransport.getState().position).toBe(reached)
+  })
+
+  it('does not run on after the window has gone away', () => {
+    press({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(400)
+    window.dispatchEvent(new Event('blur'))
+    const reached = useTransport.getState().position
+
+    vi.advanceTimersByTime(5000)
+
+    expect(useTransport.getState().position).toBe(reached)
+  })
+
+  /* A single press is a single step: nothing happens until it has been held
+     long enough to mean it. */
+  it('takes one step for a press and a quick release', () => {
+    press({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(100)
+    lift({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(5000)
+
+    expect(useTransport.getState().position).toBe(43)
+  })
+
+  /* The stride is read afresh each time round, so reaching for Shift part-way
+     through a hold lengthens it without letting go of the arrow. */
+  it('follows a modifier pressed part-way through', () => {
+    press({ key: 'ArrowRight' })
+    vi.advanceTimersByTime(400)
+    press({ key: 'ArrowRight', shiftKey: true, repeat: true })
+    const reached = useTransport.getState().position
+
+    vi.advanceTimersByTime(150)
+
+    expect(useTransport.getState().position).toBe(reached + 10)
   })
 })
 

@@ -18,8 +18,11 @@ import {
   NEEDLE_CLARITY_MAX,
   NEEDLE_CLARITY_MIN,
   NEEDLE_READINGS_MAX,
-  NEEDLE_READINGS_MIN
+  NEEDLE_READINGS_MIN,
+  NUDGE_MAX,
+  NUDGE_MIN
 } from '../shared/config'
+import { DEFAULT_NUDGE, type NudgeSeconds } from '../core/keys/hotkeys'
 import { DEFAULT_NEEDLE, type NeedleSettings } from '../core/music/steady'
 import { isExternalTool, type ExternalTool } from '../shared/tools'
 import { isMetronomeSample } from '../core/song/song'
@@ -55,6 +58,7 @@ export const defaultConfig = (): AppConfig => ({
   inputDeviceId: '',
   inputChannel: 0,
   autoReturn: false,
+  nudge: DEFAULT_NUDGE,
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
   tuner: DEFAULT_NEEDLE,
   toolPaths: {}
@@ -86,10 +90,19 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
     inputChannel: Math.max(0, Math.round(number(record['inputChannel'], 0, 0, 64))),
     autoReturn:
       typeof record['autoReturn'] === 'boolean' ? record['autoReturn'] : defaults.autoReturn,
+    nudge: parseNudge(record['nudge'], defaults.nudge),
     metronome: parseMetronome(record['metronome'], defaults.metronome),
     tuner: parseNeedle(record['tuner'], defaults.tuner),
     toolPaths: parseToolPaths(record['toolPaths'])
   }
+}
+
+function parseNudge(raw: unknown, defaults: NudgeSeconds): NudgeSeconds {
+  if (typeof raw !== 'object' || raw === null) return defaults
+  const record = raw as Record<string, unknown>
+  const step = (key: keyof NudgeSeconds): number =>
+    number(record[key], defaults[key], NUDGE_MIN, NUDGE_MAX)
+  return { plain: step('plain'), ctrl: step('ctrl'), shift: step('shift'), both: step('both') }
 }
 
 function parseMetronome(raw: unknown, defaults: MetronomeSettings): MetronomeSettings {

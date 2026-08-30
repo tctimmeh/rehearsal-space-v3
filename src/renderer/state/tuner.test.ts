@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const service = vi.hoisted(() => {
@@ -53,6 +54,7 @@ beforeEach(() => {
       metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
   autoReturn: false,
   tuner: DEFAULT_NEEDLE,
+  nudge: DEFAULT_NUDGE,
       toolPaths: {}
     }
   })

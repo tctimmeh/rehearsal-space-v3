@@ -15,6 +15,7 @@ import { useSong } from '@renderer/state/song'
 import { installBridge } from '@renderer/testing/bridge'
 import { SettingsModal } from './SettingsModal'
 import { installPointerCapture } from '@renderer/testing/pointer'
+import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
@@ -28,6 +29,7 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
   autoReturn: false,
   tuner: DEFAULT_NEEDLE,
+  nudge: DEFAULT_NUDGE,
   toolPaths: {},
   ...patch
 })

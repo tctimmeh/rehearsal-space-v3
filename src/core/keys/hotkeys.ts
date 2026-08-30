@@ -7,6 +7,8 @@
  */
 export type HotkeyAction =
   | 'playPause'
+  | 'nudgeBack'
+  | 'nudgeForward'
   | 'recordAndPlay'
   | 'discardTake'
   | 'armRecording'
@@ -16,6 +18,30 @@ export type HotkeyAction =
   | 'metronomeTool'
   | 'tunerTool'
   | 'settings'
+
+/**
+ * How far an arrow key moves the playhead, in seconds.
+ *
+ * Four sizes on the same pair of keys: a nudge for finding the phrase again,
+ * and progressively longer strides for crossing a song. Settable, because how
+ * far "a bit" is depends on what is being practised.
+ */
+export interface NudgeSeconds {
+  plain: number
+  ctrl: number
+  shift: number
+  both: number
+}
+
+export const DEFAULT_NUDGE: NudgeSeconds = { plain: 3, ctrl: 6, shift: 10, both: 15 }
+
+/** Which of the four a keystroke is asking for. */
+export const nudgeFor = (stroke: Keystroke, nudge: NudgeSeconds): number => {
+  if (stroke.ctrlKey && stroke.shiftKey) return nudge.both
+  if (stroke.shiftKey) return nudge.shift
+  if (stroke.ctrlKey) return nudge.ctrl
+  return nudge.plain
+}
 
 export interface Keystroke {
   key: string
@@ -35,7 +61,8 @@ interface Binding {
   matches: (stroke: Keystroke) => boolean
   /** How the key is written down, and what it does, for the list of them. */
   keys: string
-  does: string
+  /** A function where what the key does depends on what it is set to. */
+  does: string | ((nudge: NudgeSeconds) => string)
   group: HotkeyGroup
   /**
    * Whether it still means this while a field has the cursor. Only the
@@ -56,6 +83,14 @@ const onlyCtrl = (stroke: Keystroke): boolean =>
 
 const letter = (stroke: Keystroke, which: string): boolean =>
   stroke.key.toLowerCase() === which
+
+/* Ctrl and Shift choose how far, so both are welcome and neither is required.
+   Alt and the meta key belong to the window manager. */
+const anyStride = (stroke: Keystroke): boolean => !stroke.metaKey && !stroke.altKey
+
+const strides = (nudge: NudgeSeconds, way: string): string =>
+  `Move ${way} ${nudge.plain}s — Ctrl ${nudge.ctrl}s, Shift ${nudge.shift}s, ` +
+  `both ${nudge.both}s. Hold to keep moving`
 
 /* Order matters: the modified space bars have to be looked at before the
    plain one, which would otherwise answer for all three. */
@@ -79,6 +114,20 @@ const BINDINGS: Binding[] = [
     matches: (s) => s.code === 'Space' && bare(s),
     keys: 'Space',
     does: 'Play or pause',
+    group: 'Playing'
+  },
+  {
+    action: 'nudgeBack',
+    matches: (s) => s.key === 'ArrowLeft' && anyStride(s),
+    keys: '←',
+    does: (nudge) => strides(nudge, 'back'),
+    group: 'Playing'
+  },
+  {
+    action: 'nudgeForward',
+    matches: (s) => s.key === 'ArrowRight' && anyStride(s),
+    keys: '→',
+    does: (nudge) => strides(nudge, 'forward'),
     group: 'Playing'
   },
   {
@@ -143,8 +192,14 @@ const BINDINGS: Binding[] = [
 /** So the list can be held to accounting for every one of them. */
 export const BINDING_COUNT = BINDINGS.length
 
-export const hotkeysInGroup = (group: HotkeyGroup): { keys: string; does: string }[] =>
-  BINDINGS.filter((binding) => binding.group === group).map(({ keys, does }) => ({ keys, does }))
+export const hotkeysInGroup = (
+  group: HotkeyGroup,
+  nudge: NudgeSeconds = DEFAULT_NUDGE
+): { keys: string; does: string }[] =>
+  BINDINGS.filter((binding) => binding.group === group).map(({ keys, does }) => ({
+    keys,
+    does: typeof does === 'string' ? does : does(nudge)
+  }))
 
 export function actionFor(stroke: Keystroke, typing = false): HotkeyAction | null {
   const found = BINDINGS.find((binding) => binding.matches(stroke))

@@ -1,4 +1,7 @@
+import { DEFAULT_NUDGE, type NudgeSeconds } from '@core/keys/hotkeys'
 import {
+  NUDGE_MAX,
+  NUDGE_MIN,
   PAN_SPEED_DEFAULT,
   PAN_SPEED_MAX,
   PAN_SPEED_MIN,
@@ -16,6 +19,16 @@ import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { Button, Knob, Modal } from '../primitives'
 
+const asSeconds = (value: number) => `${Math.round(value)}s`
+
+/** The four strides, in the order the modifiers lengthen them. */
+const STRIDES: [keyof NudgeSeconds, string][] = [
+  ['plain', 'Plain'],
+  ['ctrl', 'Ctrl'],
+  ['shift', 'Shift'],
+  ['both', 'Ctrl + Shift']
+]
+
 /** Everything here is about the app, not about any one song. */
 export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
   const { config, set, chooseLibraryFolder, revealLibraryFolder } = useConfig()
@@ -29,6 +42,9 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
     void set({ [key]: Number(value.toFixed(3)) })
 
   const percent = (value: number) => `${Math.round(value * 100)}%`
+
+  const stride = (key: keyof NudgeSeconds) => (value: number) =>
+    void set({ nudge: { ...config.nudge, [key]: Math.round(value) } })
 
   const pickFolder = async () => {
     const changed = await chooseLibraryFolder()
@@ -89,6 +105,44 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
             onChange={turn('zoomSpeed')}
             format={percent}
           />
+        </div>
+      </section>
+
+      <section className="setting-section">
+        <div className="section-head">
+          <h4>Arrow key skip</h4>
+        </div>
+        <div className="setting-stack">
+          <div className="setting-row setting-row--knobs">
+            {STRIDES.slice(0, 2).map(([key, label]) => (
+              <Knob
+                key={key}
+                label={label}
+                value={config.nudge[key]}
+                min={NUDGE_MIN}
+                max={NUDGE_MAX}
+                step={1}
+                defaultValue={DEFAULT_NUDGE[key]}
+                onChange={stride(key)}
+                format={asSeconds}
+              />
+            ))}
+          </div>
+          <div className="setting-row setting-row--knobs">
+            {STRIDES.slice(2).map(([key, label]) => (
+              <Knob
+                key={key}
+                label={label}
+                value={config.nudge[key]}
+                min={NUDGE_MIN}
+                max={NUDGE_MAX}
+                step={1}
+                defaultValue={DEFAULT_NUDGE[key]}
+                onChange={stride(key)}
+                format={asSeconds}
+              />
+            ))}
+          </div>
         </div>
       </section>
 

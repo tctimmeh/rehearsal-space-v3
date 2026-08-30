@@ -9,6 +9,7 @@ import { useMetronome } from '@renderer/state/metronome'
 import { installBridge } from '@renderer/testing/bridge'
 import { MetronomeGadget } from './MetronomeGadget'
 import { installPointerCapture } from '@renderer/testing/pointer'
+import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const clock = vi.hoisted(() => ({ currentTime: 0 }))
@@ -38,6 +39,7 @@ const config = (metronome: Partial<AppConfig['metronome']> = {}): AppConfig => (
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick', ...metronome },
     autoReturn: false,
     tuner: DEFAULT_NEEDLE,
+    nudge: DEFAULT_NUDGE,
   toolPaths: {}
 })
 

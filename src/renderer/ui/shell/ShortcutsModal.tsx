@@ -1,4 +1,5 @@
-import { HOTKEY_GROUPS, hotkeysInGroup } from '@core/keys/hotkeys'
+import { DEFAULT_NUDGE, HOTKEY_GROUPS, hotkeysInGroup } from '@core/keys/hotkeys'
+import { useConfig } from '@renderer/state/config'
 import { Button, Modal } from '../primitives'
 
 /**
@@ -9,6 +10,10 @@ import { Button, Modal } from '../primitives'
  * shortcut is worse than no help page.
  */
 export function ShortcutsModal({ onDismiss }: { onDismiss: () => void }) {
+  /* The arrow keys move the playhead by however far they are set to, so the
+     list says what they are set to now rather than what they started as. */
+  const nudge = useConfig((state) => state.config?.nudge) ?? DEFAULT_NUDGE
+
   return (
     <Modal
       title="Keyboard shortcuts"
@@ -21,7 +26,7 @@ export function ShortcutsModal({ onDismiss }: { onDismiss: () => void }) {
             <h4>{group}</h4>
           </div>
           <dl className="keys">
-            {hotkeysInGroup(group).map(({ keys, does }) => (
+            {hotkeysInGroup(group, nudge).map(({ keys, does }) => (
               <div className="keys__row" key={keys}>
                 <dt>
                   <kbd>{keys}</kbd>

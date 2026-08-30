@@ -7,6 +7,7 @@ import type { AppConfig } from '@shared/config'
 import { useConfig } from '@renderer/state/config'
 import { installBridge } from '@renderer/testing/bridge'
 import { RecordingModal } from './RecordingModal'
+import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
 
 const fake = vi.hoisted(() => {
@@ -72,6 +73,7 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
   autoReturn: false,
   tuner: DEFAULT_NEEDLE,
+  nudge: DEFAULT_NUDGE,
   toolPaths: {},
   ...patch
 })

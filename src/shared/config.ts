@@ -1,3 +1,4 @@
+import type { NudgeSeconds } from '../core/keys/hotkeys'
 import type { NeedleSettings } from '../core/music/steady'
 import type { MetronomeSample } from '../core/song/song'
 import type { ExternalTool } from './tools'
@@ -29,6 +30,8 @@ export interface AppConfig {
    * began, for going over a passage again and again.
    */
   autoReturn: boolean
+  /** How far the arrow keys move the playhead, by modifier. */
+  nudge: NudgeSeconds
   /** Where the stand-alone metronome was left. */
   metronome: MetronomeSettings
   /**
@@ -63,6 +66,11 @@ export const NEEDLE_READINGS_MAX = 15
 export const NEEDLE_CLARITY_MIN = 0.5
 export const NEEDLE_CLARITY_MAX = 1
 
+/* Far enough apart to be worth four of them, and none of them so long that a
+   single press throws the playhead out of the song. */
+export const NUDGE_MIN = 1
+export const NUDGE_MAX = 60
+
 export const ZOOM_SPEED_MIN = 0.05
 export const ZOOM_SPEED_MAX = 1
 export const ZOOM_SPEED_STEP = 0.01
@@ -77,6 +85,7 @@ export type Preferences = Pick<
   | 'inputDeviceId'
   | 'inputChannel'
   | 'autoReturn'
+  | 'nudge'
   | 'metronome'
   | 'tuner'
 >

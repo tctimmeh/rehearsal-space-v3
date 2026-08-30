@@ -765,6 +765,13 @@
 .setting-row--knobs {
   gap: 22px;
 }
+/* Rows of knobs that belong to one setting, where four across would run out
+   of dialog. */
+.setting-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 .meters {
   flex: 1;
   min-width: 0;
