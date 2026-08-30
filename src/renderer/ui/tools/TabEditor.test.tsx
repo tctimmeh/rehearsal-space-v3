@@ -504,3 +504,52 @@ describe('several tablatures for one song', () => {
     expect(useSong.getState().song?.tabs.map((tab) => tab.id)).toEqual(['rhythm'])
   })
 })
+
+/**
+ * While beats are picked out there is no cursor drawn — so anything that looks
+ * like asking for the cursor has to let go of the selection, or the editor
+ * appears to have stopped responding.
+ */
+describe('getting out of choosing beats', () => {
+  const picked = () => sheet().querySelectorAll('.tablature__picked')
+
+  it('lets go when s is pressed again', () => {
+    render(<TabEditor />)
+    press('s')
+    expect(picked().length).toBe(6)
+
+    press('s')
+
+    expect(picked().length).toBe(0)
+  })
+
+  it('does not start choosing again in the same breath', () => {
+    render(<TabEditor />)
+    press('s')
+
+    press('s')
+    press('s')
+
+    /* Off, on: an odd number of presses leaves it choosing, not off. */
+    expect(picked().length).toBe(6)
+  })
+
+  it('lets go when the tablature is clicked', () => {
+    render(<TabEditor />)
+    press('s')
+
+    fireEvent.pointerDown(sheet().querySelector('.tablature__line') as HTMLElement, { clientX: 0 })
+
+    expect(picked().length).toBe(0)
+  })
+
+  it('shows the cursor again once it has let go', () => {
+    render(<TabEditor />)
+    press('s')
+    expect(sheet().querySelectorAll('.tablature__cursor').length).toBe(0)
+
+    press('s')
+
+    expect(sheet().querySelectorAll('.tablature__cursor').length).toBe(1)
+  })
+})

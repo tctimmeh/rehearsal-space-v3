@@ -202,6 +202,10 @@ export function TabEditor() {
   const onPointerDown = (event: React.PointerEvent): void => {
     field.current?.focus()
     const sheet = field.current
+    /* Pointing somewhere is asking for the cursor to be there, which means
+       giving up whatever was picked out — while beats are chosen there is no
+       cursor drawn at all, so a click that only changed it would look dead. */
+    setSpan(null)
     if (sheet === null || each <= 0) return
 
     const row = nearestRow(sheet, event.clientY)
@@ -293,7 +297,7 @@ export function TabEditor() {
       return true
     }
 
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' || key === 's') {
       leaveSelection(Math.min(chosen.from, chosen.to))
       return true
     }

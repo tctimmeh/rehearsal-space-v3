@@ -842,7 +842,7 @@
   border-radius: var(--radius);
   font-family: var(--mono);
   font-size: 13px;
-  line-height: 20px;
+  line-height: 17px;
   color: var(--text-dim);
   white-space: pre;
   cursor: text;
@@ -857,10 +857,10 @@
   scroll-margin: 14px;
 }
 .tablature__system + .tablature__system {
-  margin-top: 20px;
+  margin-top: 17px;
 }
 .tablature__line {
-  min-height: 20px;
+  min-height: 17px;
 }
 /* A block, not a bar between characters: it is standing on a moment, not
    between two of them. */
