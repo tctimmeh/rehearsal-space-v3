@@ -14,7 +14,7 @@
 
 export type Row = 'chord' | 'beats' | 'string'
 
-export type Ink = 'note' | 'beat' | 'bar' | 'sub' | 'chord' | 'string' | 'plain'
+export type Ink = 'note' | 'beat' | 'bar' | 'sub' | 'chord' | 'plain'
 
 /**
  * The rows of one drawn system, in order.
@@ -46,9 +46,6 @@ const inkFor = (character: string, row: Row): Ink => {
   if (character === '|') return 'bar'
   /* A slide belongs to the note it slides into, and is read with it. */
   if (isDigit(character) || character === 'x' || isTechnique(character)) return 'note'
-  /* The dashes are the string itself — told apart from the blank a cursor
-     standing past the end of a line sits on, which is nothing at all. */
-  if (character === '-') return 'string'
   return 'plain'
 }
 

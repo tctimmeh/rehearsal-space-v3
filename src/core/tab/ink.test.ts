@@ -26,19 +26,19 @@ describe('what a character is', () => {
   it('picks the frets out of the dashes holding them up', () => {
     expect(inkOf('|-12--x-|', 'string')).toEqual([
       'bar',
-      'string',
+      'plain',
       'note',
       'note',
-      'string',
-      'string',
+      'plain',
+      'plain',
       'note',
-      'string',
+      'plain',
       'bar'
     ])
   })
 
   it('reads a slide as part of the note it slides into', () => {
-    expect(inkOf('-4/7-', 'string')).toEqual(['string', 'note', 'note', 'note', 'string'])
+    expect(inkOf('-4/7-', 'string')).toEqual(['plain', 'note', 'note', 'note', 'plain'])
   })
 
   it('tells a beat from the sixteenths around it, and leaves the eighth alone', () => {
@@ -53,10 +53,6 @@ describe('what a character is', () => {
       'plain',
       'beat'
     ])
-  })
-
-  it('keeps the blank a cursor sits on past the end of a line off the string', () => {
-    expect(inkOf('|-5- ', 'string')).toEqual(['bar', 'string', 'note', 'string', 'plain'])
   })
 
   it('does not mistake the digit in a chord name for a fret or a beat', () => {
