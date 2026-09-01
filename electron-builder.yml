@@ -1,0 +1,45 @@
+# What goes into a distributable build.
+#
+# Only `out/` is needed at run time: the sources it was built from, the test
+# fixtures and the tsconfigs are not, and shipping them makes the app several
+# times the size it needs to be while handing every user a copy of the working
+# tree. Production dependencies are gathered by electron-builder itself.
+appId: dev.timcourt.rehearsal-space
+productName: Rehearsal Space
+copyright: © Tim Court
+
+# A file that is going to be downloaded and typed at a shell prompt, so no
+# spaces in it: the product name is for the desktop, not for the filename.
+artifactName: ${name}-${version}.${ext}
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**
+  - package.json
+
+# Nothing here is fetched at run time, and a rebuild should not reach the
+# network for something it already has.
+npmRebuild: false
+
+linux:
+  target:
+    - AppImage
+  # It is an audio tool, so it belongs with the audio tools rather than in
+  # the drawer everything unclassified falls into.
+  category: AudioVideo
+  mimeTypes:
+    - audio/flac
+    - audio/mpeg
+    - audio/ogg
+    - audio/wav
+  icon: build/icon.png
+  # Names the installed .desktop entry after `desktopName` in package.json, so
+  # that it matches the window class Electron sets. Desktop environments match
+  # a running window to its launcher by that name, and without the two agreeing
+  # the app shows a blank icon in the dock and will not group.
+  syncDesktopName: true
+  synopsis: Music practice and song-writing
+  description: An all-in-one tool for music practice and song-writing.
