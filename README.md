@@ -119,17 +119,35 @@ python3 build/icon.py       # needs Pillow
 Nothing in `build/` ships. It is a build resource, and the app itself is
 `out/`.
 
-### Window association
+### Getting the name and icon to show
 
-`desktopName` lives in **package.json**, not in the linux section of the
-builder config, and `linux.syncDesktopName` turns it on. Together they name the
-installed `.desktop` entry to match the window class Electron sets, which is
-what lets a desktop environment link a running window to its launcher — without
-it the app shows a blank icon in the dock and will not group.
+An AppImage is one file and nothing on the system knows it exists. The desktop
+matches a running window to a launcher by app id, and takes the name and the
+icon from that launcher — on Wayland that is the only route there is, since no
+protocol lets a window carry its own icon, so setting `icon` on the
+`BrowserWindow` fixes nothing. With no launcher installed the dock has only the
+app id to go on, and shows a blank gear labelled `rehearsal-space`.
 
-Putting `desktopName` where it looks like it belongs fails validation with
-`configuration.linux should be one of these: null`, which names neither the
-offending key nor the reason.
+The `.desktop` entry inside the AppImage is not read by anything until it is
+installed. So install one:
+
+```sh
+./build/install-launcher.sh dist/rehearsal-space-0.1.0.AppImage
+```
+
+That writes `~/.local/share/applications/rehearsal-space.desktop` and an icon
+beside it. The name of that file is not decoration — it has to match the app
+id, which Electron takes from the executable inside the AppImage.
+
+It points at the AppImage where it stands, so keep the AppImage somewhere of
+its own rather than in `dist`, and run this again if it moves or the version in
+its filename changes.
+
+`desktopName` in **package.json** and `linux.syncDesktopName` in the builder
+config are the other half of this: they name the entry that a real install
+would lay down. `desktopName` does not go in the linux section, where it looks
+like it belongs — that fails validation with `configuration.linux should be one
+of these: null`, which names neither the offending key nor the reason.
 
 ## Layout
 
