@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
+import { escapeAnswered } from '../primitives'
+
 const GAP = 7
 const EDGE = 8
 
@@ -56,7 +58,9 @@ export function StripMenu({
       setOpen(false)
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key !== 'Escape') return
+      escapeAnswered(event)
+      setOpen(false)
     }
     /* Scrolling the strips would leave the list behind where it was. */
     const close = () => setOpen(false)

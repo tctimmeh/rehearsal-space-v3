@@ -1,3 +1,5 @@
+import { TECHNIQUES, type Technique } from './document'
+
 /**
  * What each character of the drawing is, so the editor can weight them.
  *
@@ -34,7 +36,7 @@ const isDigit = (character: string): boolean => character >= '0' && character <=
 const isSixteenth = (character: string): boolean => character === 'e' || character === 'a'
 
 const isTechnique = (character: string): boolean =>
-  character === '/' || character === '\\' || character === '^'
+  character !== '-' && TECHNIQUES.includes(character as Technique)
 
 const inkFor = (character: string, row: Row): Ink => {
   if (row === 'chord') return character === ' ' ? 'plain' : 'chord'
@@ -44,7 +46,8 @@ const inkFor = (character: string, row: Row): Ink => {
     return 'plain'
   }
   if (character === '|') return 'bar'
-  /* A slide belongs to the note it slides into, and is read with it. */
+  /* A slide belongs to the note it slides into, and a staccato to the note it
+     cuts short: both are read with the note rather than with the grid. */
   if (isDigit(character) || character === 'x' || isTechnique(character)) return 'note'
   return 'plain'
 }

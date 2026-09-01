@@ -205,6 +205,9 @@
 .modal--wide {
   width: 640px;
 }
+.modal--log {
+  width: 1000px;
+}
 .modal__head {
   flex: none;
   padding: 13px 15px;

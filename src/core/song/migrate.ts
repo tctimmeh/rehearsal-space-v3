@@ -133,7 +133,7 @@ function parseChannel(raw: unknown, index: number): Channel | null {
     return {
       ...base,
       kind: 'metronome',
-      sample: oneOf(raw['sample'], METRONOME_SAMPLES, 'tick'),
+      sample: oneOf(raw['sample'], METRONOME_SAMPLES, 'beep'),
       startTime: span.startTime,
       endTime: num(raw['endTime'], 0),
       bpm: span.bpm,

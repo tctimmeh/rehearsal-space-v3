@@ -16,6 +16,7 @@ const engine = vi.hoisted(() => ({
 }))
 vi.mock('@renderer/audio/engine', () => ({ audioEngine: engine }))
 
+const { installBridge } = await import('@renderer/testing/bridge')
 const { followHotkeys } = await import('./hotkeys')
 const { useTransport } = await import('./transport')
 const { useRecording } = await import('./recording')
@@ -250,7 +251,7 @@ describe('the tempo keys', () => {
 
   /* Only the tempo is read from here, so only the tempo is stood up. */
   const settingsAt = (tempo: number) =>
-    ({ metronome: { bpm: tempo, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' } }) as never
+    ({ metronome: { bpm: tempo, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock' } }) as never
 
   beforeEach(() => {
     useConfig.setState({
@@ -362,6 +363,33 @@ describe('L', () => {
     press({ key: 'l' })
 
     expect(useTransport.getState().playing).toBe(false)
+  })
+})
+
+describe('R', () => {
+  beforeEach(() => {
+    installBridge()
+    /* The setting comes back from the main process, which keeps what it was
+       given, so the stand-in does too. */
+    window.rehearsal.config.set = vi.fn(async (patch) => ({
+      ...useConfig.getState().config,
+      ...patch
+    })) as never
+    useConfig.setState({ config: { autoReturn: false } as never })
+  })
+
+  it('latches auto return on, and off again', async () => {
+    press({ key: 'r' })
+    await vi.waitFor(() => expect(useConfig.getState().config?.autoReturn).toBe(true))
+
+    press({ key: 'r' })
+    await vi.waitFor(() => expect(useConfig.getState().config?.autoReturn).toBe(false))
+  })
+
+  it('is not the record key, which is the shifted one', () => {
+    press({ key: 'r' })
+
+    expect(useRecording.getState().phase).toBe('off')
   })
 })
 

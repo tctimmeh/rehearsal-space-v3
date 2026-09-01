@@ -14,6 +14,7 @@ export type HotkeyAction =
   | 'armRecording'
   | 'toStart'
   | 'loop'
+  | 'autoReturn'
   | 'tempoDown'
   | 'tempoUp'
   | 'metronomeRunning'
@@ -144,6 +145,13 @@ const BINDINGS: Binding[] = [
     matches: (s) => s.key === 'Home' && bare(s),
     keys: 'Home',
     does: 'Go to the start, without stopping',
+    group: 'Playing'
+  },
+  {
+    action: 'autoReturn',
+    matches: (s) => letter(s, 'r') && bare(s),
+    keys: 'R',
+    does: 'Go back to where playing began when it stops, or stay put',
     group: 'Playing'
   },
   {

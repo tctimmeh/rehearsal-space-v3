@@ -3,6 +3,7 @@ import {
   isFret,
   ON_BEAT,
   OFF_BEAT,
+  TECHNIQUES,
   type Beat,
   type Bar,
   type Fret,
@@ -35,7 +36,7 @@ interface ReadSlot {
 }
 
 const isTechnique = (character: string): character is Technique =>
-  character === '-' || character === '/' || character === '\\' || character === '^'
+  TECHNIQUES.includes(character as Technique)
 
 const noteAt = (content: string, at: number): string | null =>
   /^(?:\d{1,2}|x)/.exec(content.slice(at))?.[0] ?? null

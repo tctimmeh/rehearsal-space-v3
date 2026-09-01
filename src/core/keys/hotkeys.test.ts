@@ -46,8 +46,15 @@ describe('the rest of them', () => {
     expect(press({ key: 'R', shiftKey: true })).toBe('armRecording')
   })
 
-  it('does not arm on R alone, which is a letter somebody might want', () => {
-    expect(press({ key: 'r' })).toBeNull()
+  /* R on its own is the latch beside the transport rather than the record
+     button: arming is the shifted one. */
+  it('latches auto return on R alone, whichever case it arrives in', () => {
+    expect(press({ key: 'r' })).toBe('autoReturn')
+    expect(press({ key: 'R' })).toBe('autoReturn')
+  })
+
+  it('leaves R to whoever is typing', () => {
+    expect(press({ key: 'r' }, true)).toBeNull()
   })
 
   it('goes to the top of the song on Home', () => {

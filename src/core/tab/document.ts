@@ -19,10 +19,16 @@ export type Fret = string
  * it lives in the gap rather than in either. That also explains the one thing
  * in the sketch its own prose contradicts — a slide into a note with nothing
  * before it — which is simply this character on an empty slot.
+ *
+ * A staccato is not a join but a note cut short, and belongs to the note it
+ * follows. It is written here all the same, because the column after a note is
+ * the only room text tablature has: there is nowhere above or below a line of
+ * dashes to put a dot. Only one of them fits, which is the honest limit of
+ * writing music this way — a note is slid into or cut short, not both.
  */
-export type Technique = '-' | '/' | '\\' | '^'
+export type Technique = '-' | '/' | '\\' | '^' | '.'
 
-export const TECHNIQUES: Technique[] = ['-', '/', '\\', '^']
+export const TECHNIQUES: Technique[] = ['-', '/', '\\', '^', '.']
 
 /**
  * Where in a beat a slot falls: the beat itself, its `e`, its `&`, or its `a`.

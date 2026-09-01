@@ -20,8 +20,11 @@ import { useTransport } from '@renderer/state/transport'
  * focusable div — tablature, where the cursor sits on a moment rather than
  * between two characters — has to say so, and does it with `data-typing`.
  * Without that, space plays the song while somebody is writing a bar.
+ *
+ * Exported because anything else that would take a key over somebody's head
+ * has to ask the same question.
  */
-const isTyping = (target: EventTarget | null): boolean => {
+export const isTyping = (target: EventTarget | null): boolean => {
   const element = target as HTMLElement | null
   if (element?.isContentEditable === true) return true
   if (element?.dataset?.['typing'] === 'true') return true
@@ -102,6 +105,13 @@ const perform: Record<HotkeyAction, (stroke: Keystroke) => void> = {
     transport.seek(transport.loop.start)
     transport.setLooping(true)
     if (!transport.playing) transport.play()
+  },
+
+  /* A latch rather than an action: what stopping means from here on. Read
+     from the config rather than from a copy, the same way tempo is. */
+  autoReturn: () => {
+    const on = useConfig.getState().config?.autoReturn ?? false
+    void useConfig.getState().set({ autoReturn: !on })
   },
 
   tempoDown: () => stepTempo(-1),

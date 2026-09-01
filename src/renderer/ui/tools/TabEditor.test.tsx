@@ -376,6 +376,15 @@ describe('joins and chords', () => {
     expect(strings()).toContain('-4^')
   })
 
+  it('writes a staccato on the note under the cursor', () => {
+    render(<TabEditor />)
+
+    press('4')
+    press('.')
+
+    expect(strings()).toContain('-4.')
+  })
+
   it('opens the chord field on control and up', () => {
     render(<TabEditor />)
 
@@ -680,6 +689,58 @@ describe('stepping out of the tablature', () => {
     press('Escape')
 
     expect(document.activeElement).not.toBe(sheet())
+  })
+})
+
+/*
+ * The way back in. Escape puts the editor down; with nothing else on screen
+ * answering for the key, the next one picks it up again.
+ */
+describe('coming back to the tablature', () => {
+  const escapeAnywhere = (init: KeyboardEventInit = {}) =>
+    fireEvent.keyDown(document.body, { key: 'Escape', ...init })
+
+  it('takes the cursor back when nothing else answered the press', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('Escape')
+    expect(document.activeElement).not.toBe(sheet())
+
+    escapeAnywhere()
+
+    await waitFor(() => expect(document.activeElement).toBe(sheet()))
+  })
+
+  /* Something closing on the same press has the better claim to it: the
+     tablature is still there to come back to afterwards. */
+  it('leaves the press alone when something else answered it', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('Escape')
+
+    const answering = (event: KeyboardEvent) => event.preventDefault()
+    window.addEventListener('keydown', answering)
+    escapeAnywhere()
+    window.removeEventListener('keydown', answering)
+
+    await new Promise((done) => setTimeout(done))
+    expect(document.activeElement).not.toBe(sheet())
+  })
+
+  /* Somebody typing elsewhere is not asking for the cursor to be taken away,
+     whether or not the field they are in has any use for the key. */
+  it('does not take the cursor out of a field', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('Escape')
+    const elsewhere = document.body.appendChild(document.createElement('textarea'))
+    elsewhere.focus()
+
+    fireEvent.keyDown(elsewhere, { key: 'Escape' })
+
+    await new Promise((done) => setTimeout(done))
+    expect(document.activeElement).toBe(elsewhere)
+    elsewhere.remove()
   })
 })
 

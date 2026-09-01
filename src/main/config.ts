@@ -59,7 +59,7 @@ export const defaultConfig = (): AppConfig => ({
   inputChannel: 0,
   autoReturn: false,
   nudge: DEFAULT_NUDGE,
-  metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'beep' },
   tuner: DEFAULT_NEEDLE,
   toolPaths: {}
 })

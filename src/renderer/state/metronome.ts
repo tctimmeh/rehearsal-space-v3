@@ -25,7 +25,7 @@ const settings = (): MetronomeSettings =>
     bpm: 100,
     beatsPerMeasure: 4,
     accentFirstBeat: true,
-    sample: 'tick'
+    sample: 'beep'
   }
 
 /**

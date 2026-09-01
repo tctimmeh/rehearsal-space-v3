@@ -1,11 +1,17 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
+import { escapeAnswered } from './escape'
+
 interface ModalProps {
   title: string
   subtitle?: string
-  /** 'wide' suits settings and logs; the default suits a question. */
-  size?: 'default' | 'wide'
+  /**
+   * How much room it takes. A question needs little, a form needs more, and
+   * lines of output want as much of the window as they can have: a log broken
+   * up over three lines each is not a log anybody can read.
+   */
+  size?: 'default' | 'wide' | 'log'
   onDismiss: () => void
   footer?: ReactNode
   children: ReactNode
@@ -25,7 +31,9 @@ export function Modal({
 }: ModalProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onDismiss()
+      if (event.key !== 'Escape') return
+      escapeAnswered(event)
+      onDismiss()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -34,7 +42,7 @@ export function Modal({
   return createPortal(
     <div className="scrim" onPointerDown={onDismiss}>
       <div
-        className={size === 'wide' ? 'modal modal--wide' : 'modal'}
+        className={size === 'default' ? 'modal' : `modal modal--${size}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}

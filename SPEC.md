@@ -50,7 +50,7 @@ The basic unit of organization is a song. Users create a song and then fill it i
 
 - Several metronome channels can be added to a song
 - A metronome channel plays an audio sample at a configurable BPM between some start and end time
-- A metrnome channel supports several types of audio sample (e.g. ticks, chirps, cymbals, drum beats) so the user can choose the sound that's right for the song
+- A metrnome channel supports several types of audio sample (e.g. woodblock, claves, hi-hat, cross-stick, kick) so the user can choose the sound that's right for the song
 - The start time of a metronome channel can be negative, in the case of a count-in
 - Metronomes are anchored by their end time, aligning the end of the last beat of the metronome to where the music naturally picks the beat back up
 - The user can scrub through the waveform of an audio channel, zooming in/out to find the right spot, to align start/end times with the audio

@@ -94,6 +94,7 @@ function JobLog() {
     <Modal
       title={inspecting.job.title}
       subtitle={inspecting.job.detail}
+      size="log"
       onDismiss={stopInspecting}
       footer={<Button onClick={stopInspecting}>Close</Button>}
     >

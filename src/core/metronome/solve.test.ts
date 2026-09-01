@@ -11,7 +11,7 @@ const channel = (overrides: Partial<MetronomeChannel> = {}): MetronomeChannel =>
   gain: 0.5,
   muted: false,
   soloed: false,
-  sample: 'tick',
+  sample: 'woodblock',
   startTime: -2,
   endTime: 0,
   bpm: 120,

@@ -26,7 +26,7 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   zoomSpeed: ZOOM_SPEED_DEFAULT,
   inputDeviceId: '',
   inputChannel: 0,
-  metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+  metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock' },
   autoReturn: false,
   tuner: DEFAULT_NEEDLE,
   nudge: DEFAULT_NUDGE,

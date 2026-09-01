@@ -1,5 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 
+import { escapeAnswered } from '../primitives'
+
 interface DrawerProps {
   title: string
   onClose: () => void
@@ -10,7 +12,9 @@ interface DrawerProps {
 export function Drawer({ title, onClose, children }: DrawerProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape') return
+      escapeAnswered(event)
+      onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

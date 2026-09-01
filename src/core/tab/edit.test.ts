@@ -11,7 +11,7 @@ import {
   moveUp,
   QUICK_MS,
   chordAt,
-  joinWith,
+  markWith,
   nameChord,
   setBeats,
   settle,
@@ -413,38 +413,43 @@ describe('how many beats a bar is in', () => {
 
 /**
  * A slide is not a note; it is what happens between two of them, so it lives
- * in the join rather than on either side.
+ * in the join rather than on either side. A staccato is not a note either, and
+ * shares that column for want of anywhere else to write it.
  */
-describe('joining two notes', () => {
+describe('what goes after a note', () => {
   const joinAt = (state: Editing) =>
     state.doc.bars[0]?.beats[state.cursor.beat]?.slots[state.cursor.slot]?.after[state.cursor.string]
 
   it('writes a slide after the note under the cursor', () => {
-    expect(joinAt(joinWith(typeFret(start(), '4', Infinity), '/'))).toBe('/')
+    expect(joinAt(markWith(typeFret(start(), '4', Infinity), '/'))).toBe('/')
   })
 
   it('takes it off again when it is typed twice', () => {
-    const once = joinWith(start(), '/')
+    const once = markWith(start(), '/')
 
-    expect(joinAt(joinWith(once, '/'))).toBe('-')
+    expect(joinAt(markWith(once, '/'))).toBe('-')
   })
 
   it('replaces one with another', () => {
-    const slide = joinWith(start(), '/')
+    const slide = markWith(start(), '/')
 
-    expect(joinAt(joinWith(slide, '^'))).toBe('^')
+    expect(joinAt(markWith(slide, '^'))).toBe('^')
   })
 
   it('belongs to one string, not to the moment', () => {
-    const state = joinWith(start(), '/')
+    const state = markWith(start(), '/')
 
     expect(state.doc.bars[0]?.beats[0]?.slots[0]?.after[1]).toBe('-')
+  })
+
+  it('writes a staccato on the note it cuts short', () => {
+    expect(joinAt(markWith(typeFret(start(), '4', Infinity), '.'))).toBe('.')
   })
 
   /* The sketch shows a slide into a note with nothing before it, which its own
      prose forbids. The join carries it, so an empty slot can carry one too. */
   it('can be written with no note before it', () => {
-    const state = joinWith(start(), '/')
+    const state = markWith(start(), '/')
 
     expect(fretAt(state.doc, state.cursor)).toBeNull()
     expect(joinAt(state)).toBe('/')

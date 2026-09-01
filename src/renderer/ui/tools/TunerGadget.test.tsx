@@ -43,7 +43,7 @@ const configured = (inputDeviceId: string, inputChannel = 0) => ({
   zoomSpeed: 0.15,
   inputDeviceId,
   inputChannel,
-  metronome: { bpm: 100, beatsPerMeasure: 4 as number, accentFirstBeat: true, sample: 'tick' as const },
+  metronome: { bpm: 100, beatsPerMeasure: 4 as number, accentFirstBeat: true, sample: 'woodblock' as const },
     autoReturn: false,
     tuner: DEFAULT_NEEDLE,
     nudge: DEFAULT_NUDGE,

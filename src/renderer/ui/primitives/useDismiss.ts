@@ -1,5 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 
+import { escapeAnswered } from './escape'
+
 /**
  * Closes a panel when the pointer goes down outside it, or on Escape.
  *
@@ -22,7 +24,9 @@ export function useDismiss<T extends HTMLElement>(
       if (!wrap.current?.contains(event.target as Node)) latest.current()
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') latest.current()
+      if (event.key !== 'Escape') return
+      escapeAnswered(event)
+      latest.current()
     }
     window.addEventListener('pointerdown', onPointerDown)
     window.addEventListener('keydown', onKeyDown)

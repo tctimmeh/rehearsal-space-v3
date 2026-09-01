@@ -5,7 +5,7 @@ import { METRONOME_SAMPLE_LABEL, METRONOME_SAMPLES } from '@core/song/song'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from '@renderer/state/config'
 import { useMetronome } from '@renderer/state/metronome'
-import { NumberField, Readout, RepeatButton } from '../primitives'
+import { escapeAnswered, NumberField, Readout, RepeatButton } from '../primitives'
 
 export function MetronomeGadget() {
   const settings = useConfig((state) => state.config?.metronome)
@@ -103,7 +103,9 @@ function MetronomeSetup() {
       if (!wrap.current?.contains(event.target as Node)) setOpen(false)
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key !== 'Escape') return
+      escapeAnswered(event)
+      setOpen(false)
     }
     window.addEventListener('pointerdown', onPointerDown)
     window.addEventListener('keydown', onKeyDown)

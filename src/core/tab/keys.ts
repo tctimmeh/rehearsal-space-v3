@@ -24,7 +24,11 @@ interface TabKey {
 const KEYS: TabKey[] = [
   { keys: '← → ↑ ↓', does: 'Move the cursor, as the tablature is drawn', group: 'Moving about' },
   { keys: 'Click', does: 'Put the cursor where you point', group: 'Moving about' },
-  { keys: 'Esc', does: 'Step out of the tablature', group: 'Moving about' },
+  {
+    keys: 'Esc',
+    does: 'Step out of the tablature, and back in when there is nothing else to leave',
+    group: 'Moving about'
+  },
 
   {
     keys: '0 – 24',
@@ -36,6 +40,7 @@ const KEYS: TabKey[] = [
   { keys: '/', does: 'Slide up into the note', group: 'Writing notes' },
   { keys: '\\', does: 'Slide down into it', group: 'Writing notes' },
   { keys: '^', does: 'Hammer on or pull off', group: 'Writing notes' },
+  { keys: '.', does: 'Staccato: cut the note short', group: 'Writing notes' },
   { keys: 'Ctrl + Z', does: 'Undo', group: 'Writing notes' },
   { keys: 'Ctrl + Y', does: 'Redo', group: 'Writing notes' },
 

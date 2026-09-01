@@ -45,7 +45,7 @@ beforeEach(() => {
       zoomSpeed: 0.15,
       inputDeviceId: '',
       inputChannel: 0,
-      metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+      metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock' },
   autoReturn: false,
   tuner: DEFAULT_NEEDLE,
   nudge: DEFAULT_NUDGE,
@@ -71,7 +71,7 @@ describe('starting and stopping', () => {
 
     expect(useMetronome.getState().running).toBe(true)
     expect(clicker.started).toEqual([
-      { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' }
+      { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock' }
     ])
   })
 
@@ -102,7 +102,7 @@ describe('settings', () => {
     useMetronome.getState().change({ bpm: 132 })
 
     expect(kept).toEqual([
-      { metronome: { bpm: 132, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' } }
+      { metronome: { bpm: 132, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock' } }
     ])
   })
 
@@ -112,12 +112,12 @@ describe('settings', () => {
     useMetronome.getState().change({ bpm: 88 })
 
     expect(clicker.updated).toEqual([
-      { bpm: 88, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' }
+      { bpm: 88, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock' }
     ])
   })
 
   it('do not start a metronome that is off', () => {
-    useMetronome.getState().change({ sample: 'rim' })
+    useMetronome.getState().change({ sample: 'hat' })
 
     expect(clicker.update).not.toHaveBeenCalled()
     expect(clicker.start).not.toHaveBeenCalled()
@@ -131,7 +131,7 @@ describe('settings', () => {
       bpm: 100,
       beatsPerMeasure: 3,
       accentFirstBeat: false,
-      sample: 'tick'
+      sample: 'woodblock'
     })
   })
 })

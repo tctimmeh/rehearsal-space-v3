@@ -12,9 +12,6 @@ import { audioEngine } from './engine'
 const HORIZON_S = 0.2
 const TICK_MS = 25
 
-const ACCENT_GAIN = 1.35
-const ACCENT_RATE = 1.25
-
 export type BeatListener = (pulse: Pulse) => void
 
 interface Scheduled {
@@ -168,25 +165,20 @@ export class StandaloneMetronome {
 
   private sound(pulse: Pulse, settings: MetronomeSettings): void {
     const context = audioEngine.audioContext
-    const sample = audioEngine.clickSample(settings.sample)
     const index = this.beatsBefore + pulse.index
     const onDownbeat = index % clampBeats(settings.beatsPerMeasure) === 0
     const accent = settings.accentFirstBeat && onDownbeat
+    const sample = audioEngine.clickSample(settings.sample, accent)
     const at = Math.max(context.currentTime, this.startedAt + pulse.at)
 
     if (sample !== undefined) {
       const source = context.createBufferSource()
       source.buffer = sample
-      source.playbackRate.value = accent ? ACCENT_RATE : 1
-      const gain = context.createGain()
-      gain.gain.value = accent ? ACCENT_GAIN : 1
-      source.connect(gain)
-      gain.connect(audioEngine.clickDestination)
+      source.connect(audioEngine.clickDestination)
       source.start(at)
       const entry = { source, at }
       this.scheduled.push(entry)
       source.onended = () => {
-        gain.disconnect()
         this.scheduled = this.scheduled.filter((each) => each !== entry)
       }
     }

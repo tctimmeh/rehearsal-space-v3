@@ -1,13 +1,12 @@
 import { beatsBetween, type MetronomeTiming } from '@core/metronome/solve'
 import {
+  METRONOME_SAMPLES,
   METRONOME_SAMPLE_LABEL,
   type MetronomeChannel,
   type MetronomeSample
 } from '@core/song/song'
 import { NumberField } from '../primitives'
 import { Field, Handle, Offscreen, Picker, inView, type View } from './waveformParts'
-
-const SAMPLES: MetronomeSample[] = ['tick', 'chirp', 'cymbal', 'rim', 'kit']
 
 /**
  * Lining a click track up against the music.
@@ -46,7 +45,7 @@ export function ClickTrackControls({
               value={click.sample}
               onChange={(event) => change({ sample: event.target.value as MetronomeSample })}
             >
-              {SAMPLES.map((sample) => (
+              {METRONOME_SAMPLES.map((sample) => (
                 <option key={sample} value={sample}>
                   {METRONOME_SAMPLE_LABEL[sample]}
                 </option>

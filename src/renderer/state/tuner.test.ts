@@ -51,7 +51,7 @@ beforeEach(() => {
       zoomSpeed: 0.15,
       inputDeviceId: 'rubix',
       inputChannel: 2,
-      metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick' },
+      metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock' },
   autoReturn: false,
   tuner: DEFAULT_NEEDLE,
   nudge: DEFAULT_NUDGE,

@@ -30,7 +30,16 @@ export interface AudioChannel extends ChannelBase {
   origin: ChannelOrigin
 }
 
-export type MetronomeSample = 'tick' | 'chirp' | 'cymbal' | 'rim' | 'kit'
+export type MetronomeSample =
+  | 'beep'
+  | 'block'
+  | 'woodblock'
+  | 'hat'
+  | 'hatOpen'
+  | 'kick'
+  | 'snare'
+  | 'kickSnare'
+  | 'sticks'
 
 /**
  * Both ends are placed by eye against the waveform, and the tempo is nudged to
@@ -148,22 +157,30 @@ export interface SongSummary {
 export const DEFAULT_SONG_TITLE = 'New Song'
 
 export const METRONOME_SAMPLES: readonly MetronomeSample[] = [
-  'tick',
-  'chirp',
-  'cymbal',
-  'rim',
-  'kit'
+  'beep',
+  'block',
+  'woodblock',
+  'hat',
+  'hatOpen',
+  'kick',
+  'snare',
+  'kickSnare',
+  'sticks'
 ]
 
 export const isMetronomeSample = (value: unknown): value is MetronomeSample =>
   typeof value === 'string' && (METRONOME_SAMPLES as readonly string[]).includes(value)
 
 export const METRONOME_SAMPLE_LABEL: Record<MetronomeSample, string> = {
-  tick: 'Tick',
-  chirp: 'Chirp',
-  cymbal: 'Cymbal',
-  rim: 'Rim',
-  kit: 'Thud'
+  beep: 'Beep',
+  block: 'Block',
+  woodblock: 'Woodblock',
+  hat: 'Hi-hat',
+  hatOpen: 'Hi-hat Open',
+  kick: 'Kick',
+  snare: 'Snare',
+  kickSnare: 'Kick-Snare',
+  sticks: 'Sticks'
 }
 
 /**
@@ -179,7 +196,7 @@ export function newMetronomeChannel(id: string, endTime = 0): MetronomeChannel {
     gain: 1,
     muted: false,
     soloed: false,
-    sample: 'tick',
+    sample: 'beep',
     /* One bar of four at 120, finishing where the music starts. */
     startTime: endTime - 2,
     endTime,

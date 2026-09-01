@@ -192,13 +192,15 @@ export const deleteNote = (state: Editing): Editing => ({
 })
 
 /**
- * Writes a slide, a hammer-on or a pull-off after the note under the cursor.
+ * Writes a technique in the column after the note under the cursor.
  *
- * It goes in the join rather than on either note, which is where it belongs:
- * it is what happens between two of them. Typing the one already there takes
- * it off again, and typing a different one replaces it.
+ * A slide or a hammer-on goes there because that is where it belongs: it is
+ * what happens between two notes rather than anything either of them does. A
+ * staccato goes there because there is nowhere else — it is a mark on the note
+ * before it. Typing the one already there takes it off again, and typing a
+ * different one replaces it.
  */
-export function joinWith(state: Editing, technique: Technique): Editing {
+export function markWith(state: Editing, technique: Technique): Editing {
   const held = slotAt(state.doc, state.cursor)?.after[state.cursor.string] ?? '-'
   const wanted = held === technique ? '-' : technique
   return {

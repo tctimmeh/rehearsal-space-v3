@@ -36,7 +36,7 @@ const config = (metronome: Partial<AppConfig['metronome']> = {}): AppConfig => (
   zoomSpeed: 0.15,
   inputDeviceId: '',
   inputChannel: 0,
-  metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'tick', ...metronome },
+  metronome: { bpm: 100, beatsPerMeasure: 4, accentFirstBeat: true, sample: 'woodblock', ...metronome },
     autoReturn: false,
     tuner: DEFAULT_NEEDLE,
     nudge: DEFAULT_NUDGE,
@@ -137,9 +137,9 @@ describe('the controls', () => {
     render(<MetronomeGadget />)
 
     await user.click(screen.getByRole('button', { name: 'Metronome setup' }))
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Sound' }), 'Rim')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sound' }), 'Hi-hat')
 
-    expect(useConfig.getState().config?.metronome.sample).toBe('rim')
+    expect(useConfig.getState().config?.metronome.sample).toBe('hat')
   })
 
   it('says what pressing it will do', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 
 import {
   AT_START,
@@ -8,7 +8,7 @@ import {
   moveRight,
   moveUp,
   chordAt,
-  joinWith,
+  markWith,
   nameChord,
   QUICK_MS,
   setBeats,
@@ -51,7 +51,8 @@ import type { TabFile } from '@core/song/song'
 import { newTabFile } from '@core/tab/files'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
-import { Button, useSelectOnOpen } from '../primitives'
+import { isTyping } from '@renderer/state/hotkeys'
+import { Button, useSelectOnOpen, wasEscapeAnswered } from '../primitives'
 import { TabKeysModal } from './TabKeysModal'
 
 /**
@@ -127,6 +128,8 @@ export function TabEditor() {
   /* Opening the tool is asking to write in it, and there is nothing else here
      to click on first. */
   useEffect(() => field.current?.focus(), [tabId])
+
+  useEscapeReturnsHere(field)
 
   /* Remeasure whenever there is more or less room, so bars fill the width. */
   useEffect(() => {
@@ -338,6 +341,7 @@ export function TabEditor() {
        what it means once there is nothing left to leave. */
     if (event.key === 'Escape') {
       field.current?.blur()
+      /* Answered, so that the press does not come straight back here. */
       event.preventDefault()
       return
     }
@@ -390,7 +394,7 @@ export function TabEditor() {
     if (event.ctrlKey || event.metaKey || event.altKey) return
 
     if (TECHNIQUES.includes(event.key as Technique) && event.key !== '-') {
-      return void step(event, joinWith(state, event.key as Technique))
+      return void step(event, markWith(state, event.key as Technique))
     }
 
     const move = moves[event.key]
@@ -526,6 +530,35 @@ export function TabEditor() {
 }
 
 /**
+ * An Escape nobody answered brings the cursor back to the tablature.
+ *
+ * Escape steps out of the editor, and short of reaching for the mouse there is
+ * no way back in — which leaves the one key that is otherwise doing nothing.
+ * Everything that opens over the app closes on Escape and says so as it goes,
+ * so a press that went unanswered is a press with nothing left to close, and
+ * belongs to whatever is on the stage.
+ *
+ * Asked from a timeout because the answer arrives during the keystroke: the
+ * listeners that might give it are on the window too, in whatever order they
+ * happened to be added, and only once it has been all the way round is the
+ * silence real. A press aimed at a field is left alone whatever comes of it —
+ * taking the cursor off somebody mid-word is worse than doing nothing.
+ */
+function useEscapeReturnsHere(field: RefObject<HTMLDivElement | null>): void {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || isTyping(event.target)) return
+      setTimeout(() => {
+        if (wasEscapeAnswered(event)) return
+        field.current?.focus()
+      })
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+}
+
+/**
  * How many characters fit across the sheet.
  *
  * Measured rather than assumed, because the answer depends on the font the
@@ -614,7 +647,9 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
           onChange={(event) => rename(event.target.value)}
           onBlur={() => setRenaming(false)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === 'Escape') setRenaming(false)
+            if (event.key !== 'Enter' && event.key !== 'Escape') return
+            event.preventDefault()
+            setRenaming(false)
           }}
         />
       </label>

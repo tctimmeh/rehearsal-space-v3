@@ -31,6 +31,21 @@ describe('the sketch, read and drawn again', () => {
   }
 })
 
+/* Not in the sketch: a staccato is a mark on the note before it rather than a
+   join between two, but it is written in the same column and has to survive
+   the trip like anything else drawn there. */
+describe('a staccato', () => {
+  const bar = ['  1   2   3   4', '|-3.--5-----------|'] as const
+
+  it('comes back the same', () => {
+    expect(render(parse(oneString(bar)))).toBe(oneString(bar))
+  })
+
+  it('is read as belonging to the note it cuts short', () => {
+    expect(parse(oneString(bar)).bars[0]?.beats[0]?.slots[0]?.after[0]).toBe('.')
+  })
+})
+
 describe('what it understood', () => {
   const barOf = (block: readonly string[]) => parse(oneString(block)).bars[0]
 
@@ -221,7 +236,7 @@ describe('any document at all', () => {
       for (const slot of beat.slots) {
         for (let string = 0; string < strings; string += 1) {
           if (random() < 0.18) slot.frets[string] = String(Math.floor(random() * 25))
-          if (random() < 0.06) slot.after[string] = pick(['/', '\\', '^'] as const)
+          if (random() < 0.06) slot.after[string] = pick(['/', '\\', '^', '.'] as const)
         }
       }
       if (random() < 0.12) beat.chord = pick(['Am', 'E', 'Dm7', 'C', 'G/B'])

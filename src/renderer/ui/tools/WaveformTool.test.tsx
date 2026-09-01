@@ -22,7 +22,7 @@ const click = (id: string, name: string, endTime: number) =>
     gain: 0.5,
     muted: false,
     soloed: false,
-    sample: 'tick',
+    sample: 'woodblock',
     bpm: 100,
     beatsPerMeasure: 4,
     startTime: endTime - 2.4,

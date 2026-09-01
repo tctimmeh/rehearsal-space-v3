@@ -10,7 +10,7 @@ const tempo = (bpm: number): MetronomeSettings => ({
   bpm,
   beatsPerMeasure: 4,
   accentFirstBeat: true,
-  sample: 'tick'
+  sample: 'woodblock'
 })
 
 const stored = (bpm: number) => ({ metronome: tempo(bpm) }) as unknown as AppConfig

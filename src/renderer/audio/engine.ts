@@ -11,7 +11,7 @@ import type {
   PitchOffset,
   Song
 } from '@core/song/song'
-import { loadClickSamples } from './clickSamples'
+import { loadClickSamples, type ClickPair } from './clickSamples'
 
 /** Ramp length for gain changes: long enough not to click, short enough to feel instant. */
 const GAIN_RAMP_S = 0.015
@@ -25,10 +25,6 @@ const MAX_ALIGN_DELAY_S = 1
 /** How often the click scheduler tops itself up, and how far ahead it works. */
 const CLICK_TICK_MS = 25
 const CLICK_HORIZON_S = 0.2
-
-/** An accented click is a little louder and a little brighter than the rest. */
-const ACCENT_GAIN = 1.6
-const ACCENT_RATE = 1.12
 
 interface LoadedChannel {
   channel: AudioChannel
@@ -53,7 +49,7 @@ export class AudioEngine {
   private musicBus: GainNode | null = null
   private clickBus: GainNode | null = null
   private channels = new Map<string, LoadedChannel>()
-  private clicks = new Map<MetronomeSample, AudioBuffer>()
+  private clicks = new Map<MetronomeSample, ClickPair>()
   private clicksLoading: Promise<unknown> | null = null
   /** One entry per metronome channel, with its beats already worked out. */
   private metronomes: { channel: MetronomeChannel; timing: MetronomeTiming }[] = []
@@ -177,10 +173,11 @@ export class AudioEngine {
     return this.master as GainNode
   }
 
-  /** A click sample, once they have loaded. */
-  clickSample(name: MetronomeSample): AudioBuffer | undefined {
+  /** The beat or accent recording of a voice, once they have loaded. */
+  clickSample(name: MetronomeSample, accent: boolean): AudioBuffer | undefined {
     this.ensureContext()
-    return this.clicks.get(name)
+    const pair = this.clicks.get(name)
+    return accent ? pair?.accent : pair?.beat
   }
 
   /** Settles once the click samples are in memory. */
@@ -643,17 +640,16 @@ export class AudioEngine {
 
     for (const { channel, timing } of this.metronomes) {
       if (channel.gain <= 0) continue
-      const sample = this.clicks.get(channel.sample)
-      if (sample === undefined) continue
+      const pair = this.clicks.get(channel.sample)
+      if (pair === undefined) continue
 
       for (const beat of beatsBetween(timing, from, until)) {
         const accent = channel.accentFirstBeat && beat.accent
         const source = context.createBufferSource()
-        source.buffer = sample
-        source.playbackRate.value = accent ? ACCENT_RATE : 1
+        source.buffer = accent ? pair.accent : pair.beat
 
         const gain = context.createGain()
-        gain.gain.value = channel.gain * (accent ? ACCENT_GAIN : 1)
+        gain.gain.value = channel.gain
         source.connect(gain)
         gain.connect(this.clickBus as GainNode)
 

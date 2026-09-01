@@ -25,7 +25,7 @@ const click = (id: string, state: Partial<Channel> = {}): Channel =>
     id,
     name: id,
     subject: 'metronome',
-    sample: 'tick',
+    sample: 'woodblock',
     endTime: 0,
     accentFirstBeat: true,
     duration: { mode: 'measures', bpm: 120, measures: 1, beatsPerMeasure: 4 },

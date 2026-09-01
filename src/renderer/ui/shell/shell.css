@@ -637,7 +637,7 @@
   margin: 0;
   padding: 10px 12px;
   border-radius: var(--radius);
-  max-height: 320px;
+  max-height: 60vh;
   overflow: auto;
   font-family: var(--mono);
   font-size: 11px;
