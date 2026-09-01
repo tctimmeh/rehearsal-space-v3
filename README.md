@@ -77,6 +77,60 @@ env -u ELECTRON_RUN_AS_NODE ELECTRON_DISABLE_SANDBOX=1 \
   RS_CAPTURE=/tmp/shot.png npx electron .
 ```
 
+## Packaging
+
+```sh
+npm run pack         # typecheck + build + electron-builder
+```
+
+Out comes `dist/rehearsal-space-0.1.0.AppImage`. That is the whole of it; the
+build is described in [electron-builder.yml](electron-builder.yml) and needs no
+arguments. Note that `pack` typechecks and builds but does not run the tests —
+`npm test` is still yours to run.
+
+An AppImage wants libfuse2 to mount itself. On a machine without it:
+
+```sh
+./dist/rehearsal-space-0.1.0.AppImage --appimage-extract-and-run
+```
+
+Other targets are a flag away — `npx electron-builder --linux deb` — but only
+AppImage is configured and only AppImage has been tried.
+
+### What goes in, and what must not
+
+`files` names `out/**` and `package.json`, and nothing else. Production
+dependencies come along on their own; everything else is left behind on
+purpose. Without that allowlist electron-builder ships the entire working tree
+— every source file, the fourteen megabytes of tuner fixtures, the tsconfigs
+and any private working notes lying about — which is both a much larger
+download and a copy of the repository handed to whoever runs it. The asar is
+about 10 MB; if it grows to 25 again, that is what has happened.
+
+### The icon
+
+`build/icon.png` is drawn by [build/icon.py](build/icon.py) rather than kept
+only as a PNG, so it can be changed rather than redrawn:
+
+```sh
+python3 build/icon.py       # needs Pillow
+```
+
+Nothing in `build/` ships. It is a build resource, and the app itself is
+`out/`.
+
+### Window association
+
+`desktopName` lives in **package.json**, not in the linux section of the
+builder config, and `linux.syncDesktopName` turns it on. Together they name the
+installed `.desktop` entry to match the window class Electron sets, which is
+what lets a desktop environment link a running window to its launcher — without
+it the app shows a blank icon in the dock and will not group.
+
+Putting `desktopName` where it looks like it belongs fails validation with
+`configuration.linux should be one of these: null`, which names neither the
+offending key nor the reason.
+
 ## Layout
 
 ```
