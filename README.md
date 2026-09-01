@@ -83,10 +83,16 @@ env -u ELECTRON_RUN_AS_NODE ELECTRON_DISABLE_SANDBOX=1 \
 npm run pack         # typecheck + build + electron-builder
 ```
 
-Out comes `dist/rehearsal-space-0.1.0.AppImage`. That is the whole of it; the
-build is described in [electron-builder.yml](electron-builder.yml) and needs no
-arguments. Note that `pack` typechecks and builds but does not run the tests —
-`npm test` is still yours to run.
+Out come two things, both described in
+[electron-builder.yml](electron-builder.yml), neither needing an argument:
+
+| | |
+|---|---|
+| `dist/rehearsal-space-0.1.0.AppImage` | one file, runs from anywhere, installs nothing |
+| `dist/rehearsal-space-0.1.0.deb` | installs itself, launcher and icons included |
+
+`pack` typechecks and builds but does not run the tests — `npm test` is still
+yours to run.
 
 An AppImage wants libfuse2 to mount itself. On a machine without it:
 
@@ -94,8 +100,7 @@ An AppImage wants libfuse2 to mount itself. On a machine without it:
 ./dist/rehearsal-space-0.1.0.AppImage --appimage-extract-and-run
 ```
 
-Other targets are a flag away — `npx electron-builder --linux deb` — but only
-AppImage is configured and only AppImage has been tried.
+A single target when that is all you want: `npx electron-builder --linux deb`.
 
 ### What goes in, and what must not
 
@@ -128,8 +133,15 @@ protocol lets a window carry its own icon, so setting `icon` on the
 `BrowserWindow` fixes nothing. With no launcher installed the dock has only the
 app id to go on, and shows a blank gear labelled `rehearsal-space`.
 
-The `.desktop` entry inside the AppImage is not read by anything until it is
-installed. So install one:
+The `.deb` has none of this trouble: it lays the launcher and the icon down
+where the desktop looks, and needs nothing further.
+
+```sh
+sudo apt install ./dist/rehearsal-space-0.1.0.deb
+```
+
+For the AppImage, the `.desktop` entry inside it is not read by anything until
+it is installed, so install one:
 
 ```sh
 ./build/install-launcher.sh dist/rehearsal-space-0.1.0.AppImage
@@ -141,7 +153,9 @@ id, which Electron takes from the executable inside the AppImage.
 
 It points at the AppImage where it stands, so keep the AppImage somewhere of
 its own rather than in `dist`, and run this again if it moves or the version in
-its filename changes.
+its filename changes. Installing the `.deb` as well would give a second entry
+for the same app, so remove
+`~/.local/share/applications/rehearsal-space.desktop` if you go that way.
 
 `desktopName` in **package.json** and `linux.syncDesktopName` in the builder
 config are the other half of this: they name the entry that a real install

@@ -26,7 +26,11 @@ npmRebuild: false
 
 linux:
   target:
+    # One file to run from anywhere, and one that installs itself properly.
+    # A .deb lays down the launcher and the icons where the desktop looks, so
+    # an installed copy needs none of build/install-launcher.sh.
     - AppImage
+    - deb
   # It is an audio tool, so it belongs with the audio tools rather than in
   # the drawer everything unclassified falls into.
   category: AudioVideo
@@ -43,3 +47,7 @@ linux:
   syncDesktopName: true
   synopsis: Music practice and song-writing
   description: An all-in-one tool for music practice and song-writing.
+
+deb:
+  # Debian files audio software under sound; the default is "default".
+  packageCategory: sound

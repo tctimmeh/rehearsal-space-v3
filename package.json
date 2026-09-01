@@ -5,7 +5,15 @@
   "desktopName": "rehearsal-space.desktop",
   "main": "out/main/index.js",
   "keywords": [],
-  "author": "Tim Court",
+  "author": {
+    "name": "Tim Court",
+    "email": "timcourt@duck.com"
+  },
+  "homepage": "https://github.com/tctimmeh/rehearsal-space-v3",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tctimmeh/rehearsal-space-v3.git"
+  },
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -16,7 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:tuner": "vitest run --config vitest.replay.config.ts",
-    "pack": "npm run build && electron-builder --linux AppImage"
+    "pack": "npm run build && electron-builder --linux"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
