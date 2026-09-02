@@ -871,6 +871,13 @@
   font-size: 12px;
   min-width: 12ch;
 }
+/* Renaming happens where the name is: the field stands in the picker's place
+   in the row, rather than over the top of whatever is above it. */
+.tablature__rename input {
+  padding: 3px 6px;
+  font-size: 12px;
+  width: 12ch;
+}
 /*
  * The chord is named where it will be read: over its beat, on the row above
  * the beat numbers. A box above the editor meant looking away from the bar

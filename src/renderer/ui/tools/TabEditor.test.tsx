@@ -821,6 +821,22 @@ describe('coming back to the tablature', () => {
 })
 
 describe('renaming a tablature', () => {
+  /*
+   * The field stands where the picker stood, in the row. It borrowed the
+   * chord field's class, and when that moved onto the staff and became
+   * absolutely positioned the rename box went with it — over the top of the
+   * tool's own title.
+   */
+  it('stands in the row rather than over whatever is above it', () => {
+    render(<TabEditor />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+
+    const field = screen.getByLabelText('Tablature name').closest('label') as HTMLElement
+    expect(field.className).toContain('tablature__pick')
+    expect(field.className).not.toContain('tablature__chord')
+  })
+
   it('picks the name out, ready to be typed over', () => {
     render(<TabEditor />)
 

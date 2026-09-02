@@ -800,7 +800,7 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
 
   if (renaming) {
     return (
-      <label className="tablature__chord">
+      <label className="tablature__pick tablature__rename">
         <span>Name</span>
         <input
           className="well input"
