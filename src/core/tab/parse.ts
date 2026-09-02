@@ -135,15 +135,24 @@ function blocksOf(lines: string[]): Block[] {
  * straight on from it rather than opening a section.
  */
 function wordsAbove(lines: string[], above: number): string | null {
+  /* Exactly one blank line stands between the words and the system they
+     introduce, and exactly one between them and whatever came before. Any
+     others belong to the words: somebody left room there on purpose, and a
+     paragraph that loses its own blank lines every time it is read back is
+     not somewhere anybody can lay anything out. */
   let end = above - 1
-  while (end >= 0 && (lines[end] as string).trim() === '') end -= 1
+  if (end < 0 || (lines[end] as string).trim() !== '') return null
+  end -= 1
 
   let begin = end
-  while (begin >= 0 && (lines[begin] as string).trim() !== '' && !isStringRow(lines[begin] as string)) {
-    begin -= 1
-  }
+  while (begin >= 0 && !isStringRow(lines[begin] as string)) begin -= 1
 
-  return end > begin ? lines.slice(begin + 1, end + 1).join('\n') : null
+  const words = lines.slice(begin + 1, end + 1)
+  /* The one that separated these from the block above, where there was one.
+     At the top of the file nothing came before, so nothing is dropped. */
+  if (begin >= 0 && (words[0] as string | undefined)?.trim() === '') words.shift()
+
+  return words.length > 0 ? words.join('\n') : null
 }
 
 /** Where each bar of a row begins, and what is between the pipes. */

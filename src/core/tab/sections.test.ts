@@ -151,3 +151,56 @@ const spareAtIsEmpty = (doc: TabDoc, at: number): boolean => {
   const bar = doc.bars[at]
   return bar !== undefined && bar.opens === undefined && barIsEmpty(bar)
 }
+
+/*
+ * Somebody who leaves a blank line under a heading meant to leave it there.
+ * Reading it back has to give it back, or laying anything out is impossible.
+ */
+describe('blank lines in a section\'s words', () => {
+  const opened = (words: string): TabDoc => ({
+    strings: 6,
+    bars: [{ ...emptyBar(6), opens: words }, emptyBar(6), { ...emptyBar(6), opens: 'Chorus:' }]
+  })
+
+  const readBack = (words: string): string | undefined => parse(render(opened(words))).bars[0]?.opens
+
+  it('keeps one left at the end', () => {
+    expect(readBack('Verse:\n')).toBe('Verse:\n')
+  })
+
+  it('keeps several', () => {
+    expect(readBack('Verse:\n\n\n')).toBe('Verse:\n\n\n')
+  })
+
+  it('keeps one left at the start', () => {
+    expect(readBack('\nVerse:')).toBe('\nVerse:')
+  })
+
+  it('keeps them in the middle, where a heading is spaced off its note', () => {
+    expect(readBack('Verse:\n\nplay it quietly')).toBe('Verse:\n\nplay it quietly')
+  })
+
+  it('keeps them for a section that is not the first', () => {
+    const doc = opened('Verse:')
+    const withRoom = {
+      ...doc,
+      bars: doc.bars.map((bar, index) => (index === 2 ? { ...bar, opens: 'Chorus:\n' } : bar))
+    }
+    expect(parse(render(withRoom)).bars[2]?.opens).toBe('Chorus:\n')
+  })
+
+  it('comes back byte for byte, blank lines and all', () => {
+    const text = render(opened('Verse:\n\nquietly\n'))
+    expect(render(parse(text))).toBe(text)
+  })
+
+  /* The line that separates the words from the music is not one of them. */
+  it('does not turn the separator into a line of the words', () => {
+    expect(readBack('Verse:')).toBe('Verse:')
+  })
+
+  it('still reads a system that carries on as having no words at all', () => {
+    const text = render(opened('Verse:'))
+    expect(parse(text).bars[1]?.opens).toBeUndefined()
+  })
+})
