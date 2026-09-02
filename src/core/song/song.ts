@@ -174,7 +174,10 @@ export interface SongSummary {
   title: string
   artist: string
   channelCount: number
+  /** What is in it, for the library to say so without opening it. */
+  hasAudio: boolean
   hasLyrics: boolean
+  hasTabs: boolean
   tags: string[]
 }
 
@@ -258,6 +261,10 @@ export const summarise = (song: Song, hasLyrics: boolean): SongSummary => ({
   title: song.title,
   artist: song.artist,
   channelCount: song.channels.length,
+  /* A click track is not a recording of anything, so a song that has only one
+     has nothing in it yet. */
+  hasAudio: song.channels.some((channel) => channel.kind === 'audio'),
   hasLyrics,
+  hasTabs: song.tabs.length > 0,
   tags: song.tags
 })

@@ -147,7 +147,16 @@ export function createLibrary(root: string): SongLibrary {
             return summarise(song, await exists(join(await directoryOf(id), LYRICS_FILE)))
           } catch {
             /* A song we cannot read still exists; list it so it can be deleted. */
-            return { id, title: id, artist: '', channelCount: 0, hasLyrics: false, tags: [] }
+            return {
+              id,
+              title: id,
+              artist: '',
+              channelCount: 0,
+              hasAudio: false,
+              hasLyrics: false,
+              hasTabs: false,
+              tags: []
+            }
           }
         })
       ),

@@ -265,7 +265,9 @@ describe('the library list', () => {
     title,
     artist,
     channelCount: 0,
+    hasAudio: false,
     hasLyrics: true,
+    hasTabs: false,
     tags: []
   })
 

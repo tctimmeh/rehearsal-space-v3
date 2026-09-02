@@ -11,13 +11,21 @@ import { LibraryView } from './LibraryView'
 
 const filterBar = () => screen.getByRole('group', { name: 'Filter by tag' })
 
-const summary = (id: string, title: string, artist: string): SongSummary => ({
+const summary = (
+  id: string,
+  title: string,
+  artist: string,
+  has: Partial<SongSummary> = {}
+): SongSummary => ({
   id,
   title,
   artist,
   channelCount: 2,
+  hasAudio: false,
   hasLyrics: false,
-  tags: []
+  hasTabs: false,
+  tags: [],
+  ...has
 })
 
 beforeEach(() => {
@@ -265,5 +273,41 @@ describe('where the filter sits', () => {
       child.classList.contains('library__filter') ? 'filter' : 'button'
     )
     expect(order).toEqual(['filter', 'button'])
+  })
+})
+
+/* A library of names says nothing about which of them have anything in them. */
+describe('what each song holds', () => {
+  const held = (name: string) => screen.getAllByRole('img', { name })
+
+  it('says so when a song has audio, lyrics and tablature', () => {
+    useSong.setState({
+      songs: [summary('all', 'All', '', { hasAudio: true, hasLyrics: true, hasTabs: true })]
+    })
+    render(<LibraryView />)
+
+    expect(held('Has audio')).toHaveLength(1)
+    expect(held('Has lyrics')).toHaveLength(1)
+    expect(held('Has tablature')).toHaveLength(1)
+  })
+
+  /* What is absent is drawn too, so a row reads as three answers rather than
+     as however many marks happened to fit. */
+  it('says so when it has none of them', () => {
+    useSong.setState({ songs: [summary('bare', 'Bare', '')] })
+    render(<LibraryView />)
+
+    expect(held('No audio')).toHaveLength(1)
+    expect(held('No lyrics')).toHaveLength(1)
+    expect(held('No tablature')).toHaveLength(1)
+  })
+
+  it('answers each one on its own', () => {
+    useSong.setState({ songs: [summary('words', 'Words', '', { hasLyrics: true })] })
+    render(<LibraryView />)
+
+    expect(held('No audio')).toHaveLength(1)
+    expect(held('Has lyrics')).toHaveLength(1)
+    expect(held('No tablature')).toHaveLength(1)
   })
 })

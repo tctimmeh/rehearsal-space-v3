@@ -5,6 +5,7 @@ import { addTag, knownTags, matchesTags, removeTag } from '@core/song/tags'
 import { useNewSong } from '@renderer/state/newSong'
 import { useSong } from '@renderer/state/song'
 import { useView } from '@renderer/state/view'
+import { LyricsEditorIcon, TablatureIcon, WaveformIcon } from '../icons/uiIcons'
 import { Button, Modal } from '../primitives'
 import { TagInput } from './TagInput'
 
@@ -84,6 +85,7 @@ export function LibraryView() {
             Artist
           </button>
         </span>
+        <span className="col-holds" />
         <span className="col-tags">Tags</span>
         <span className="col-actions" />
       </div>
@@ -106,6 +108,8 @@ export function LibraryView() {
                 <span className="song-row__title">{summary.title}</span>
                 <span className="song-row__artist">{summary.artist || 'No artist'}</span>
               </button>
+
+              <Holds summary={summary} />
 
               <span className="col-tags song-row__tags">
                 {summary.tags.map((tag) => (
@@ -182,5 +186,37 @@ export function LibraryView() {
         </Modal>
       )}
     </div>
+  )
+}
+
+/**
+ * What is in a song, without opening it.
+ *
+ * A library of names says nothing about which of them have anything in them
+ * yet. What is absent is drawn as well as what is there, faintly, so the row
+ * reads as three answers rather than as however many marks happened to fit.
+ */
+function Holds({ summary }: { summary: SongSummary }) {
+  const has = [
+    { held: summary.hasAudio, label: 'audio', icon: <WaveformIcon size={14} /> },
+    { held: summary.hasLyrics, label: 'lyrics', icon: <LyricsEditorIcon size={14} /> },
+    { held: summary.hasTabs, label: 'tablature', icon: <TablatureIcon size={14} /> }
+  ]
+
+  return (
+    <span className="col-holds song-row__holds">
+      {has.map((one) => (
+        <span
+          key={one.label}
+          className="song-row__holds-one"
+          data-held={one.held}
+          title={`${summary.title} has ${one.held ? '' : 'no '}${one.label}`}
+          aria-label={`${one.held ? 'Has' : 'No'} ${one.label}`}
+          role="img"
+        >
+          {one.icon}
+        </span>
+      ))}
+    </span>
   )
 }

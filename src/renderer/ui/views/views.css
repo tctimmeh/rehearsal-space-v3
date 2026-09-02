@@ -34,9 +34,42 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* A row is read left to right and its width is what makes that possible. Past
+   a certain point the name and its tags are a screen apart and the eye has to
+   travel between them, so the list stops widening and sits in the middle of
+   whatever room there is.
+   
+   Both the heading and the rows are held to the same box, and both are told to
+   fill it: a flex item with automatic side margins takes its content's width
+   rather than its container's, which left the heading a third as wide as the
+   rows it names. */
+.library__head,
+.library__rows {
+  width: 100%;
+  max-width: 940px;
+  margin-inline: auto;
+}
+
 .col-name {
   flex: 1;
   min-width: 0;
+}
+/* What the song holds: three answers, always all three. */
+.col-holds {
+  flex: none;
+  width: 74px;
+}
+.song-row__holds {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.song-row__holds-one {
+  display: flex;
+  color: var(--text);
+}
+.song-row__holds-one[data-held='false'] {
+  color: var(--line);
 }
 .col-tags {
   flex: 1.4;
