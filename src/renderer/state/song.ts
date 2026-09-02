@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 
 import { placeTake, trimHead } from '@core/audio/take'
+import { takeSemitones } from '@core/mix/pitch'
 import { songBounds } from '@core/song/bounds'
 import { newMetronomeChannel, summarise } from '@core/song/song'
-import type { Channel, ChannelBase, Song, SongSummary } from '@core/song/song'
+import type { Channel, ChannelBase, PitchOffset, Song, SongSummary } from '@core/song/song'
 import type { SeparateRequest } from '@shared/stems'
 import { TOOL_META, type ToolId } from '@core/tools'
 import { ALL_INPUTS, inputsWorthKeeping, pickInput } from '@core/audio/inputChannels'
@@ -11,6 +12,7 @@ import { encodeWav } from '@core/audio/wav'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from './config'
 import { Recorder } from '@renderer/audio/recorder'
+import { shiftPitch } from '@renderer/audio/shiftPitch'
 import { useTools } from './tools'
 import { useTransport } from './transport'
 
@@ -277,6 +279,13 @@ export const useSong = create<SongState>((set, get) => ({
       return
     }
 
+    const played = await intoTheSongsOwnKey(
+      captured,
+      take.sampleRate,
+      { semitones: transport.semitones, cents: transport.cents },
+      set
+    )
+
     /*
      * A socket each, and each one mono.
      *
@@ -293,7 +302,7 @@ export const useSong = create<SongState>((set, get) => ({
       worth.length === 1 ? name : `${name} (input ${index + 1})`
 
     for (const index of worth) {
-      const one = captured[index]
+      const one = played[index]
       if (one === undefined) continue
       const wav = encodeWav([one], take.sampleRate)
       await runAdding(set, get, (song) =>
@@ -334,6 +343,39 @@ export const useSong = create<SongState>((set, get) => ({
     }
   }
 }))
+
+/**
+ * Takes the song's pitch back off a take, so what was played against a shifted
+ * song lands in the song's own key.
+ *
+ * The take is the one thing in a song that was performed against the shifter
+ * rather than written before it, so it is the one thing that arrives already
+ * carrying its offset. Left alone it would be shifted twice — once when it was
+ * heard, once when it is played — and a channel that only sounds right while
+ * the knob stays where it was is not a channel anybody can mix.
+ *
+ * A shifter that will not run is not worth a lost performance, so the take is
+ * kept as it was played and the user is told what they have.
+ */
+async function intoTheSongsOwnKey(
+  captured: Float32Array[],
+  sampleRate: number,
+  heardAt: PitchOffset,
+  set: (partial: Partial<SongState>) => void
+): Promise<Float32Array[]> {
+  const semitones = takeSemitones(heardAt)
+  if (semitones === 0) return captured
+
+  set({ importing: true })
+  try {
+    return await shiftPitch(captured, sampleRate, semitones)
+  } catch (error) {
+    set({ error: `The take was kept at the pitch it was played at: ${message(error)}` })
+    return captured
+  } finally {
+    set({ importing: false })
+  }
+}
 
 /**
  * Everything that adds channels goes the same way: settle anything unsaved

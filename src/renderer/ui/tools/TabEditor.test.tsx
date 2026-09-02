@@ -467,10 +467,10 @@ describe('picking out a stretch', () => {
     render(<TabEditor />)
     press('7')
     press('s')
-    press('c')
+    press('c', { ctrlKey: true })
     for (let step = 0; step < 4; step += 1) press('ArrowRight')
 
-    press('v')
+    press('v', { ctrlKey: true })
 
     /* The 7 now appears twice: where it was written and where it was put. */
     expect(strings().match(/7/g)?.length).toBe(2)
@@ -480,9 +480,39 @@ describe('picking out a stretch', () => {
     render(<TabEditor />)
     press('7')
     press('s')
-    press('x')
+
+    press('x', { ctrlKey: true })
 
     expect(strings()).not.toContain('7')
+    expect(strings()).not.toContain('x')
+  })
+
+  /*
+   * The plain letters are a fret's worth of typing. `x` is a muted string, and
+   * taking it for "cut" while beats were picked out made it the one place in
+   * the app where a bare letter threw music away.
+   */
+  it('types a mute rather than cutting when x is pressed on its own', () => {
+    render(<TabEditor />)
+    press('7')
+    press('s')
+
+    press('x')
+
+    expect(strings()).toContain('x')
+    expect(picked().length).toBe(0)
+  })
+
+  it('does nothing for a plain c or v', () => {
+    render(<TabEditor />)
+    press('7')
+    press('s')
+    press('c')
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+
+    press('v')
+
+    expect(strings().match(/7/g)?.length).toBe(1)
   })
 })
 

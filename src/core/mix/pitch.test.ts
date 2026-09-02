@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { requestedSemitones, shifterSemitones } from './pitch'
+import { requestedSemitones, shifterSemitones, takeSemitones } from './pitch'
 
 const pitch = (semitones: number, cents = 0) => ({ semitones, cents })
 
@@ -43,5 +43,22 @@ describe('shifterSemitones', () => {
     expect(shifterSemitones(2, pitch(12))).toBeCloseTo(0, 10)
     /* Half speed with the same request needs two octaves, not none. */
     expect(shifterSemitones(0.5, pitch(12))).toBeCloseTo(24, 10)
+  })
+})
+
+describe('takeSemitones', () => {
+  it('leaves a take alone when the song was not shifted', () => {
+    expect(takeSemitones(pitch(0))).toBeCloseTo(0, 10)
+  })
+
+  it('undoes what the player was hearing', () => {
+    /* Recorded against a song a tone up, so it goes in a tone down. */
+    expect(takeSemitones(pitch(2))).toBe(-2)
+    expect(takeSemitones(pitch(-3, 25))).toBe(2.75)
+  })
+
+  it('cancels the shift the take will meet on the way out', () => {
+    const asked = pitch(4, -10)
+    expect(takeSemitones(asked) + requestedSemitones(asked)).toBeCloseTo(0, 10)
   })
 })

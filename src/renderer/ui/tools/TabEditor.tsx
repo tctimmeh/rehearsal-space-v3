@@ -345,6 +345,11 @@ export function TabEditor() {
   const selectKeys = (event: React.KeyboardEvent, chosen: Span): boolean => {
     const state: Editing = { doc, cursor }
     const key = event.key.toLowerCase()
+    /* Cut, copy and paste are held with control, the way they are everywhere
+       else. The bare letters are a fret's worth of typing: `x` is a muted
+       string, and taking it for "cut" here would have been the only place in
+       the app where a plain letter threw music away. */
+    const held = event.ctrlKey || event.metaKey
 
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
       const to = Math.max(
@@ -355,14 +360,14 @@ export function TabEditor() {
       return true
     }
 
-    if (key === 'c') {
+    if (held && key === 'c') {
       clipboard.current = copyBeats(doc, chosen)
       void navigator.clipboard?.writeText(render(asDocument(clipboard.current, doc.strings)))
       leaveSelection(chosen.from)
       return true
     }
 
-    if (key === 'x') {
+    if (held && key === 'x') {
       clipboard.current = copyBeats(doc, chosen)
       void navigator.clipboard?.writeText(render(asDocument(clipboard.current, doc.strings)))
       apply({ ...state, doc: clearBeats(doc, chosen) }, false)
@@ -461,10 +466,12 @@ export function TabEditor() {
       return
     }
 
-    if (event.key.toLowerCase() === 'v' && (held || !event.altKey)) {
+    if (held && event.key.toLowerCase() === 'v') {
       if (clipboard.current.length > 0) {
         return void step(event, { doc: pasteBeats(doc, cursor, clipboard.current), cursor })
       }
+      event.preventDefault()
+      return
     }
 
     if (event.ctrlKey || event.metaKey || event.altKey) return

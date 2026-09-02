@@ -18,3 +18,19 @@ export const requestedSemitones = (pitch: PitchOffset): number =>
  */
 export const shifterSemitones = (speed: number, pitch: PitchOffset): number =>
   requestedSemitones(pitch) - SEMITONES_PER_OCTAVE * Math.log2(speed)
+
+/**
+ * What a take has to be shifted by on its way into the song.
+ *
+ * A take is played against what the shifter is already doing: if the song in
+ * the player's ears is a tone up, what they play is a tone up too. Coming back
+ * it meets that same shifter, which would raise it a second time. So it is
+ * lowered on the way in by exactly what the song was raised by, and the two
+ * cancel — leaving a channel that sits in the song's own key and follows the
+ * pitch knob afterwards like every other channel does.
+ *
+ * Tempo does not come into it. Playing a buffer faster raises its pitch and
+ * the shifter takes that back off again, so what a take is out by is only ever
+ * what the user actually asked for.
+ */
+export const takeSemitones = (pitch: PitchOffset): number => -requestedSemitones(pitch)

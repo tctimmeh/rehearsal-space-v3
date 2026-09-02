@@ -61,10 +61,10 @@ const KEYS: TabKey[] = [
 
   { keys: 'S', does: 'Start picking out beats, and stop', group: 'Beats and bars' },
   { keys: '← →', does: 'Reach further while picking them out', group: 'Beats and bars' },
-  { keys: 'C', does: 'Copy the beats picked out', group: 'Beats and bars' },
-  { keys: 'X', does: 'Cut them', group: 'Beats and bars' },
+  { keys: 'Ctrl + C', does: 'Copy the beats picked out', group: 'Beats and bars' },
+  { keys: 'Ctrl + X', does: 'Cut them', group: 'Beats and bars' },
   { keys: 'Del', does: 'Empty them, leaving the bars', group: 'Beats and bars' },
-  { keys: 'V', does: 'Paste at the cursor', group: 'Beats and bars' },
+  { keys: 'Ctrl + V', does: 'Paste at the cursor', group: 'Beats and bars' },
   { keys: 'Ctrl + ↑', does: 'Name the chord over this beat', group: 'Beats and bars' },
 
   {
