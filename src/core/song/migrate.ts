@@ -156,12 +156,24 @@ function parseChannel(raw: unknown, index: number): Channel | null {
   const file = str(raw['file'], '')
   if (file === '') return null
 
+  const duration = Math.max(0, num(raw['duration'], 0))
+  const offset = Math.max(0, num(raw['offset'], 0))
+  /* A channel written before trimming existed plays all of its file, so the
+     file is as long as it plays for. Saying so here means nothing further on
+     has to wonder whether it was left out or is genuinely nought. */
+  const sourceDuration = Math.max(
+    offset + duration,
+    num(raw['sourceDuration'], offset + duration)
+  )
+
   return {
     ...base,
     kind: 'audio',
     file,
     startTime: num(raw['startTime'], 0),
-    duration: Math.max(0, num(raw['duration'], 0)),
+    duration,
+    ...(offset > 0 ? { offset } : {}),
+    sourceDuration,
     origin: parseOrigin(raw['origin'])
   }
 }

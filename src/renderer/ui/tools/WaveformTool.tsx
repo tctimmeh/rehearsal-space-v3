@@ -15,6 +15,7 @@ import { Tabs } from '../primitives'
 import { usePeaks } from './usePeaks'
 import { ClickTrackControls, ClickTrackMarks } from './ClickTrackMode'
 import { LoopControls, LoopMarks, MIN_LENGTH, regionBetween } from './LoopMode'
+import { TrimControls, TrimMarks } from './TrimMode'
 import { Picker, type View } from './waveformParts'
 
 /**
@@ -24,6 +25,7 @@ import { Picker, type View } from './waveformParts'
  */
 const JOBS = [
   { id: 'loop', label: 'Loop region' },
+  { id: 'trim', label: 'Trim' },
   { id: 'click', label: 'Click align' }
 ] as const
 type Job = (typeof JOBS)[number]['id']
@@ -45,6 +47,7 @@ const note = (job: Job, timing: MetronomeTiming | null, loop: LoopRegion | null)
       ? `Shift-drag to mark a stretch to go round and round · ${moving}`
       : `Looping ${(loop.end - loop.start).toFixed(1)}s · ${moving}`
   }
+  if (job === 'trim') return `Drag the ends to trim, the middle to move it · ${moving}`
   return timing === null
     ? 'Add a click track from the mixer to line one up.'
     : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · ${moving}`
@@ -157,6 +160,11 @@ export function WaveformTool() {
     return <p className="tool-placeholder">Import some audio to line a click track up against.</p>
   }
 
+  const changeChannel = (next: AudioChannel) => {
+    if (song === null) return
+    update({ channels: song.channels.map((c) => (c.id === next.id ? next : c)) })
+  }
+
   const change = (patch: Partial<MetronomeChannel>) => {
     if (click === null) return
     update({
@@ -182,6 +190,8 @@ export function WaveformTool() {
             onPick={setClickId}
             change={change}
           />
+        ) : job === 'trim' ? (
+          <TrimControls channel={against} view={view} onChange={changeChannel} />
         ) : (
           <LoopControls loop={loop} view={view} onChange={setRegion} />
         )}
@@ -327,13 +337,18 @@ export function WaveformTool() {
           peaks={peaks}
           from={from}
           to={to}
-          offset={against?.startTime ?? 0}
+          /* The file's own beginning, which is not where it starts playing
+             once it has been trimmed. Drawn from there, what was cut off lies
+             where it always did rather than shifting the rest out of true. */
+          offset={(against?.startTime ?? 0) - (against?.offset ?? 0)}
           color={CHANNEL_SUBJECT_COLOR[against?.subject ?? 'other']}
           height={WAVE_HEIGHT}
         />
 
         {job === 'click' ? (
           <ClickTrackMarks timing={timing} view={view} change={change} />
+        ) : job === 'trim' ? (
+          <TrimMarks channel={against} view={view} onChange={changeChannel} />
         ) : (
           <LoopMarks
             loop={drawn ?? loop}

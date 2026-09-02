@@ -24,9 +24,25 @@ export interface AudioChannel extends ChannelBase {
   kind: 'audio'
   /** Relative to the song directory, e.g. `audio/bass_take2.ogg`. */
   file: string
-  /** Where the channel sits on the song timeline; 0 for a full-length track. */
+  /** Where the kept part sits on the song timeline; 0 for a full-length track. */
   startTime: number
+  /** How long the kept part is. */
   duration: number
+  /**
+   * Seconds into the file where the kept part begins.
+   *
+   * Trimming takes nothing away from the file: it says which part of it to
+   * play, so the rest is still there to be let back in. Absent means from the
+   * beginning, which is what an untrimmed channel is.
+   */
+  offset?: number
+  /**
+   * How long the file itself is, which is what trimming has to stay inside.
+   *
+   * Absent on a channel written before trimming existed, which is untrimmed by
+   * definition, so its file is as long as it plays for.
+   */
+  sourceDuration?: number
   origin: ChannelOrigin
 }
 
@@ -114,12 +130,12 @@ export interface TabFile {
 
 export interface WaveformSettings {
   /** Which job the tool was left on. */
-  tab: 'loop' | 'click'
+  tab: 'loop' | 'trim' | 'click'
   /** The channel being looked at, or null for whichever comes first. */
   channel: string | null
 }
 
-export const WAVEFORM_TABS = ['loop', 'click'] as const
+export const WAVEFORM_TABS = ['loop', 'trim', 'click'] as const
 
 /** Both ends in song time, so a region may begin before 00:00 in a count-in. */
 export interface LoopRegion {

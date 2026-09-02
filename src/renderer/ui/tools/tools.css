@@ -485,6 +485,38 @@
  * the palette's colours mean channels — so it is given a shape the grid does
  * not have: a marker at each end, pointing at the instant it sits on.
  */
+/* What a trim keeps, and what it cuts off. The cut is drawn rather than
+   hidden: it is still in the file, and being able to see it is how anybody
+   decides they took too much. */
+.align__kept {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-top: 2px solid var(--go);
+  border-bottom: 2px solid var(--go);
+  background: rgba(111, 217, 154, 0.08);
+  cursor: grab;
+}
+.align__kept:active {
+  cursor: grabbing;
+}
+.align__cut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(8, 8, 10, 0.62);
+  pointer-events: none;
+}
+/* The same handles the other jobs use, in the colour of what they are moving. */
+.align__handle--trim-start::before,
+.align__handle--trim-end::before {
+  background: var(--go);
+}
+.align__handle--trim-end .align__flag {
+  left: auto;
+  right: 0;
+}
+
 .align__playhead {
   position: absolute;
   top: 0;

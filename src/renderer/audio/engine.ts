@@ -3,6 +3,7 @@ import SignalsmithStretch, { type StretchNode } from 'signalsmith-stretch'
 import { audibleGain } from '@core/mix/audible'
 import { beatsBetween, solveMetronome, type MetronomeTiming } from '@core/metronome/solve'
 import { shifterSemitones } from '@core/mix/pitch'
+import { playFrom } from '@core/song/trim'
 import type {
   AudioChannel,
   LoopRegion,
@@ -692,21 +693,18 @@ export class AudioEngine {
 
     this.stopChannel(loaded)
 
-    const { channel } = loaded
-    if (songTime >= channel.startTime + channel.duration) return
+    /* Only the kept part of the file is played: trimming says where in the
+       file to begin and how much of it to take, and leaves the file alone. */
+    const play = playFrom(loaded.channel, songTime)
+    if (play === null) return
 
     const source = context.createBufferSource()
     source.buffer = loaded.buffer
     source.playbackRate.value = this.rate
     source.connect(loaded.gain)
 
-    if (songTime <= channel.startTime) {
-      /* Still to come: wait out the gap in wall-clock terms. */
-      const wait = (channel.startTime - songTime) / this.rate
-      source.start(context.currentTime + wait, 0)
-    } else {
-      source.start(context.currentTime, songTime - channel.startTime)
-    }
+    /* A gap still to come is waited out in wall-clock terms. */
+    source.start(context.currentTime + play.wait / this.rate, play.from, play.length)
     loaded.source = source
   }
 }
