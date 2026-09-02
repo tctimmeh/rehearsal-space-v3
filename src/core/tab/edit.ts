@@ -9,6 +9,7 @@ import {
   OFF_BEAT,
   ON_BEAT,
   barIsEmpty,
+  type Bar,
   type Beat,
   type Cursor,
   type Sixteenth,
@@ -342,7 +343,8 @@ export function setBeats(state: Editing, beats: number): Editing {
 }
 
 /** Lengthens a bar with empty beats, or shortens it from the end. */
-const inBeats = (bar: { beats: Beat[] }, beats: number, strings: number): { beats: Beat[] } => ({
+const inBeats = (bar: Bar, beats: number, strings: number): Bar => ({
+  ...bar,
   beats:
     bar.beats.length >= beats
       ? bar.beats.slice(0, beats)
@@ -351,6 +353,48 @@ const inBeats = (bar: { beats: Beat[] }, beats: number, strings: number): { beat
           ...Array.from({ length: beats - bar.beats.length }, () => emptyBeat(strings))
         ]
 })
+
+/**
+ * Opens a section at the bar the cursor is in.
+ *
+ * The bar becomes the first of a new system with room above it for a name or a
+ * note on how to play what follows. Nothing is written there yet — that is the
+ * point, the words come next — and a section left unnamed closes itself again
+ * once the cursor leaves.
+ *
+ * A bar that already opens one is left alone rather than emptied, so pressing
+ * it twice does not throw away what was written.
+ */
+export function openSection(state: Editing): Editing {
+  const { doc, cursor } = state
+  const bar = doc.bars[cursor.bar]
+  if (bar === undefined || bar.opens !== undefined) return state
+  return {
+    ...state,
+    doc: {
+      ...doc,
+      bars: doc.bars.map((one, index) => (index === cursor.bar ? { ...one, opens: '' } : one))
+    }
+  }
+}
+
+/** What is written above the section the cursor's bar belongs to. */
+export function sectionAt(doc: TabDoc, cursor: Cursor): { bar: number; text: string } | null {
+  for (let index = Math.min(cursor.bar, doc.bars.length - 1); index >= 0; index -= 1) {
+    const opens = doc.bars[index]?.opens
+    if (opens !== undefined) return { bar: index, text: opens }
+  }
+  return null
+}
+
+/** Writes the words above a section, which is where a section's name lives. */
+export function nameSection(doc: TabDoc, bar: number, text: string): TabDoc {
+  if (doc.bars[bar]?.opens === undefined || doc.bars[bar]?.opens === text) return doc
+  return {
+    ...doc,
+    bars: doc.bars.map((one, index) => (index === bar ? { ...one, opens: text } : one))
+  }
+}
 
 /**
  * Tidies up and keeps the cursor somewhere real.

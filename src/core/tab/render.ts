@@ -98,8 +98,10 @@ export function layOut(doc: TabDoc, wrapAt = WRAP_COLUMNS): System[] {
   for (const bar of doc.bars) {
     const widths = slotWidths(bar, doc.strings)
     const width = barWidth(widths)
-    /* The closing pipe of the line has to fit as well as the bar. */
-    if (bars.length > 0 && at + width + 1 > wrapAt) {
+    /* A bar that opens a section begins a line of its own whether or not the
+       one before it had room: that is what dividing the music into sections
+       means. The closing pipe of the line has to fit as well as the bar. */
+    if (bars.length > 0 && (bar.opens !== undefined || at + width + 1 > wrapAt)) {
       systems.push({ bars })
       bars = []
       at = 0
@@ -191,17 +193,60 @@ const systemRows = (system: System, strings: number): string[] =>
     return row + '|'
   })
 
-/** The whole document as the text it is stored and copied as. */
-export function render(doc: TabDoc, wrapAt = WRAP_COLUMNS): string {
-  const blocks = layOut(doc, wrapAt).map((system) => {
+/** One paragraph of the drawing: either a system, or the words above one. */
+export interface Block {
+  kind: 'words' | 'system'
+  lines: string[]
+  /** Line the first of those lines is drawn on. */
+  from: number
+  /** The bar this block belongs to: the one it opens, or the system's first. */
+  bar: number
+  system?: System
+}
+
+/**
+ * The drawing, paragraph by paragraph.
+ *
+ * One walk, so that what is written down and where each line ended up cannot
+ * come to disagree: the words above a section take up room, and everything
+ * below them is that much further down the page. Both `render` and `laidOut`
+ * are this, read two ways.
+ */
+export function blocksOf(doc: TabDoc, wrapAt = WRAP_COLUMNS): Block[] {
+  const blocks: Block[] = []
+  let line = 0
+  let firstBar = 0
+
+  for (const system of layOut(doc, wrapAt)) {
+    const opening = system.bars[0]?.bar.opens
+    /* A section opened but not yet named cannot be written down — there is
+       nothing to write — so it is simply not drawn. It does not survive a save
+       either: normalising drops it once the cursor has left. */
+    if (opening !== undefined && opening.trim() !== '') {
+      const words = opening.split('\n')
+      blocks.push({ kind: 'words', lines: words, from: line, bar: firstBar })
+      line += words.length + 1
+    }
+
     const chords = chordLine(system)
-    return [
+    const lines = [
       ...(chords === null ? [] : [chords]),
       markerLine(system),
       ...systemRows(system, doc.strings)
-    ].join('\n')
-  })
-  return blocks.join('\n\n') + '\n'
+    ]
+    blocks.push({ kind: 'system', lines, from: line, bar: firstBar, system })
+    line += lines.length + 1
+    firstBar += system.bars.length
+  }
+
+  return blocks
+}
+
+/** The whole document as the text it is stored and copied as. */
+export function render(doc: TabDoc, wrapAt = WRAP_COLUMNS): string {
+  return blocksOf(doc, wrapAt)
+    .map((block) => block.lines.join('\n'))
+    .join('\n\n') + '\n'
 }
 
 /** A system, and where it ended up in the lines `render` produced. */
@@ -220,20 +265,36 @@ interface Laid {
  * between them are needed: where a cursor is drawn, and what was clicked on.
  */
 export function laidOut(doc: TabDoc, wrapAt = WRAP_COLUMNS): Laid[] {
-  const laid: Laid[] = []
-  let line = 0
-  let firstBar = 0
+  return blocksOf(doc, wrapAt)
+    .filter((block) => block.system !== undefined)
+    .map((block) => ({
+      system: block.system as System,
+      firstBar: block.bar,
+      /* The rows sit at the end of the block, under the chords and the beats. */
+      top: block.from + block.lines.length - doc.strings
+    }))
+}
 
-  for (const system of layOut(doc, wrapAt)) {
-    /* The chord line if there is one, then the beat numbers. */
-    const top = line + (chordLine(system) === null ? 0 : 1) + 1
-    laid.push({ system, firstBar, top })
-    firstBar += system.bars.length
-    /* The rows themselves, and the blank line between systems. */
-    line = top + doc.strings + 1
+/**
+ * The section whose words are drawn directly above the cursor's system.
+ *
+ * Only directly above: a system that carries on from the one before it has
+ * that system's own strings above it, not any words, and moving up out of it
+ * should walk up the page rather than jump to the top of the section.
+ */
+export function wordsAboveCursor(
+  doc: TabDoc,
+  cursor: Cursor,
+  wrapAt = WRAP_COLUMNS
+): number | null {
+  const blocks = blocksOf(doc, wrapAt)
+  for (const [index, block] of blocks.entries()) {
+    if (block.system === undefined) continue
+    if (cursor.bar < block.bar || cursor.bar >= block.bar + block.system.bars.length) continue
+    const before = blocks[index - 1]
+    return before !== undefined && before.kind === 'words' ? before.bar : null
   }
-
-  return laid
+  return null
 }
 
 /** Every slot of a system, with the column it is drawn at. */

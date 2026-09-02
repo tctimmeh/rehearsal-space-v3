@@ -9,6 +9,8 @@ import {
   moveUp,
   chordAt,
   markWith,
+  nameSection,
+  openSection,
   nameChord,
   QUICK_MS,
   setBeats,
@@ -24,6 +26,7 @@ import {
   STRINGS_MIN,
   TECHNIQUES,
   type Beat,
+  type TabDoc,
   type Technique
 } from '@core/tab/document'
 import {
@@ -46,7 +49,15 @@ import {
   type History
 } from '@core/tab/history'
 import { inkOf, rowsOf, type Ink, type Row } from '@core/tab/ink'
-import { cursorAtPlace, placeOf, render, WRAP_COLUMNS } from '@core/tab/render'
+import {
+  blocksOf,
+  cursorAtPlace,
+  wordsAboveCursor,
+  placeOf,
+  render,
+  WRAP_COLUMNS,
+  type Block
+} from '@core/tab/render'
 import type { TabFile } from '@core/song/song'
 import { newTabFile } from '@core/tab/files'
 import { useSong } from '@renderer/state/song'
@@ -93,6 +104,14 @@ export function TabEditor() {
   const [naming, setNaming] = useState(false)
   /** True while the list of what the editor answers to is up. */
   const [showingKeys, setShowingKeys] = useState(false)
+  /**
+   * The bar whose section words are being typed, or null while the cursor is
+   * in the music.
+   *
+   * The words are ordinary prose and want ordinary text editing, so they are
+   * a field rather than something the block cursor is moved over.
+   */
+  const [writing, setWriting] = useState<number | null>(null)
   /**
    * The beats picked out, counted straight through the document.
    *
@@ -157,13 +176,18 @@ export function TabEditor() {
     showing.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
   }, [cursor, columns])
 
-  const text = useMemo(() => render(doc, columns), [doc, columns])
-  /* Drawn a system at a time, so that scrolling can think in whole bars. */
-  const systems = useMemo(
-    () => text.replace(/\n$/, '').split('\n\n').map((block) => block.split('\n')),
-    [text]
-  )
+  /*
+   * Drawn a paragraph at a time — a system, or the words above one — so that
+   * scrolling can think in whole bars, and the words are typed into where they
+   * are read rather than into a box somewhere else.
+   */
+  const blocks = useMemo(() => withRoomToWrite(doc, columns, writing), [doc, columns, writing])
   const place = placeOf(doc, cursor, columns)
+  /* Which system each block is, for the one that has to be scrolled to. */
+  const ordinals = useMemo(() => {
+    let seen = -1
+    return blocks.map((block) => (block.system === undefined ? -1 : (seen += 1)))
+  }, [blocks])
 
   /**
    * Which columns of which lines are picked out.
@@ -248,6 +272,26 @@ export function TabEditor() {
     }
     history.current = remember(history.current, tidied, joins)
     edit(tidied.doc)
+  }
+
+  /**
+   * Steps out of the words, into the music above or below them.
+   *
+   * Settling on the way is what re-joins the two systems when the words have
+   * all been deleted: an unnamed section is not a section, and closing it is
+   * exactly what leaving an emptied sixteenth does.
+   */
+  const leaveWords = (bar: number, way: 'up' | 'down'): void => {
+    const above = way === 'up' && bar > 0
+    const to = {
+      bar: above ? bar - 1 : bar,
+      beat: 0,
+      slot: 0,
+      string: above ? doc.strings - 1 : 0
+    }
+    setWriting(null)
+    apply({ doc, cursor: to }, true)
+    field.current?.focus()
   }
 
   /** An edit made by a key that also has to stop the browser doing its own thing. */
@@ -371,6 +415,16 @@ export function TabEditor() {
       return void step(event, setBeats(state, beats + (event.key === 'ArrowRight' ? 1 : -1)))
     }
 
+    /* A section begins at the bar the cursor is in, with room above it to say
+       what the section is. */
+    if (held && event.key.toLowerCase() === 't') {
+      const opened = openSection(state)
+      if (opened !== state) apply(opened, false)
+      setWriting(cursor.bar)
+      event.preventDefault()
+      return
+    }
+
     /* Up out of the tablature is where the chords are written. */
     if (held && event.key === 'ArrowUp') {
       setNaming(true)
@@ -395,6 +449,15 @@ export function TabEditor() {
 
     if (TECHNIQUES.includes(event.key as Technique) && event.key !== '-') {
       return void step(event, markWith(state, event.key as Technique))
+    }
+
+    if (event.key === 'ArrowUp' && cursor.string === 0) {
+      const opening = wordsAboveCursor(doc, cursor, columns)
+      if (opening !== null) {
+        setWriting(opening)
+        event.preventDefault()
+        return
+      }
     }
 
     const move = moves[event.key]
@@ -505,25 +568,42 @@ export function TabEditor() {
         onKeyDown={onKeyDown}
         onPointerDown={onPointerDown}
       >
-        {systems.map((block, system) => {
-          const rows = rowsOf(block.length, doc.strings)
-          return (
+        {blocks.map((block, index) =>
+          block.kind === 'words' ? (
+            <SectionWords
+              key={`words-${block.bar}`}
+              lines={block.lines}
+              writing={writing === block.bar}
+              /* From the store rather than from this render: typing outruns
+                 what React has committed, and a keystroke written onto a copy
+                 that has not caught up is a keystroke thrown away. */
+              onWrite={(words) => edit(nameSection(useTabs.getState().doc, block.bar, words))}
+              onPick={() => setWriting(block.bar)}
+              onLeave={(way) => leaveWords(block.bar, way)}
+            />
+          ) : (
             <div
               className="tablature__system"
-              key={system}
-              ref={place?.system === system ? showing : undefined}
+              key={`system-${block.from}`}
+              ref={ordinals[index] === place?.system ? showing : undefined}
             >
-              {block.map((line, offset) => {
-                const index = lineOf(systems, system, offset)
+              {block.lines.map((line, offset) => {
+                const at = block.from + offset
                 return (
-                  <div className="tablature__line" key={offset} data-line={index}>
-                    {drawLine(line, rows[offset] ?? 'string', index, place, picked.get(index))}
+                  <div className="tablature__line" key={offset} data-line={at}>
+                    {drawLine(
+                      line,
+                      rowsOf(block.lines.length, doc.strings)[offset] ?? 'string',
+                      at,
+                      place,
+                      picked.get(at)
+                    )}
                   </div>
                 )
               })}
             </div>
           )
-        })}
+        )}
       </div>
     </div>
   )
@@ -687,6 +767,97 @@ const STRING_COUNTS = Array.from(
   { length: STRINGS_MAX - STRINGS_MIN + 1 },
   (_, step) => STRINGS_MIN + step
 )
+
+/**
+ * The paragraphs to draw, with room made for a section just opened.
+ *
+ * A section with nothing written above it yet cannot be drawn — there is
+ * nothing to draw — but it still has to be somewhere for the first word to be
+ * typed into, so an empty one is put back in front of the system it opens.
+ */
+function withRoomToWrite(doc: TabDoc, columns: number, writing: number | null): Block[] {
+  const blocks = blocksOf(doc, columns)
+  if (writing === null || blocks.some((block) => block.kind === 'words' && block.bar === writing)) {
+    return blocks
+  }
+  const at = blocks.findIndex((block) => block.system !== undefined && block.bar === writing)
+  if (at === -1) return blocks
+  const opening: Block = { kind: 'words', lines: [''], from: blocks[at]?.from ?? 0, bar: writing }
+  return [...blocks.slice(0, at), opening, ...blocks.slice(at)]
+}
+
+/**
+ * The words above a section: its name, or a note on how to play it.
+ *
+ * Prose rather than music, so it is a real text field with a real caret. Up
+ * off the top line and down off the bottom leave it for the music either side,
+ * which is the only way in and out that does not need the mouse.
+ */
+function SectionWords({
+  lines,
+  writing,
+  onWrite,
+  onPick,
+  onLeave
+}: {
+  lines: string[]
+  writing: boolean
+  onWrite: (words: string) => void
+  onPick: () => void
+  onLeave: (way: 'up' | 'down') => void
+}) {
+  const field = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (writing) field.current?.focus()
+  }, [writing])
+
+  if (!writing) {
+    return (
+      <div className="tablature__words" onPointerDown={onPick}>
+        {lines.map((line, offset) => (
+          <div className="tablature__line" key={offset}>
+            {line === '' ? ' ' : line}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const words = lines.join('\n')
+  return (
+    <div className="tablature__words tablature__words--writing">
+      <textarea
+        ref={field}
+        className="tablature__field"
+        aria-label="Section words"
+        value={words}
+        rows={Math.max(1, lines.length)}
+        spellCheck={false}
+        placeholder="Verse, chorus, or how to play it"
+        onChange={(event) => onWrite(event.target.value)}
+        onKeyDown={(event) => {
+          /* The field sits inside the sheet, whose own handler answers for
+             every key: `s` would start picking out beats instead of being
+             typed, and Escape would step out of the tablature altogether. In
+             here the keys are this field's. */
+          event.stopPropagation()
+          const caret = event.currentTarget.selectionStart
+          const onFirst = !words.slice(0, caret).includes('\n')
+          const onLast = !words.slice(caret).includes('\n')
+          if (event.key === 'ArrowUp' && onFirst) {
+            event.preventDefault()
+            onLeave('up')
+          }
+          if ((event.key === 'ArrowDown' && onLast) || event.key === 'Escape') {
+            event.preventDefault()
+            onLeave('down')
+          }
+        }}
+      />
+    </div>
+  )
+}
 
 const INK_CLASS: Record<Ink, string> = {
   note: 'tablature__note',

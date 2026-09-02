@@ -86,6 +86,8 @@ const isMarkerRow = (line: string): boolean =>
 interface Block {
   chords: string | null
   markers: string | null
+  /** Free text written above this system, which is what opens a section. */
+  words: string | null
   rows: string[]
 }
 
@@ -105,8 +107,6 @@ function blocksOf(lines: string[]): Block[] {
       at += 1
     }
 
-    const before = blocks.length === 0 ? 0 : 0
-    void before
     const start = at - rows.length
     const markers = start > 0 && isMarkerRow(lines[start - 1] as string) ? lines[start - 1] : null
     const chordsAt = markers === null ? start - 1 : start - 2
@@ -115,11 +115,35 @@ function blocksOf(lines: string[]): Block[] {
       chordsAt >= 0 && candidate.trim() !== '' && !candidate.includes('|') && !isMarkerRow(candidate)
         ? candidate
         : null
+    const above = chords !== null ? chordsAt : markers !== null ? start - 1 : start
 
-    blocks.push({ chords: chords ?? null, markers: markers ?? null, rows })
+    blocks.push({ chords: chords ?? null, markers: markers ?? null, words: wordsAbove(lines, above), rows })
   }
 
   return blocks
+}
+
+/**
+ * The words written above a system, if any are.
+ *
+ * A paragraph of its own, separated from the system by a blank line — which is
+ * what tells it apart from the chords, since those are written hard against
+ * the beats. Anything directly above with no blank line between is the chord
+ * line and has already been taken as one.
+ *
+ * Nothing above but the previous system's own rows means this system carries
+ * straight on from it rather than opening a section.
+ */
+function wordsAbove(lines: string[], above: number): string | null {
+  let end = above - 1
+  while (end >= 0 && (lines[end] as string).trim() === '') end -= 1
+
+  let begin = end
+  while (begin >= 0 && (lines[begin] as string).trim() !== '' && !isStringRow(lines[begin] as string)) {
+    begin -= 1
+  }
+
+  return end > begin ? lines.slice(begin + 1, end + 1).join('\n') : null
 }
 
 /** Where each bar of a row begins, and what is between the pipes. */
@@ -268,6 +292,9 @@ export function parse(text: string): TabDoc {
     }
 
     attachChords(made, columns, block.chords)
+    /* The words belong to the first bar under them, which is the bar that
+       opens the section they introduce. */
+    if (block.words !== null && made[0] !== undefined) made[0].opens = block.words
     bars.push(...made)
   }
 

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type Song } from '@core/song/song'
@@ -872,5 +873,112 @@ describe('how many strings a tablature is for', () => {
     pick(4)
 
     expect(strings().split('\n')[0]).toContain('7')
+  })
+})
+
+/*
+ * A tablature file is not one long run of bars: it has a verse, a chorus, and
+ * things worth saying about how to play them. The words divide it.
+ */
+describe('sections divided by words', () => {
+  const words = () => screen.queryByLabelText('Section words') as HTMLTextAreaElement | null
+  const written = () =>
+    [...sheet().querySelectorAll('.tablature__words')].map((one) => one.textContent)
+
+  it('opens one at the cursor, ready to be named', () => {
+    render(<TabEditor />)
+    sheet().focus()
+
+    press('t', { ctrlKey: true })
+
+    expect(words()).toBeTruthy()
+    expect(document.activeElement).toBe(words())
+  })
+
+  it('writes what is typed there above that bar', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+
+    await user.type(words() as HTMLTextAreaElement, 'Chorus:')
+
+    expect(useTabs.getState().doc.bars[0]?.opens).toBe('Chorus:')
+  })
+
+  it('saves the words to the file, above the bars they introduce', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Verse:')
+    await useTabs.getState().flush()
+
+    const file = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
+    expect(file.split('\n')[0]).toBe('Verse:')
+  })
+
+  /* Two presses of the same key must not throw away what was written. */
+  it('leaves a section that is already open alone', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Intro')
+
+    press('t', { ctrlKey: true })
+
+    expect(useTabs.getState().doc.bars[0]?.opens).toBe('Intro')
+  })
+
+  it('goes up from the top string into the words', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Verse:')
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'Escape' })
+    expect(document.activeElement).toBe(sheet())
+
+    press('ArrowUp')
+
+    expect(document.activeElement).toBe(words())
+  })
+
+  it('comes back down into the music below them', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Verse:')
+
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'ArrowDown' })
+
+    expect(document.activeElement).toBe(sheet())
+    expect(sheet().querySelectorAll('.tablature__cursor').length).toBe(1)
+  })
+
+  /* An unnamed section is not a section, so the systems either side re-join. */
+  it('closes again when the words are all deleted and the cursor leaves', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    expect(useTabs.getState().doc.bars[0]?.opens).toBe('')
+
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'ArrowDown' })
+
+    expect(useTabs.getState().doc.bars[0]?.opens).toBeUndefined()
+    expect(written()).toHaveLength(0)
+  })
+
+  it('shows the words above the section once they are written', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Chorus:')
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'Escape' })
+
+    expect(written()).toEqual(['Chorus:'])
   })
 })

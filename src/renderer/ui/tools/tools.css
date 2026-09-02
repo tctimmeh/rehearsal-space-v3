@@ -874,6 +874,41 @@
 .tablature__line {
   min-height: var(--tab-row);
 }
+/*
+ * The words above a section: its name, or how to play what follows.
+ *
+ * Set in the same grid as the music so nothing shifts when they are typed
+ * into, but brighter than the staff and not dimmed like a remark — a heading
+ * is read first, not last.
+ */
+.tablature__words {
+  color: var(--text);
+  cursor: text;
+}
+.tablature__system + .tablature__words {
+  margin-top: var(--tab-row);
+}
+.tablature__field {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-left: 2px solid var(--go);
+  padding-left: 7px;
+  margin-left: -9px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  line-height: var(--tab-row);
+  resize: none;
+  outline: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+.tablature__field::placeholder {
+  color: var(--text-faint);
+}
+
 /* What is actually played, and what is read first. Weight as well as colour,
    because the bar lines are bright too and the notes still come first — in a
    monospace face a heavier glyph is the same width, so the grid holds. */

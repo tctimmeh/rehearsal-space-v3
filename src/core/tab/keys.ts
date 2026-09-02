@@ -11,7 +11,13 @@
  * keys out while they do.
  */
 
-export const TAB_KEY_GROUPS = ['Moving about', 'Writing notes', 'Rhythm', 'Beats and bars'] as const
+export const TAB_KEY_GROUPS = [
+  'Moving about',
+  'Writing notes',
+  'Rhythm',
+  'Beats and bars',
+  'Sections'
+] as const
 
 export type TabKeyGroup = (typeof TAB_KEY_GROUPS)[number]
 
@@ -59,7 +65,20 @@ const KEYS: TabKey[] = [
   { keys: 'X', does: 'Cut them', group: 'Beats and bars' },
   { keys: 'Del', does: 'Empty them, leaving the bars', group: 'Beats and bars' },
   { keys: 'V', does: 'Paste at the cursor', group: 'Beats and bars' },
-  { keys: 'Ctrl + ↑', does: 'Name the chord over this beat', group: 'Beats and bars' }
+  { keys: 'Ctrl + ↑', does: 'Name the chord over this beat', group: 'Beats and bars' },
+
+  {
+    keys: 'Ctrl + T',
+    does: 'Begin a section here, with room above it to say what it is',
+    group: 'Sections'
+  },
+  { keys: '↑', does: 'From the top string, up into the words', group: 'Sections' },
+  { keys: '↑ ↓', does: 'Out of the words, into the music either side', group: 'Sections' },
+  {
+    keys: 'Del',
+    does: 'Emptied of its words, a section closes and the music re-joins',
+    group: 'Sections'
+  }
 ]
 
 /** So the list can be held to accounting for every one of them. */

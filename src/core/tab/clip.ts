@@ -68,6 +68,7 @@ export function clearBeats(doc: TabDoc, span: Span): TabDoc {
   return {
     ...doc,
     bars: doc.bars.map((bar) => ({
+      ...bar,
       beats: bar.beats.map((beat) => {
         const here = index
         index += 1
@@ -94,7 +95,7 @@ export function pasteBeats(doc: TabDoc, at: Cursor, beats: Beat[]): TabDoc {
 
   const start = beatIndexOf(doc, at)
   const shape = doc.bars[at.bar]?.beats.length ?? 4
-  const bars: Bar[] = doc.bars.map((bar) => ({ beats: [...bar.beats] }))
+  const bars: Bar[] = doc.bars.map((bar) => ({ ...bar, beats: [...bar.beats] }))
 
   while (totalBeats({ ...doc, bars }) < start + beats.length) {
     bars.push(emptyBar(doc.strings, shape))

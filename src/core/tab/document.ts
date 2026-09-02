@@ -75,6 +75,16 @@ export interface Beat {
 
 export interface Bar {
   beats: Beat[]
+  /**
+   * Free text introducing the section this bar opens: a name for it, or a
+   * note on how to play it. Absent where the bar carries straight on from the
+   * one before, which is nearly always.
+   *
+   * Kept on the bar rather than in a list beside the document, so it travels
+   * with the music it introduces instead of by an index that everything else
+   * has to keep in step.
+   */
+  opens?: string
 }
 
 export interface TabDoc {
@@ -142,6 +152,7 @@ export function setStrings(doc: TabDoc, wanted: number): TabDoc {
   return {
     strings,
     bars: doc.bars.map((bar) => ({
+      ...bar,
       beats: bar.beats.map((beat) => ({
         ...beat,
         slots: beat.slots.map((slot) => ({
@@ -180,15 +191,20 @@ export const beatCount = (bar: Bar): number => bar.beats.length
  * at the end to write into: without it there would be no way to start a bar
  * that does not exist yet.
  */
-export function normalise(doc: TabDoc, keep?: { bar: number; beat: number }): TabDoc {
+export function normalise(
+  doc: TabDoc,
+  keep?: { bar: number; beat: number; writing?: number }
+): TabDoc {
   const bars = doc.bars.map((bar, index) =>
-    collapseBar(bar, keep?.bar === index ? keep.beat : null)
+    settleSection(collapseBar(bar, keep?.bar === index ? keep.beat : null), keep?.writing === index)
   )
 
   /* Everything after the last bar with anything in it is spare, and one spare
-     bar is all that is wanted. */
+     bar is all that is wanted — but a bar introducing a section is holding
+     words, which are worth keeping even where no notes have been written under
+     them yet. */
   let last = bars.length - 1
-  while (last >= 0 && barIsEmpty(bars[last] as Bar)) last -= 1
+  while (last >= 0 && barIsEmpty(bars[last] as Bar) && !opensSection(bars[last] as Bar)) last -= 1
 
   const kept = bars.slice(0, last + 1)
   const spare = bars[last + 1]
@@ -210,9 +226,26 @@ export function normalise(doc: TabDoc, keep?: { bar: number; beat: number }): Ta
 const unmoved = (before: Bar[], after: Bar[]): boolean =>
   before.length === after.length && before.every((bar, index) => bar === after[index])
 
+/** Whether this bar begins a section, which is to say it has words above it. */
+export const opensSection = (bar: Bar): boolean => (bar.opens ?? '').trim() !== ''
+
+/**
+ * A section emptied of its words is no longer a section.
+ *
+ * Not while the cursor is still in it, though: deleting the last character is
+ * how you begin retyping, and closing the gap under whoever is typing would
+ * take the field away mid-word. It goes when they leave, which is the same
+ * bargain a sixteenth is on.
+ */
+const settleSection = (bar: Bar, writing: boolean): Bar => {
+  if (bar.opens === undefined || writing || opensSection(bar)) return bar
+  const { opens: _gone, ...rest } = bar
+  return rest
+}
+
 const collapseBar = (bar: Bar, keep: number | null): Bar => {
   const beats = bar.beats.map((beat, index) => (index === keep ? beat : collapseBeat(beat)))
-  return beats.every((beat, index) => beat === bar.beats[index]) ? bar : { beats }
+  return beats.every((beat, index) => beat === bar.beats[index]) ? bar : { ...bar, beats }
 }
 
 /**
