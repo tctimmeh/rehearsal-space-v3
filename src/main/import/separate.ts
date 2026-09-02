@@ -9,6 +9,7 @@ import type { AudioChannel } from '@core/song/song'
 import { stemsOf, type SeparateRequest } from '../../shared/stems'
 import { jobs } from '../jobs'
 import { requireTool } from '../tools'
+import { placedLike, sourceLength } from '@core/song/trim'
 import { ensureSongFolders, planConversion, takenStems } from './importAudio'
 
 /** Roughly how much of the work is the separation itself, against converting. */
@@ -41,10 +42,12 @@ export async function separateStems(
   try {
     const taken = await takenStems(songDirectory, [])
     const plans = wanted.map((stem) => {
-      /* Stems are the same length as what they came from. */
       const id = uniqueSlug(`${parse(source.file).name} ${stem}`, taken)
       taken.push(id)
-      return planConversion({
+      /* Separation is given the whole file, so a stem's file is as long as the
+         source's file — trim and all. Where it stands, and which part of it
+         plays, are then the source's own, applied below. */
+      const plan = planConversion({
         ffmpeg,
         songDirectory,
         sourcePath: join(separatedIn, `${stem}.wav`),
@@ -52,8 +55,9 @@ export async function separateStems(
         name: stemLabel(stem),
         subject: guessSubject(stem),
         origin: { type: 'stem', fromChannelId: source.id, model },
-        durationSeconds: source.duration
+        durationSeconds: sourceLength(source)
       })
+      return { ...plan, channel: placedLike(source, plan.channel) }
     })
 
     await jobs.run({

@@ -84,3 +84,23 @@ export function playFrom(
   const into = songTime - channel.startTime
   return { wait: 0, from: begins + into, length: channel.duration - into }
 }
+
+/**
+ * A stem stands exactly where the take it came out of stands.
+ *
+ * Separation is given the whole file, so a stem's file is as long as its
+ * source's file — which means the trim carries across unchanged rather than
+ * having to be worked out again. Without this a stem of a trimmed take comes
+ * back at the top of the song, untrimmed, and every one of them has to be
+ * lined up by hand against the take they were just taken out of.
+ */
+export const placedLike = (source: AudioChannel, stem: AudioChannel): AudioChannel => {
+  const from = source.offset ?? 0
+  return {
+    ...stem,
+    startTime: source.startTime,
+    duration: source.duration,
+    sourceDuration: sourceLength(source),
+    ...(from > 0 ? { offset: from } : {})
+  }
+}

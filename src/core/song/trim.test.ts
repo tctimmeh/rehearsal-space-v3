@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AudioChannel } from './song'
-import { keepAll, keepPart, keptPart, LEAST_KEPT, playFrom, sourceLength, startAt } from './trim'
+import {
+  keepAll,
+  keepPart,
+  keptPart,
+  LEAST_KEPT,
+  placedLike,
+  playFrom,
+  sourceLength,
+  startAt
+} from './trim'
 
 const take = (patch: Partial<AudioChannel> = {}): AudioChannel => ({
   id: 'c1',
@@ -146,5 +155,45 @@ describe('what to play when the song reaches a channel', () => {
 
   it('reads an untrimmed channel from the beginning of its file', () => {
     expect(playFrom(take({ startTime: 2 }), 4)).toEqual({ wait: 0, from: 2, length: 58 })
+  })
+})
+
+/*
+ * Separation is given the whole file, so a stem is as long as the file its
+ * source came from — which is why the trim carries across as it stands rather
+ * than having to be worked out again.
+ */
+describe('a stem taken out of a take', () => {
+  const stem = (): AudioChannel =>
+    take({ id: 's1', name: 'Drums', file: 'audio/take-drums.ogg', startTime: 0, duration: 60 })
+
+  it('stands where the take stands', () => {
+    const source = startAt(keepPart(take(), 10, 40), 3)
+
+    expect(placedLike(source, stem())).toMatchObject({
+      startTime: 3,
+      offset: 10,
+      duration: 30,
+      sourceDuration: 60
+    })
+  })
+
+  it('plays the same part of the file', () => {
+    const source = keepPart(take({ startTime: 2 }), 5, 25)
+
+    expect(keptPart(placedLike(source, stem()))).toEqual(keptPart(source))
+  })
+
+  it('takes nothing from an untrimmed take but where it sits', () => {
+    const placed = placedLike(startAt(take(), 4), stem())
+
+    expect(placed.offset).toBeUndefined()
+    expect(placed).toMatchObject({ startTime: 4, duration: 60, sourceDuration: 60 })
+  })
+
+  it('keeps what makes the stem a stem', () => {
+    const placed = placedLike(keepPart(take(), 10, 40), stem())
+
+    expect(placed).toMatchObject({ id: 's1', name: 'Drums', file: 'audio/take-drums.ogg' })
   })
 })
