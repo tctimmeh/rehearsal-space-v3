@@ -25,7 +25,12 @@ export function installBridge(overrides: Partial<RehearsalApi['library']> = {}) 
     configurable: true,
     value: {
       pathForFile: () => '',
-      app: { version: vi.fn(), onFlushRequest: vi.fn(() => () => undefined) },
+      app: {
+        version: vi.fn(async () => '0.2.0'),
+        homepage: vi.fn(async () => 'https://github.com/tctimmeh/rehearsal-space-v3'),
+        openLink: vi.fn(async () => undefined),
+        onFlushRequest: vi.fn(() => () => undefined)
+      },
       config: {
         get: vi.fn(),
         set: vi.fn(),

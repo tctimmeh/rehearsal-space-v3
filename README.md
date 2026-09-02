@@ -88,8 +88,8 @@ Out come two things, both described in
 
 | | |
 |---|---|
-| `dist/rehearsal-space-0.1.0.AppImage` | one file, runs from anywhere, installs nothing |
-| `dist/rehearsal-space-0.1.0.deb` | installs itself, launcher and icons included |
+| `dist/rehearsal-space-<version>.AppImage` | one file, runs from anywhere, installs nothing |
+| `dist/rehearsal-space-<version>.deb` | installs itself, launcher and icons included |
 
 `pack` typechecks and builds but does not run the tests — `npm test` is still
 yours to run.
@@ -97,7 +97,7 @@ yours to run.
 An AppImage wants libfuse2 to mount itself. On a machine without it:
 
 ```sh
-./dist/rehearsal-space-0.1.0.AppImage --appimage-extract-and-run
+./dist/rehearsal-space-*.AppImage --appimage-extract-and-run
 ```
 
 A single target when that is all you want: `npx electron-builder --linux deb`.
@@ -137,14 +137,14 @@ The `.deb` has none of this trouble: it lays the launcher and the icon down
 where the desktop looks, and needs nothing further.
 
 ```sh
-sudo apt install ./dist/rehearsal-space-0.1.0.deb
+sudo apt install ./dist/rehearsal-space-*.deb
 ```
 
 For the AppImage, the `.desktop` entry inside it is not read by anything until
 it is installed, so install one:
 
 ```sh
-./build/install-launcher.sh dist/rehearsal-space-0.1.0.AppImage
+./build/install-launcher.sh dist/rehearsal-space-*.AppImage
 ```
 
 That writes `~/.local/share/applications/rehearsal-space.desktop` and an icon

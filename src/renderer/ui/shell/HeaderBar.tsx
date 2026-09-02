@@ -24,6 +24,7 @@ import {
   StopIcon
 } from '../icons/uiIcons'
 import { IconButton, Knob, Tabs, useDismiss, useSelectOnOpen } from '../primitives'
+import { AboutModal } from './AboutModal'
 import { AdvancedModal } from './AdvancedModal'
 import { ShortcutsModal } from './ShortcutsModal'
 import { SettingsModal } from './SettingsModal'
@@ -372,6 +373,7 @@ function AppMenu() {
           <MenuItem label="External tools…" onClick={choose(() => setDialog('tools'))} />
           <MenuItem label="Advanced settings…" onClick={choose(() => setDialog('advanced'))} />
           <MenuItem label="Keyboard shortcuts…" onClick={choose(() => setDialog('shortcuts'))} />
+          <MenuItem label="About…" onClick={choose(() => setDialog('about'))} />
           <div className="menu__sep" />
           <MenuItem label="Library folder" onClick={choose(() => void revealLibraryFolder())} />
           <div className="menu__sep" />
@@ -384,6 +386,7 @@ function AppMenu() {
       {dialog === 'recording' ? <RecordingModal onDismiss={dismiss} /> : null}
       {dialog === 'tools' ? <ToolsModal onDismiss={dismiss} /> : null}
       {dialog === 'shortcuts' ? <ShortcutsModal onDismiss={dismiss} /> : null}
+      {dialog === 'about' ? <AboutModal onDismiss={dismiss} /> : null}
     </div>
   )
 }

@@ -48,8 +48,31 @@ function applyUiScale(scale: number): void {
   }
 }
 
+/**
+ * Where the app lives.
+ *
+ * Written here rather than read from package.json at run time: the packaged
+ * app does not ship its package.json to be read, and a link the renderer
+ * could name is a link the renderer could point anywhere.
+ */
+const HOMEPAGE = 'https://github.com/tctimmeh/rehearsal-space-v3'
+
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.appVersion, () => app.getVersion())
+
+  ipcMain.handle(IPC_CHANNELS.appHomepage, () => HOMEPAGE)
+
+  /*
+   * Only the app's own address, and only over https.
+   *
+   * This hands a URL to the desktop, which will open whatever it is told to.
+   * The renderer has no business naming that, so it does not: it asks for the
+   * one link there is, and anything else is refused rather than trusted.
+   */
+  ipcMain.handle(IPC_CHANNELS.appOpenLink, async (_event, url: unknown) => {
+    if (url !== HOMEPAGE) return
+    await shell.openExternal(HOMEPAGE)
+  })
 
   ipcMain.handle(IPC_CHANNELS.configGet, () => readConfig())
 

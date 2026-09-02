@@ -6,7 +6,14 @@ import { create } from 'zustand'
  * Out here rather than inside the menu that opens them, because the keyboard
  * opens some of them too and a dialog cannot belong to one of the two ways in.
  */
-export type Dialog = 'settings' | 'advanced' | 'recording' | 'tools' | 'shortcuts' | null
+export type Dialog =
+  | 'settings'
+  | 'advanced'
+  | 'recording'
+  | 'tools'
+  | 'shortcuts'
+  | 'about'
+  | null
 
 interface DialogState {
   dialog: Dialog

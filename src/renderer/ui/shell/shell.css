@@ -671,6 +671,43 @@
   direction: rtl;
   text-align: left;
 }
+/* What the app is, said plainly and read once. */
+.about__name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.about__what {
+  margin: 4px 0 14px;
+  color: var(--text-dim);
+}
+.about__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 12px;
+}
+.about__facts dt {
+  color: var(--text-faint);
+}
+.about__facts dd {
+  margin: 0;
+  font-family: var(--mono);
+}
+.about__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--go);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.about__link:hover {
+  color: var(--text);
+}
+
 .setting-note {
   font-size: 11px;
   color: var(--text-faint);

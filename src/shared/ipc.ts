@@ -19,6 +19,10 @@ export interface RehearsalApi {
      * Returns an unsubscribe function.
      */
     onFlushRequest(handler: () => Promise<void>): () => void
+    /** Where the app lives, for the About dialog to point at. */
+    homepage(): Promise<string>
+    /** Hands a link to the desktop's own browser. */
+    openLink(url: string): Promise<void>
   }
   config: {
     get(): Promise<AppConfig>
@@ -78,6 +82,8 @@ export interface RehearsalApi {
 
 export const IPC_CHANNELS = {
   appVersion: 'app:version',
+  appHomepage: 'app:homepage',
+  appOpenLink: 'app:open-link',
   appFlushRequest: 'app:flush-request',
   appFlushDone: 'app:flush-done',
   configGet: 'config:get',

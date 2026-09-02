@@ -8,6 +8,8 @@ const api: RehearsalApi = {
   pathForFile: (file) => webUtils.getPathForFile(file),
   app: {
     version: () => ipcRenderer.invoke(IPC_CHANNELS.appVersion),
+    homepage: () => ipcRenderer.invoke(IPC_CHANNELS.appHomepage),
+    openLink: (url) => ipcRenderer.invoke(IPC_CHANNELS.appOpenLink, url),
     onFlushRequest: (handler) => {
       const listener = () => {
         void handler().finally(() => ipcRenderer.send(IPC_CHANNELS.appFlushDone))
