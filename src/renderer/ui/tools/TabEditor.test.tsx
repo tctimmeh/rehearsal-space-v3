@@ -912,6 +912,12 @@ describe('how many strings a tablature is for', () => {
  */
 describe('sections divided by words', () => {
   const words = () => screen.queryByLabelText('Section words') as HTMLTextAreaElement | null
+  /** How many bars the nth system holds, counted from the pipes on a row. */
+  const bars = (system: number) => {
+    const rows = [...sheet().querySelectorAll('.tablature__system')][system]
+    const row = rows?.querySelector('.tablature__line[data-line]:last-child')
+    return ((row?.textContent ?? '').match(/\|/g)?.length ?? 1) - 1
+  }
   const written = () =>
     [...sheet().querySelectorAll('.tablature__words')].map((one) => one.textContent)
 
@@ -1090,6 +1096,33 @@ describe('sections divided by words', () => {
       .slice(0, wordsAt)
       .reduce((count, one) => count + one.querySelectorAll('.tablature__line').length, 0)
     expect(cursorAt).toBeLessThan(linesBeforeWords)
+  })
+
+  /*
+   * A section keeps one spare bar, the way the end of the file does. Emptying
+   * the last bar of one leaves two, and the second is room nobody asked for.
+   */
+  it('closes up spare bars left at the end of a section', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    for (let step = 0; step < 8; step += 1) press('ArrowRight')
+    press('9')
+    for (let step = 0; step < 8; step += 1) press('ArrowRight')
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Chorus:')
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'Escape' })
+    /* Two bars of music and the spare that opening a section left behind. */
+    expect(bars(0)).toBe(3)
+
+    /* Back to the 9 and take it away, which leaves that bar spare too. */
+    for (let step = 0; step < 16; step += 1) press('ArrowLeft')
+    press('Delete')
+    press('ArrowLeft')
+
+    expect(strings()).not.toContain('9')
+    expect(bars(0)).toBe(2)
   })
 
   it('shows the words above the section once they are written', async () => {

@@ -356,18 +356,18 @@ const inBeats = (bar: Bar, beats: number, strings: number): Bar => ({
 })
 
 /**
- * Every section ends with an empty bar, so there is somewhere to carry on.
+ * Every section ends with exactly one empty bar.
  *
- * The document as a whole has always kept one spare at the end; a section with
- * another section after it had nowhere to grow, because the next section's
- * first bar came straight after its last. So a bar that opens a section is
- * given an empty one in front of it, which belongs to the section above and is
- * where writing it continues.
+ * One, because that is somewhere to carry on writing: the document as a whole
+ * has always kept a spare at its end, and a section with another section after
+ * it had none, since the next section's first bar came straight after its
+ * last. Exactly one, because emptying the bars off the end of a section should
+ * close the gap the same way emptying them off the end of the file does —
+ * otherwise a section keeps whatever room it was once given.
  *
- * Only ever added, never taken away: a section that has several empty bars at
- * the end has them because somebody emptied them, and closing the gap under
- * that is not this function's business. The cursor comes along, since bars
- * after the one inserted have all moved down by one.
+ * The cursor comes along. Bars put in above it move it down, bars taken out
+ * above it move it up, and a cursor standing in a bar that has gone is put on
+ * the one kept in its place.
  */
 export function withRoomToCarryOn(state: Editing): Editing {
   const { doc, cursor } = state
@@ -375,10 +375,20 @@ export function withRoomToCarryOn(state: Editing): Editing {
   let bar = cursor.bar
 
   doc.bars.forEach((one, index) => {
-    if (one.opens !== undefined && bars.length > 0 && !spareAt(bars, bars.length - 1)) {
-      const before = bars[bars.length - 1] as Bar
-      bars.push(emptyBar(doc.strings, before.beats.length))
-      if (cursor.bar >= index) bar += 1
+    if (one.opens !== undefined && bars.length > 0) {
+      let spares = 0
+      while (spares < bars.length && spareAt(bars, bars.length - 1 - spares)) spares += 1
+
+      if (spares === 0) {
+        const before = bars[bars.length - 1] as Bar
+        bars.push(emptyBar(doc.strings, before.beats.length))
+        if (cursor.bar >= index) bar += 1
+      } else if (spares > 1) {
+        const dropped = spares - 1
+        bars.length -= dropped
+        if (cursor.bar >= index) bar -= dropped
+        else if (cursor.bar > index - spares) bar = bars.length - 1
+      }
     }
     bars.push(one)
   })

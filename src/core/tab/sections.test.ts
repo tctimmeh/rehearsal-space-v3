@@ -128,8 +128,37 @@ describe('room to carry on with a section', () => {
     }
   })
 
-  it('adds nothing where a section already ends in an empty bar', () => {
-    const bars = [emptyBar(6), emptyBar(6), { ...emptyBar(6), opens: 'Two' }]
+  /* The same rule the end of the file has always had: one spare, no more. */
+  it('collapses several empty bars at the end of a section to one', () => {
+    const bars = [emptyBar(6), emptyBar(6), emptyBar(6), { ...emptyBar(6), opens: 'Two' }]
+    const spaced = withRoomToCarryOn({ doc: { strings: 6, bars }, cursor: AT_START })
+
+    const opensAt = spaced.doc.bars.findIndex((bar) => bar.opens !== undefined)
+    expect(opensAt).toBe(1)
+    expect(spaced.doc.bars).toHaveLength(2)
+  })
+
+  it('brings the cursor out of a bar that has been collapsed away', () => {
+    const bars = [emptyBar(6), emptyBar(6), emptyBar(6), { ...emptyBar(6), opens: 'Two' }]
+    const at = { bar: 2, beat: 0, slot: 0, string: 0 }
+
+    const spaced = withRoomToCarryOn({ doc: { strings: 6, bars }, cursor: at })
+
+    expect(spaced.cursor.bar).toBeLessThan(spaced.doc.bars.length)
+    expect(spaced.doc.bars[spaced.cursor.bar]?.opens).toBeUndefined()
+  })
+
+  it('takes the cursor down with the bars taken out from above it', () => {
+    const bars = [emptyBar(6), emptyBar(6), emptyBar(6), { ...emptyBar(6), opens: 'Two' }]
+    const at = { bar: 3, beat: 0, slot: 0, string: 0 }
+
+    const spaced = withRoomToCarryOn({ doc: { strings: 6, bars }, cursor: at })
+
+    expect(spaced.doc.bars[spaced.cursor.bar]?.opens).toBe('Two')
+  })
+
+  it('leaves a section that already ends in exactly one empty bar alone', () => {
+    const bars = [emptyBar(6), { ...emptyBar(6), opens: 'Two' }]
     const state = { doc: { strings: 6, bars } as TabDoc, cursor: AT_START }
 
     expect(withRoomToCarryOn(state)).toBe(state)
