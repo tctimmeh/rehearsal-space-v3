@@ -47,6 +47,58 @@ describe('drawing a repeat', () => {
   })
 })
 
+/* The dot is a mark on the staff, not a note, so it does not sit against one. */
+describe('room around the dots', () => {
+  const played = (): TabDoc => {
+    const doc = rounds(1)
+    const opening = doc.bars[0]?.beats[0]?.slots[0]
+    const closing = doc.bars[1]?.beats[3]?.slots[1]
+    if (opening !== undefined) opening.frets[2] = '9'
+    if (closing !== undefined) closing.frets[3] = '7'
+    return doc
+  }
+
+  it('keeps a column between the opening dot and the first note', () => {
+    const row = rows(played())[2] ?? ''
+    expect(row.startsWith('||:-9')).toBe(true)
+  })
+
+  it('keeps a column between the last note and the closing dot', () => {
+    const row = rows(played())[3] ?? ''
+    expect(row).toContain('7-:||')
+  })
+
+  it('leaves a bar with no repeat on it exactly as wide as it was', () => {
+    expect(rows(plain())[0]?.split('|').filter((part) => part !== '')).toEqual([
+      '-----------------',
+      '-----------------',
+      '-----------------'
+    ])
+  })
+})
+
+/* The count belongs to the repeat, which ends at the outer of the two lines. */
+describe('where the count stands', () => {
+  const marks = (times: number) => render(rounds(times)).split('\n')[0] ?? ''
+
+  it('puts its last digit over the outer of the two closing lines', () => {
+    const doc = rounds(12)
+    const line = rows(doc)[0] ?? ''
+    /* The second bar's closing lines are the last two before the third bar. */
+    const outer = line.indexOf('||', line.indexOf('|', 2) + 1) + 1
+    expect(marks(12).indexOf('x12') + 'x12'.length - 1).toBe(outer)
+  })
+
+  it('does the same however many digits it has', () => {
+    for (const times of [3, 12, 100]) {
+      const mark = `x${times}`
+      const line = rows(rounds(times))[0] ?? ''
+      const outer = line.indexOf('||', line.indexOf('|', 2) + 1) + 1
+      expect(marks(times).indexOf(mark) + mark.length - 1).toBe(outer)
+    }
+  })
+})
+
 describe('reading a repeat back', () => {
   it('finds where it begins and where it ends', () => {
     const back = parse(render(rounds(1)))

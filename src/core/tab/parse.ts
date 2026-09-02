@@ -344,9 +344,14 @@ export function parse(text: string): TabDoc {
       const dots = inBar.map((bar) => bar.content)
       const repeatStart = dots.some((content) => content.startsWith(':'))
       const repeatEnd = dots.some((content) => content.endsWith(':'))
+      /* The dot has a column of its own, so it is taken off rather than read
+         as a dash: leaving it there would put an extra column at the front of
+         the bar and land every slot after it one place out. */
       const shape = readBar(
-        dots.map((content) => content.replaceAll(':', '-')),
-        inBar[0]?.at ?? 0
+        dots.map((content) =>
+          content.slice(repeatStart ? 1 : 0, repeatEnd ? -1 : undefined)
+        ),
+        (inBar[0]?.at ?? 0) + (repeatStart ? 1 : 0)
       )
       if (shape === null) continue
 
@@ -371,7 +376,10 @@ export function parse(text: string): TabDoc {
       if (repeatStart) bar.repeatStart = true
       if (repeatEnd) {
         const from = inBar[0]?.at ?? 0
-        bar.repeatTimes = timesRound(block.markers, from, from + (inBar[0]?.content.length ?? 0)) ?? 1
+        /* The count reaches past the bar's own columns and stands over the
+           outer of the two lines that close it. */
+        const span = (inBar[0]?.content.length ?? 0) + 2
+        bar.repeatTimes = timesRound(block.markers, from, from + span) ?? 1
       }
       made.push(bar)
     }

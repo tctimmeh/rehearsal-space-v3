@@ -68,24 +68,34 @@ const slotsOf = (bar: Bar): Slot[] => bar.beats.flatMap((beat) => beat.slots)
  */
 export function renderBarRow(bar: Bar, string: number, widths: number[], strings: number): string {
   const middle = isMiddleString(string, strings)
-  let row = bar.repeatStart === true && middle ? ':' : '-'
+  /* The dot gets a column of its own, so it never sits against a note: the
+     bar's own opening dash still follows it, and its closing one still comes
+     before the dot at the other end. */
+  let row = bar.repeatStart === true ? (middle ? ':-' : '--') : '-'
   slotsOf(bar).forEach((slot, index) => {
     row += contentOf(slot, string).padEnd(widths[index] ?? 1, '-') + (slot.after[string] ?? '-')
   })
-  return bar.repeatTimes !== undefined && middle ? row.slice(0, -1) + ':' : row
+  return bar.repeatTimes === undefined ? row : row + (middle ? ':' : '-')
 }
 
 /** How wide the line before a bar is: two where a repeat begins or ends on it. */
 export const openingWidth = (bar: Bar | undefined, before: Bar | undefined): number =>
   bar?.repeatStart === true || before?.repeatTimes !== undefined ? 2 : 1
 
-export const barWidth = (widths: number[]): number =>
-  widths.reduce((total, width) => total + width + 1, 1)
+/** How wide a bar is drawn, its opening dash and any repeat dots included. */
+export const barWidth = (bar: Bar, widths: number[]): number =>
+  widths.reduce((total, width) => total + width + 1, 1) +
+  (bar.repeatStart === true ? 1 : 0) +
+  (bar.repeatTimes === undefined ? 0 : 1)
+
+/** The column a bar's first slot is drawn at, counted from its opening line. */
+const contentFrom = (bar: Bar, opening: number): number =>
+  opening + 1 + (bar.repeatStart === true ? 1 : 0)
 
 /** Where each slot of a bar begins, counted from the bar's opening line. */
-function slotColumns(widths: number[], opening = 1): number[] {
+function slotColumns(widths: number[], from = 2): number[] {
   const columns: number[] = []
-  let at = opening + 1 /* past the line, however thick, and the opening dash */
+  let at = from
   for (const width of widths) {
     columns.push(at)
     at += width + 1
@@ -114,7 +124,7 @@ export function layOut(doc: TabDoc, wrapAt = WRAP_COLUMNS): System[] {
 
   doc.bars.forEach((bar, index) => {
     const widths = slotWidths(bar, doc.strings)
-    const width = barWidth(widths)
+    const width = barWidth(bar, widths)
     const opening = openingWidth(bar, doc.bars[index - 1])
     /* A bar that opens a section begins a line of its own whether or not the
        one before it had room: that is what dividing the music into sections
@@ -170,7 +180,7 @@ const finish = (line: string[]): string => {
 function markerLine(system: System): string {
   const line: string[] = []
   for (const { bar, widths, at, opening } of system.bars) {
-    const columns = slotColumns(widths, opening)
+    const columns = slotColumns(widths, contentFrom(bar, opening))
     let slot = 0
     bar.beats.forEach((beat, index) => {
       place(line, at + (columns[slot] ?? 0), String(index + 1))
@@ -187,7 +197,9 @@ function markerLine(system: System): string {
     const times = bar.repeatTimes ?? 0
     if (times > 1) {
       const mark = `x${times}`
-      place(line, at + opening + barWidth(widths) - mark.length, mark)
+      /* Its last digit stands over the outer of the two lines that close the
+         bar, which is where the repeat itself ends. */
+      place(line, at + opening + barWidth(bar, widths) + 2 - mark.length, mark)
     }
   }
   return finish(line)
@@ -204,7 +216,7 @@ function handLine(system: System): string | null {
   const line: string[] = []
   let any = false
   for (const { bar, widths, at, opening } of system.bars) {
-    const columns = slotColumns(widths, opening)
+    const columns = slotColumns(widths, contentFrom(bar, opening))
     slotsOf(bar).forEach((slot, index) => {
       const column = at + (columns[index] ?? 0)
       if (slot.palm === true) {
@@ -226,7 +238,7 @@ function chordLine(system: System): string | null {
   const line: string[] = []
   let any = false
   for (const { bar, widths, at, opening } of system.bars) {
-    const columns = slotColumns(widths, opening)
+    const columns = slotColumns(widths, contentFrom(bar, opening))
     let slot = 0
     for (const beat of bar.beats) {
       if (beat.chord !== null && beat.chord !== '') {
@@ -359,7 +371,10 @@ export function endOfBar(
   for (const [index, laid] of laidOut(doc, wrapAt).entries()) {
     const placed = laid.system.bars[bar - laid.firstBar]
     if (placed === undefined) continue
-    return { system: index, column: placed.at + placed.opening + barWidth(placed.widths) }
+    return {
+      system: index,
+      column: placed.at + placed.opening + barWidth(placed.bar, placed.widths) + 1
+    }
   }
   return null
 }
@@ -392,7 +407,7 @@ function slotsAcross(
 ): { bar: number; beat: number; slot: number; column: number }[] {
   const found: { bar: number; beat: number; slot: number; column: number }[] = []
   laid.system.bars.forEach((placed, index) => {
-    const columns = slotColumns(placed.widths, placed.opening)
+    const columns = slotColumns(placed.widths, contentFrom(placed.bar, placed.opening))
     let at = 0
     placed.bar.beats.forEach((beat, beatIndex) => {
       beat.slots.forEach((_, slotIndex) => {
