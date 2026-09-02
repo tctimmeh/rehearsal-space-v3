@@ -84,8 +84,11 @@ const isStringRow = (line: string): boolean => line.trimStart().startsWith('|')
 const isHandRow = (line: string): boolean =>
   line.trim() !== '' && [...line].every((character) => character === ' ' || 'x~'.includes(character))
 
+/* The `x` of a repeat count is written on this line too, so it belongs to the
+   alphabet: without it a bar that says how many times round is not recognised
+   as the beats at all, and the rhythm falls back to a guess. */
 const isMarkerRow = (line: string): boolean =>
-  !line.includes('|') && /\d/.test(line) && /^[\s\d&ea]*$/.test(line)
+  !line.includes('|') && /\d/.test(line) && /^[\s\d&eax]*$/.test(line)
 
 interface Block {
   chords: string | null
@@ -172,22 +175,46 @@ function wordsAbove(lines: string[], above: number): string | null {
   return words.length > 0 ? words.join('\n') : null
 }
 
-/** Where each bar of a row begins, and what is between the pipes. */
+/**
+ * Where each bar of a row begins, and what is between the lines.
+ *
+ * A repeat's line is drawn twice, which leaves nothing at all between the two
+ * — a gap rather than a bar, and not something to try to read notes out of.
+ */
 function barsOf(row: string): { content: string; at: number }[] {
   const bars: { content: string; at: number }[] = []
   let at = row.indexOf('|')
   while (at !== -1) {
     const next = row.indexOf('|', at + 1)
     if (next === -1) break
-    bars.push({ content: row.slice(at + 1, next), at: at + 1 })
+    if (next > at + 1) bars.push({ content: row.slice(at + 1, next), at: at + 1 })
     at = next
   }
   return bars
 }
 
+/**
+ * The beat numbers with the repeat counts taken out.
+ *
+ * "x12" over the end of a bar is how many times round, not a beat, and its
+ * digits would otherwise be read as one — putting a beat where the bar ends
+ * and throwing off every slot after it.
+ */
+const withoutCounts = (markers: string): string =>
+  markers.replace(/x\d+/g, (mark) => ' '.repeat(mark.length))
+
 /** The columns the beat numbers sit on, which is where the beats begin. */
 const beatColumns = (markers: string | null): number[] =>
-  markers === null ? [] : [...markers.matchAll(/\d+/g)].map((match) => match.index)
+  markers === null ? [] : [...withoutCounts(markers).matchAll(/\d+/g)].map((match) => match.index)
+
+/** How many times round, written over the column the bar ends on. */
+function timesRound(markers: string | null, from: number, to: number): number | null {
+  if (markers === null) return null
+  for (const match of markers.matchAll(/x(\d+)/g)) {
+    if (match.index >= from && match.index < to) return Number(match[1])
+  }
+  return null
+}
 
 /**
  * Which of the four sixteenth positions a slot is standing on.
@@ -311,8 +338,14 @@ export function parse(text: string): TabDoc {
 
     for (let barIndex = 0; barIndex < barCount; barIndex += 1) {
       const inBar = perRow.map((row) => row[barIndex]).filter((bar) => bar !== undefined)
+      /* A repeat's dots stand in the always-empty columns at either end. They
+         are read off and put back as dashes, so the columns walk as they
+         always did. */
+      const dots = inBar.map((bar) => bar.content)
+      const repeatStart = dots.some((content) => content.startsWith(':'))
+      const repeatEnd = dots.some((content) => content.endsWith(':'))
       const shape = readBar(
-        inBar.map((bar) => bar.content),
+        dots.map((content) => content.replaceAll(':', '-')),
         inBar[0]?.at ?? 0
       )
       if (shape === null) continue
@@ -334,7 +367,13 @@ export function parse(text: string): TabDoc {
       const beats = intoBeats(slots, slotColumns, beatColumns(block.markers))
       markPositions(beats, slotColumns, block.markers)
       columns.push(slotColumns)
-      made.push({ beats })
+      const bar: Bar = { beats }
+      if (repeatStart) bar.repeatStart = true
+      if (repeatEnd) {
+        const from = inBar[0]?.at ?? 0
+        bar.repeatTimes = timesRound(block.markers, from, from + (inBar[0]?.content.length ?? 0)) ?? 1
+      }
+      made.push(bar)
     }
 
     attachChords(made, columns, block.chords)

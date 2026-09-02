@@ -98,7 +98,23 @@ export interface Bar {
    * has to keep in step.
    */
   opens?: string
+  /** This bar is where a repeat begins: a double line, and a dot on the staff. */
+  repeatStart?: boolean
+  /**
+   * This bar is where a repeat ends, and how many times it is repeated.
+   *
+   * One is the plain case — go round again, once — and says nothing above the
+   * bar. More says how many. None at all is not a repeat.
+   */
+  repeatTimes?: number
 }
+
+/**
+ * The two strings a repeat's dots sit between, which is the middle of the
+ * staff whatever the instrument.
+ */
+export const isMiddleString = (string: number, strings: number): boolean =>
+  string === Math.floor(strings / 2) - 1 || string === Math.floor(strings / 2)
 
 export interface TabDoc {
   strings: number

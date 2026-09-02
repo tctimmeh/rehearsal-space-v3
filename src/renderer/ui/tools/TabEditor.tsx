@@ -11,8 +11,10 @@ import {
   markWith,
   nameSection,
   openSection,
+  markRepeat,
   palmMute,
   shakeBy,
+  timesRound,
   nameChord,
   QUICK_MS,
   setBeats,
@@ -54,6 +56,7 @@ import { inkOf, type Ink, type Row } from '@core/tab/ink'
 import {
   blocksOf,
   cursorAtPlace,
+  endOfBar,
   wordsAboveCursor,
   placeOf,
   render,
@@ -122,6 +125,8 @@ export function TabEditor() {
    * a field rather than something the block cursor is moved over.
    */
   const [writing, setWriting] = useState<number | null>(null)
+  /** The bar whose repeat count is being typed, or null. */
+  const [counting, setCounting] = useState<number | null>(null)
   /**
    * The beats picked out, counted straight through the document.
    *
@@ -196,6 +201,9 @@ export function TabEditor() {
   /* Where the chord for this beat is drawn: over the beat's first slot, on the
      row above the beat numbers. The field is put exactly there. */
   const overBeat = naming ? placeOf(doc, { ...cursor, slot: 0 }, columns) : null
+  /* Where a repeat count is typed: hard against the line that closes its bar,
+     on the row the beat numbers are written on. */
+  const overEnd = counting === null ? null : endOfBar(doc, counting, columns)
   /* Which system each block is, for the one that has to be scrolled to. */
   const ordinals = useMemo(() => {
     let seen = -1
@@ -445,6 +453,17 @@ export function TabEditor() {
       return void step(event, setBeats(state, beats + (event.key === 'ArrowRight' ? 1 : -1)))
     }
 
+    /* A repeat begins or ends at this bar, whichever half of it the cursor is
+       in. Ending one asks how many times it goes round. */
+    if (held && event.key.toLowerCase() === 'r') {
+      const marked = markRepeat(state)
+      apply(marked, false)
+      const bar = marked.doc.bars[cursor.bar]
+      setCounting(bar?.repeatTimes === undefined ? null : cursor.bar)
+      event.preventDefault()
+      return
+    }
+
     /* A section begins at the bar the cursor is in, with room above it to say
        what the section is. */
     if (held && event.key.toLowerCase() === 't') {
@@ -627,6 +646,20 @@ export function TabEditor() {
               key={`system-${block.from}`}
               ref={ordinals[index] === place?.system ? showing : undefined}
             >
+              {overEnd !== null && counting !== null && ordinals[index] === overEnd.system ? (
+                <RepeatCount
+                  at={overEnd.column}
+                  row={block.rows?.indexOf('beats') ?? 0}
+                  times={doc.bars[counting]?.repeatTimes ?? 1}
+                  onChange={(times) =>
+                    apply(timesRound({ doc, cursor: { ...cursor, bar: counting } }, times), false)
+                  }
+                  onDone={() => {
+                    setCounting(null)
+                    field.current?.focus()
+                  }}
+                />
+              ) : null}
               {overBeat !== null && ordinals[index] === overBeat.system ? (
                 <ChordField
                   at={overBeat.column}
@@ -983,6 +1016,67 @@ function drawLine(
 
 /** Whether this system is already drawing a row for chords. */
 const hasChordRow = (block: Block): boolean => block.rows?.[0] === 'chord'
+
+/**
+ * How many times a repeat goes round.
+ *
+ * Typed where it will be read, hard against the line that closes the bar, on
+ * the row the beat numbers are on. Nought is how a repeat is taken off, which
+ * is why the field accepts it rather than refusing.
+ */
+function RepeatCount({
+  at,
+  row,
+  times,
+  onChange,
+  onDone
+}: {
+  at: number
+  row: number
+  times: number
+  onChange: (times: number) => void
+  onDone: () => void
+}) {
+  const box = useRef<HTMLInputElement>(null)
+  /*
+   * The field holds its own text and reports the number in it.
+   *
+   * Reading the value back off the document instead would put whatever the
+   * document rounded it to back into the box between one keystroke and the
+   * next, and the caret with it: typing 12 over a selected 1 arrived as 112.
+   */
+  const [asked, setAsked] = useState(String(times))
+
+  /* Focused and picked out: the number that is there is the one being
+     replaced, so typing over it is the whole point. */
+  useEffect(() => {
+    box.current?.focus()
+    box.current?.select()
+  }, [])
+
+  return (
+    <input
+      ref={box}
+      className="tablature__times"
+      style={{ left: `${at}ch`, top: `calc(var(--tab-row) * ${row})` }}
+      value={asked}
+      aria-label="Times round"
+      inputMode="numeric"
+      onChange={(event) => {
+        const digits = event.target.value.replace(/\D/g, '')
+        setAsked(digits)
+        if (digits !== '') onChange(Number(digits))
+      }}
+      onKeyDown={(event) => {
+        event.stopPropagation()
+        if (event.key === 'Escape' || event.key === 'Enter') {
+          onDone()
+          event.preventDefault()
+        }
+      }}
+    />
+  )
+}
 
 /**
  * Where a chord is written.

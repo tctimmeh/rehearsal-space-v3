@@ -1260,3 +1260,104 @@ describe('palm mutes and vibrato', () => {
     expect(file.split('\n').some((line) => /^[ x~]+$/.test(line) && line.includes('x'))).toBe(true)
   })
 })
+
+/* A repeat begins at the left-hand line of a bar and ends at the right-hand
+   line, so which half the cursor is in says which one is meant. */
+describe('repeats', () => {
+  const staff = () => strings().split('\n')
+  const times = () => screen.queryByLabelText('Times round') as HTMLInputElement | null
+
+  it('begins one from the first half of the bar', () => {
+    render(<TabEditor />)
+    sheet().focus()
+
+    press('r', { ctrlKey: true })
+
+    expect(staff()[0]?.startsWith('||')).toBe(true)
+    expect(useTabs.getState().doc.bars[0]?.repeatStart).toBe(true)
+  })
+
+  it('takes it off again when pressed twice', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('r', { ctrlKey: true })
+
+    press('r', { ctrlKey: true })
+
+    expect(useTabs.getState().doc.bars[0]?.repeatStart).toBeUndefined()
+  })
+
+  it('ends one from the last half, and asks how many times round', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    /* Onto beat three, which is the second half of a four-beat bar. */
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+
+    press('r', { ctrlKey: true })
+
+    expect(useTabs.getState().doc.bars[0]?.repeatTimes).toBe(1)
+    expect(times()).toBeTruthy()
+    expect(document.activeElement).toBe(times())
+  })
+
+  it('says nothing above a plain repeat', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+    press('r', { ctrlKey: true })
+
+    fireEvent.keyDown(times() as HTMLInputElement, { key: 'Enter' })
+
+    expect(drawn()).not.toContain('x1')
+  })
+
+  it('writes how many times round when it is more than once', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+    press('r', { ctrlKey: true })
+
+    fireEvent.change(times() as HTMLInputElement, { target: { value: '12' } })
+
+    expect(drawn()).toContain('x12')
+  })
+
+  /* Typing digit by digit over the number already there. Reading the field's
+     value back off the document put it back between keystrokes, and 12 typed
+     over a selected 1 arrived as 112. */
+  it('takes the digits as they are typed rather than adding to what was there', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+    press('r', { ctrlKey: true })
+
+    await user.clear(times() as HTMLInputElement)
+    await user.type(times() as HTMLInputElement, '12')
+
+    expect(useTabs.getState().doc.bars[0]?.repeatTimes).toBe(12)
+    expect((times() as HTMLInputElement).value).toBe('12')
+  })
+
+  it('takes the repeat off when nought times is asked for', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+    press('r', { ctrlKey: true })
+
+    fireEvent.change(times() as HTMLInputElement, { target: { value: '0' } })
+
+    expect(useTabs.getState().doc.bars[0]?.repeatTimes).toBeUndefined()
+  })
+
+  it('writes the marks to the file', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('r', { ctrlKey: true })
+    await useTabs.getState().flush()
+
+    const file = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
+    expect(file).toContain('||')
+    expect(file).toContain(':')
+  })
+})

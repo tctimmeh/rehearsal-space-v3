@@ -71,6 +71,13 @@ const KEYS: TabKey[] = [
   { keys: 'Ctrl + ↑', does: 'Name the chord over this beat', group: 'Beats and bars' },
 
   {
+    keys: 'Ctrl + R',
+    does: 'Begin a repeat here, or end one — whichever half of the bar you are in',
+    group: 'Beats and bars'
+  },
+  { keys: '0', does: 'Typed as the times round, takes the repeat off', group: 'Beats and bars' },
+
+  {
     keys: 'Ctrl + T',
     does: 'Begin a section here, with room above it to say what it is',
     group: 'Sections'

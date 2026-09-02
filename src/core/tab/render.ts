@@ -1,6 +1,7 @@
 import type { Row } from './ink'
 import {
   beatCount,
+  isMiddleString,
   SIXTEENTH_MARKS,
   vibratoWidth,
   type Bar,
@@ -57,22 +58,34 @@ export const slotWidths = (bar: Bar, strings: number): number[] =>
 
 const slotsOf = (bar: Bar): Slot[] => bar.beats.flatMap((beat) => beat.slots)
 
-/** The opening dash, then contents and separator for every slot. */
-export function renderBarRow(bar: Bar, string: number, widths: number[]): string {
-  let row = '-'
+/**
+ * The opening dash, then contents and separator for every slot.
+ *
+ * A repeat's dots stand in the always-empty columns at either end of the bar,
+ * on the two strings in the middle of the staff. Nothing is played there — it
+ * is the space that keeps the notes off the bar lines — so there is room for
+ * them without moving anything.
+ */
+export function renderBarRow(bar: Bar, string: number, widths: number[], strings: number): string {
+  const middle = isMiddleString(string, strings)
+  let row = bar.repeatStart === true && middle ? ':' : '-'
   slotsOf(bar).forEach((slot, index) => {
     row += contentOf(slot, string).padEnd(widths[index] ?? 1, '-') + (slot.after[string] ?? '-')
   })
-  return row
+  return bar.repeatTimes !== undefined && middle ? row.slice(0, -1) + ':' : row
 }
+
+/** How wide the line before a bar is: two where a repeat begins or ends on it. */
+export const openingWidth = (bar: Bar | undefined, before: Bar | undefined): number =>
+  bar?.repeatStart === true || before?.repeatTimes !== undefined ? 2 : 1
 
 export const barWidth = (widths: number[]): number =>
   widths.reduce((total, width) => total + width + 1, 1)
 
-/** Where each slot of a bar begins, counted from the bar's opening pipe. */
-function slotColumns(widths: number[]): number[] {
+/** Where each slot of a bar begins, counted from the bar's opening line. */
+function slotColumns(widths: number[], opening = 1): number[] {
   const columns: number[] = []
-  let at = 2 /* past the pipe and the opening dash */
+  let at = opening + 1 /* past the line, however thick, and the opening dash */
   for (const width of widths) {
     columns.push(at)
     at += width + 1
@@ -83,8 +96,10 @@ function slotColumns(widths: number[]): number[] {
 interface Placed {
   bar: Bar
   widths: number[]
-  /** Column of the bar's opening pipe within the line. */
+  /** Column of the bar's opening line within the line of text. */
   at: number
+  /** How thick that line is: two where a repeat begins or ends on it. */
+  opening: number
 }
 
 export interface System {
@@ -97,21 +112,22 @@ export function layOut(doc: TabDoc, wrapAt = WRAP_COLUMNS): System[] {
   let bars: Placed[] = []
   let at = 0
 
-  for (const bar of doc.bars) {
+  doc.bars.forEach((bar, index) => {
     const widths = slotWidths(bar, doc.strings)
     const width = barWidth(widths)
+    const opening = openingWidth(bar, doc.bars[index - 1])
     /* A bar that opens a section begins a line of its own whether or not the
        one before it had room: that is what dividing the music into sections
        means. The closing pipe of the line has to fit as well as the bar. */
-    if (bars.length > 0 && (bar.opens !== undefined || at + width + 1 > wrapAt)) {
+    if (bars.length > 0 && (bar.opens !== undefined || at + width + opening + 1 > wrapAt)) {
       systems.push({ bars })
       bars = []
       at = 0
     }
-    bars.push({ bar, widths, at })
-    /* One column for the pipe between this bar and the next, which they share. */
-    at += width + 1
-  }
+    bars.push({ bar, widths, at, opening })
+    /* The line between this bar and the next, which they share. */
+    at += width + opening
+  })
 
   if (bars.length > 0) systems.push({ bars })
   return systems
@@ -153,8 +169,8 @@ const finish = (line: string[]): string => {
  */
 function markerLine(system: System): string {
   const line: string[] = []
-  for (const { bar, widths, at } of system.bars) {
-    const columns = slotColumns(widths)
+  for (const { bar, widths, at, opening } of system.bars) {
+    const columns = slotColumns(widths, opening)
     let slot = 0
     bar.beats.forEach((beat, index) => {
       place(line, at + (columns[slot] ?? 0), String(index + 1))
@@ -166,6 +182,13 @@ function markerLine(system: System): string {
       }
       slot += beat.slots.length
     })
+    /* How many times it goes round, right up against the line that closes the
+       bar. Once is what a repeat means on its own, and says nothing. */
+    const times = bar.repeatTimes ?? 0
+    if (times > 1) {
+      const mark = `x${times}`
+      place(line, at + opening + barWidth(widths) - mark.length, mark)
+    }
   }
   return finish(line)
 }
@@ -180,8 +203,8 @@ function markerLine(system: System): string {
 function handLine(system: System): string | null {
   const line: string[] = []
   let any = false
-  for (const { bar, widths, at } of system.bars) {
-    const columns = slotColumns(widths)
+  for (const { bar, widths, at, opening } of system.bars) {
+    const columns = slotColumns(widths, opening)
     slotsOf(bar).forEach((slot, index) => {
       const column = at + (columns[index] ?? 0)
       if (slot.palm === true) {
@@ -202,8 +225,8 @@ function handLine(system: System): string | null {
 function chordLine(system: System): string | null {
   const line: string[] = []
   let any = false
-  for (const { bar, widths, at } of system.bars) {
-    const columns = slotColumns(widths)
+  for (const { bar, widths, at, opening } of system.bars) {
+    const columns = slotColumns(widths, opening)
     let slot = 0
     for (const beat of bar.beats) {
       if (beat.chord !== null && beat.chord !== '') {
@@ -219,8 +242,12 @@ function chordLine(system: System): string | null {
 const systemRows = (system: System, strings: number): string[] =>
   Array.from({ length: strings }, (_, string) => {
     let row = ''
-    for (const { bar, widths } of system.bars) row += '|' + renderBarRow(bar, string, widths)
-    return row + '|'
+    for (const { bar, widths, opening } of system.bars) {
+      row += '|'.repeat(opening) + renderBarRow(bar, string, widths, strings)
+    }
+    /* The line that closes the last bar, thickened where a repeat ends on it. */
+    const last = system.bars[system.bars.length - 1]?.bar
+    return row + (last?.repeatTimes === undefined ? '|' : '||')
   })
 
 /** One paragraph of the drawing: either a system, or the words above one. */
@@ -318,6 +345,26 @@ export function laidOut(doc: TabDoc, wrapAt = WRAP_COLUMNS): Laid[] {
 }
 
 /**
+ * Where a bar's closing line is drawn, for anything written against it.
+ *
+ * The column is the line itself, so whatever is put there is right-aligned to
+ * it — which is where a repeat count goes, hard against the end of the bar it
+ * counts.
+ */
+export function endOfBar(
+  doc: TabDoc,
+  bar: number,
+  wrapAt = WRAP_COLUMNS
+): { system: number; column: number } | null {
+  for (const [index, laid] of laidOut(doc, wrapAt).entries()) {
+    const placed = laid.system.bars[bar - laid.firstBar]
+    if (placed === undefined) continue
+    return { system: index, column: placed.at + placed.opening + barWidth(placed.widths) }
+  }
+  return null
+}
+
+/**
  * The section whose words are drawn directly above the cursor's system.
  *
  * Only directly above: a system that carries on from the one before it has
@@ -345,7 +392,7 @@ function slotsAcross(
 ): { bar: number; beat: number; slot: number; column: number }[] {
   const found: { bar: number; beat: number; slot: number; column: number }[] = []
   laid.system.bars.forEach((placed, index) => {
-    const columns = slotColumns(placed.widths)
+    const columns = slotColumns(placed.widths, placed.opening)
     let at = 0
     placed.bar.beats.forEach((beat, beatIndex) => {
       beat.slots.forEach((_, slotIndex) => {
@@ -429,7 +476,7 @@ export function cursorAtPlace(
 export const renderBar = (bar: Bar, strings: number): string => {
   const widths = slotWidths(bar, strings)
   return Array.from({ length: strings }, (_, string) =>
-    '|' + renderBarRow(bar, string, widths) + '|'
+    '|' + renderBarRow(bar, string, widths, strings) + '|'
   ).join('\n')
 }
 

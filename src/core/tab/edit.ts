@@ -355,6 +355,63 @@ const inBeats = (bar: Bar, beats: number, strings: number): Bar => ({
         ]
 })
 
+/**
+ * Marks where a repeat begins or ends, whichever half of the bar is under the
+ * cursor.
+ *
+ * Which half decides which, because that is where the mark is drawn: a repeat
+ * begins at the left-hand line of its first bar and ends at the right-hand
+ * line of its last, and pointing at the half nearest the line you mean is the
+ * only thing anybody has to remember.
+ *
+ * Pressing it again on a mark takes it off. A repeat's count is set separately
+ * — there is nothing to count until there is an end to count round to.
+ */
+export function markRepeat(state: Editing): Editing {
+  const { doc, cursor } = state
+  const bar = doc.bars[cursor.bar]
+  if (bar === undefined) return state
+
+  const ends = cursor.beat >= bar.beats.length / 2
+  const changed = ends ? closesRepeat(bar) : opensRepeat(bar)
+  return {
+    ...state,
+    doc: { ...doc, bars: doc.bars.map((one, index) => (index === cursor.bar ? changed : one)) }
+  }
+}
+
+const opensRepeat = (bar: Bar): Bar => {
+  if (bar.repeatStart !== true) return { ...bar, repeatStart: true }
+  const { repeatStart: _off, ...rest } = bar
+  return rest
+}
+
+/* Marking the end of a repeat leaves it going round once, which is what a
+   repeat means before anybody says otherwise. Pressing again does not take it
+   off — the count is asked for instead, and nought is how it is cleared. */
+const closesRepeat = (bar: Bar): Bar =>
+  bar.repeatTimes === undefined ? { ...bar, repeatTimes: 1 } : bar
+
+/**
+ * How many times the repeat goes round, on the bar it ends at.
+ *
+ * Nought times is not a repeat at all, so it is how the mark is taken off.
+ */
+export function timesRound(state: Editing, times: number): Editing {
+  const { doc, cursor } = state
+  const bar = doc.bars[cursor.bar]
+  if (bar === undefined || bar.repeatTimes === undefined) return state
+  const changed = ((): Bar => {
+    if (times >= 1) return { ...bar, repeatTimes: times }
+    const { repeatTimes: _off, ...rest } = bar
+    return rest
+  })()
+  return {
+    ...state,
+    doc: { ...doc, bars: doc.bars.map((one, index) => (index === cursor.bar ? changed : one)) }
+  }
+}
+
 /** The slot the cursor is standing on, changed and put back. */
 function atCursor(state: Editing, change: (slot: Slot) => Slot): Editing {
   const { doc, cursor } = state

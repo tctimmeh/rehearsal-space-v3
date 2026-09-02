@@ -845,6 +845,22 @@
   line-height: var(--tab-row);
   outline: none;
 }
+/* Hard against the line that closes its bar, on the row the beats are on. */
+.tablature__times {
+  position: absolute;
+  transform: translateX(-100%);
+  width: 4ch;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--go);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  line-height: var(--tab-row);
+  text-align: right;
+  outline: none;
+}
+
 /* Somewhere for it to stand when the system has no chord row drawn yet. The
    row appears by itself as soon as there is a chord to draw on it. */
 .tablature__system--naming {
