@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, session, shell } from 'electron'
+import { app, BrowserWindow, Menu, session, shell } from 'electron'
 
 import { readConfig } from './config'
 import { captureAndExit, requestedCapturePath } from './devCapture'
@@ -66,6 +66,22 @@ function createWindow(uiScale: number): BrowserWindow {
 
   return window
 }
+
+/*
+ * No menu, which means no reload.
+ *
+ * Electron ships a default menu whose View entry answers Ctrl-R, Ctrl-Shift-R
+ * and F5 by reloading the window. This is an application, not a web page:
+ * reloading throws away everything the renderer is holding, and mid-edit it
+ * reads as the app having crashed and come back. The renderer cannot stop a
+ * menu accelerator by preventing the key — the menu is answered above it — so
+ * the menu is what has to go. The app's own menu is a button in its header,
+ * and every window here is chromeless anyway.
+ *
+ * Taking the menu away leaves the keys themselves alone, which matters:
+ * Ctrl-R is how a repeat is marked in the tablature.
+ */
+Menu.setApplicationMenu(null)
 
 void app.whenReady().then(async () => {
   /*

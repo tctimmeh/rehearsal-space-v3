@@ -1069,6 +1069,15 @@ function RepeatCount({
       }}
       onKeyDown={(event) => {
         event.stopPropagation()
+        /* The key that made the repeat takes it off again, which is what it
+           does everywhere else and what anybody who has just pressed it by
+           mistake reaches for. */
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'r') {
+          onChange(0)
+          onDone()
+          event.preventDefault()
+          return
+        }
         if (event.key === 'Escape' || event.key === 'Enter') {
           onDone()
           event.preventDefault()

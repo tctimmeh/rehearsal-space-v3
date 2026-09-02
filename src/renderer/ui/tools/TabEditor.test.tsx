@@ -1339,6 +1339,22 @@ describe('repeats', () => {
     expect((times() as HTMLInputElement).value).toBe('12')
   })
 
+  /* The key that made it takes it off, which is what somebody who has just
+     pressed it by mistake reaches for. */
+  it('takes the repeat off when the same key is pressed in the count', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+    press('r', { ctrlKey: true })
+    expect(useTabs.getState().doc.bars[0]?.repeatTimes).toBe(1)
+
+    fireEvent.keyDown(times() as HTMLInputElement, { key: 'r', ctrlKey: true })
+
+    expect(useTabs.getState().doc.bars[0]?.repeatTimes).toBeUndefined()
+    expect(times()).toBeNull()
+    expect(document.activeElement).toBe(sheet())
+  })
+
   it('takes the repeat off when nought times is asked for', () => {
     render(<TabEditor />)
     sheet().focus()
