@@ -14,21 +14,9 @@ import { TECHNIQUES, type Technique } from './document'
  * fret on a string and a beat above it — so the row has to be known first.
  */
 
-export type Row = 'chord' | 'beats' | 'string'
+export type Row = 'chord' | 'beats' | 'hand' | 'string'
 
-export type Ink = 'note' | 'beat' | 'bar' | 'sub' | 'chord' | 'plain'
-
-/**
- * The rows of one drawn system, in order.
- *
- * A chord line is only written when a bar in the system has a chord on it,
- * which is what the extra row means.
- */
-export function rowsOf(lines: number, strings: number): Row[] {
-  const rows: Row[] = lines > strings + 1 ? ['chord', 'beats'] : ['beats']
-  while (rows.length < lines) rows.push('string')
-  return rows
-}
+export type Ink = 'note' | 'beat' | 'bar' | 'sub' | 'chord' | 'hand' | 'plain'
 
 const isDigit = (character: string): boolean => character >= '0' && character <= '9'
 
@@ -40,6 +28,7 @@ const isTechnique = (character: string): boolean =>
 
 const inkFor = (character: string, row: Row): Ink => {
   if (row === 'chord') return character === ' ' ? 'plain' : 'chord'
+  if (row === 'hand') return character === ' ' ? 'plain' : 'hand'
   if (row === 'beats') {
     if (isDigit(character)) return 'beat'
     if (isSixteenth(character)) return 'sub'

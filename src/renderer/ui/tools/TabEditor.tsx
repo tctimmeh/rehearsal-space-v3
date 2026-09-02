@@ -11,6 +11,8 @@ import {
   markWith,
   nameSection,
   openSection,
+  palmMute,
+  shakeBy,
   nameChord,
   QUICK_MS,
   setBeats,
@@ -48,7 +50,7 @@ import {
   undo,
   type History
 } from '@core/tab/history'
-import { inkOf, rowsOf, type Ink, type Row } from '@core/tab/ink'
+import { inkOf, type Ink, type Row } from '@core/tab/ink'
 import {
   blocksOf,
   cursorAtPlace,
@@ -508,6 +510,18 @@ export function TabEditor() {
       return
     }
 
+    if (event.key === 'p' || event.key === 'P') {
+      apply(palmMute(state), false)
+      event.preventDefault()
+      return
+    }
+
+    if (event.key === 'v' || event.key === 'V') {
+      apply(shakeBy(state, event.shiftKey ? -1 : 1), false)
+      event.preventDefault()
+      return
+    }
+
     if (event.key === 'x' || event.key === 'X') {
       apply(typeMute(state), false)
       event.preventDefault()
@@ -606,7 +620,7 @@ export function TabEditor() {
           ) : (
             <div
               className={
-                overBeat !== null && ordinals[index] === overBeat.system && !hasChordRow(block, doc)
+                overBeat !== null && ordinals[index] === overBeat.system && !hasChordRow(block)
                   ? 'tablature__system tablature__system--naming'
                   : 'tablature__system'
               }
@@ -630,7 +644,7 @@ export function TabEditor() {
                   <div className="tablature__line" key={offset} data-line={at}>
                     {drawLine(
                       line,
-                      rowsOf(block.lines.length, doc.strings)[offset] ?? 'string',
+                      block.rows?.[offset] ?? 'string',
                       at,
                       place,
                       picked.get(at)
@@ -892,6 +906,7 @@ const INK_CLASS: Record<Ink, string> = {
   bar: 'tablature__bar',
   sub: 'tablature__sub',
   chord: 'tablature__name',
+  hand: 'tablature__hand',
   plain: ''
 }
 
@@ -967,8 +982,7 @@ function drawLine(
 }
 
 /** Whether this system is already drawing a row for chords. */
-const hasChordRow = (block: Block, doc: TabDoc): boolean =>
-  rowsOf(block.lines.length, doc.strings)[0] === 'chord'
+const hasChordRow = (block: Block): boolean => block.rows?.[0] === 'chord'
 
 /**
  * Where a chord is written.

@@ -959,6 +959,11 @@
 .tablature__sub {
   opacity: 0.75;
 }
+/* What the picking hand is doing: read with the notes it is done to, but not
+   mistaken for one of them. */
+.tablature__hand {
+  color: var(--text-dim);
+}
 /* Chords name the bar underneath them; they read with the beats, not over. */
 .tablature__name {
   color: var(--text-dim);

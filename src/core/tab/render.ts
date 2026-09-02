@@ -1,6 +1,8 @@
+import type { Row } from './ink'
 import {
   beatCount,
   SIXTEENTH_MARKS,
+  vibratoWidth,
   type Bar,
   type Beat,
   type Cursor,
@@ -168,6 +170,34 @@ function markerLine(system: System): string {
   return finish(line)
 }
 
+/**
+ * What the picking hand is doing, drawn between the beats and the strings.
+ *
+ * Both marks belong to a moment rather than to a string, so they share one
+ * row: a palm mute is an `x` over its slot, and a vibrato a wave running on
+ * from its note for as long as it is held.
+ */
+function handLine(system: System): string | null {
+  const line: string[] = []
+  let any = false
+  for (const { bar, widths, at } of system.bars) {
+    const columns = slotColumns(widths)
+    slotsOf(bar).forEach((slot, index) => {
+      const column = at + (columns[index] ?? 0)
+      if (slot.palm === true) {
+        place(line, column, 'x')
+        any = true
+      }
+      const wave = vibratoWidth(slot.vibrato ?? 0)
+      if (wave > 0) {
+        place(line, column, '~'.repeat(wave))
+        any = true
+      }
+    })
+  }
+  return any ? finish(line) : null
+}
+
 /** Chords sit over the beat they belong to, so widening a bar takes them with it. */
 function chordLine(system: System): string | null {
   const line: string[] = []
@@ -197,6 +227,10 @@ const systemRows = (system: System, strings: number): string[] =>
 export interface Block {
   kind: 'words' | 'system'
   lines: string[]
+  /** What each of those lines is, for a system. Said rather than guessed at:
+      a system has a chord line only sometimes and a hand line only sometimes,
+      and counting the lines cannot tell one absence from the other. */
+  rows?: Row[]
   /** Line the first of those lines is drawn on. */
   from: number
   /** The bar this block belongs to: the one it opens, or the system's first. */
@@ -229,12 +263,20 @@ export function blocksOf(doc: TabDoc, wrapAt = WRAP_COLUMNS): Block[] {
     }
 
     const chords = chordLine(system)
+    const hand = handLine(system)
     const lines = [
       ...(chords === null ? [] : [chords]),
       markerLine(system),
+      ...(hand === null ? [] : [hand]),
       ...systemRows(system, doc.strings)
     ]
-    blocks.push({ kind: 'system', lines, from: line, bar: firstBar, system })
+    const rows: Row[] = [
+      ...(chords === null ? [] : ['chord' as Row]),
+      'beats' as Row,
+      ...(hand === null ? [] : ['hand' as Row]),
+      ...Array.from({ length: doc.strings }, () => 'string' as Row)
+    ]
+    blocks.push({ kind: 'system', lines, rows, from: line, bar: firstBar, system })
     line += lines.length + 1
     firstBar += system.bars.length
   }

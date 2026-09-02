@@ -355,6 +355,66 @@ const inBeats = (bar: Bar, beats: number, strings: number): Bar => ({
         ]
 })
 
+/** The slot the cursor is standing on, changed and put back. */
+function atCursor(state: Editing, change: (slot: Slot) => Slot): Editing {
+  const { doc, cursor } = state
+  return {
+    ...state,
+    doc: {
+      ...doc,
+      bars: doc.bars.map((bar, barIndex) =>
+        barIndex !== cursor.bar
+          ? bar
+          : {
+              ...bar,
+              beats: bar.beats.map((beat, beatIndex) =>
+                beatIndex !== cursor.beat
+                  ? beat
+                  : {
+                      ...beat,
+                      slots: beat.slots.map((slot, slotIndex) =>
+                        slotIndex !== cursor.slot ? slot : change(slot)
+                      )
+                    }
+              )
+            }
+      )
+    }
+  }
+}
+
+/**
+ * Damped with the heel of the hand, or not.
+ *
+ * The moment is damped rather than the string: the hand lands on the strings,
+ * so it is one mark above the staff however many notes are under it.
+ */
+export const palmMute = (state: Editing): Editing =>
+  atCursor(state, (slot) => {
+    if (slot.palm === true) {
+      const { palm: _off, ...rest } = slot
+      return rest
+    }
+    return { ...slot, palm: true }
+  })
+
+/**
+ * Half a beat more vibrato, or half a beat less.
+ *
+ * Counted in half beats because that is the shortest wave worth drawing, and
+ * because holding a note and shaking it for exactly one is what the key is
+ * pressed once to mean.
+ */
+export const shakeBy = (state: Editing, halves: number): Editing =>
+  atCursor(state, (slot) => {
+    const held = Math.max(0, (slot.vibrato ?? 0) + halves)
+    if (held === 0) {
+      const { vibrato: _still, ...rest } = slot
+      return rest
+    }
+    return { ...slot, vibrato: held }
+  })
+
 /**
  * Every section ends with exactly one empty bar.
  *

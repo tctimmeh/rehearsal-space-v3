@@ -57,7 +57,20 @@ export interface Slot {
   /** One entry per string, top row first. Null is a string not played. */
   frets: (Fret | null)[]
   after: Technique[]
+  /**
+   * Damped with the heel of the picking hand.
+   *
+   * A property of the moment rather than of one string: the hand is on the
+   * strings, not on a string, and it is drawn once above the staff whatever is
+   * being played underneath.
+   */
+  palm?: boolean
+  /** Half-beats of vibrato, counted from the note and drawn as a wave. */
+  vibrato?: number
 }
+
+/** How long a vibrato is drawn: a half-beat is one mark, and each adds two. */
+export const vibratoWidth = (halves: number): number => Math.max(0, halves * 2 - 1)
 
 /**
  * One beat, and whatever it was divided into.

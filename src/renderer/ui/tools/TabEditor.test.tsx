@@ -1181,3 +1181,82 @@ describe('sections divided by words', () => {
     expect(written()).toEqual(['Chorus:'])
   })
 })
+
+/* What the picking hand is doing, drawn between the beats and the strings. */
+describe('palm mutes and vibrato', () => {
+  const hand = () =>
+    [...sheet().querySelectorAll('.tablature__line[data-line]')]
+      .map((line) => line.textContent ?? '')
+      .find((line) => line.trim() !== '' && /^[ x~]+$/.test(line))
+
+  it('damps the note under the cursor', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+
+    press('p')
+
+    expect(hand()?.trim()).toBe('x')
+  })
+
+  it('lets it ring again when pressed twice', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('p')
+
+    press('p')
+
+    expect(hand()).toBeUndefined()
+  })
+
+  it('shakes the note by half a beat at a time', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+
+    press('v')
+    expect(hand()?.trim()).toBe('~')
+
+    press('v')
+    expect(hand()?.trim()).toBe('~~~')
+
+    press('v')
+    expect(hand()?.trim()).toBe('~~~~~')
+  })
+
+  it('takes half a beat back off with shift', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('v')
+    press('v')
+
+    press('v', { shiftKey: true })
+
+    expect(hand()?.trim()).toBe('~')
+  })
+
+  it('stops at none rather than going negative', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('v')
+
+    press('v', { shiftKey: true })
+    press('v', { shiftKey: true })
+
+    expect(hand()).toBeUndefined()
+  })
+
+  it('writes them to the file', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('p')
+    await useTabs.getState().flush()
+
+    const file = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
+    expect(file.split('\n').some((line) => /^[ x~]+$/.test(line) && line.includes('x'))).toBe(true)
+  })
+})

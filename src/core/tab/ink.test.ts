@@ -1,26 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { inkOf, rowsOf } from './ink'
+import { inkOf } from './ink'
 import { parse } from './parse'
 import { render } from './render'
-
-describe('which row is which', () => {
-  it('reads the beats first when nothing has a chord over it', () => {
-    expect(rowsOf(7, 6)).toEqual([
-      'beats',
-      'string',
-      'string',
-      'string',
-      'string',
-      'string',
-      'string'
-    ])
-  })
-
-  it('puts a chord line above the beats when there is an extra row', () => {
-    expect(rowsOf(8, 6).slice(0, 3)).toEqual(['chord', 'beats', 'string'])
-  })
-})
 
 describe('what a character is', () => {
   it('picks the frets out of the dashes holding them up', () => {
@@ -62,12 +44,6 @@ describe('what a character is', () => {
 
 describe('over a real drawing', () => {
   const lines = render(parse('|-3-5-7-12-9---11---|')).replace(/\n$/, '').split('\n')
-  const rows = rowsOf(lines.length, 6)
-
-  it('inks every line of the system it was measured for', () => {
-    expect(rows).toHaveLength(lines.length)
-    expect(rows[0]).toBe('beats')
-  })
 
   it('finds the twelfth fret on the top string, both digits of it', () => {
     const top = lines.findIndex((line) => line.includes('12'))

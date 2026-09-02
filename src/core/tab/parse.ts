@@ -80,12 +80,18 @@ function readBar(contents: string[], from: number): ReadSlot[] | null {
 /** A line of the tablature itself, rather than of the writing around it. */
 const isStringRow = (line: string): boolean => line.trimStart().startsWith('|')
 
+/** What the picking hand is doing: palm mutes and vibrato, and nothing else. */
+const isHandRow = (line: string): boolean =>
+  line.trim() !== '' && [...line].every((character) => character === ' ' || 'x~'.includes(character))
+
 const isMarkerRow = (line: string): boolean =>
   !line.includes('|') && /\d/.test(line) && /^[\s\d&ea]*$/.test(line)
 
 interface Block {
   chords: string | null
   markers: string | null
+  /** Palm mutes and vibrato, written under the beats. */
+  hand: string | null
   /** Free text written above this system, which is what opens a section. */
   words: string | null
   rows: string[]
@@ -108,16 +114,27 @@ function blocksOf(lines: string[]): Block[] {
     }
 
     const start = at - rows.length
-    const markers = start > 0 && isMarkerRow(lines[start - 1] as string) ? lines[start - 1] : null
-    const chordsAt = markers === null ? start - 1 : start - 2
+    /* Written under the beats and over the strings, so it is looked for
+       first — otherwise a row of palm mutes stands where the beats should be
+       and the beats are never found. */
+    const hand = start > 0 && isHandRow(lines[start - 1] as string) ? lines[start - 1] : null
+    const marksAt = hand === null ? start - 1 : start - 2
+    const markers = marksAt >= 0 && isMarkerRow(lines[marksAt] as string) ? lines[marksAt] : null
+    const chordsAt = markers === null ? marksAt : marksAt - 1
     const candidate = chordsAt >= 0 ? (lines[chordsAt] as string) : ''
     const chords =
       chordsAt >= 0 && candidate.trim() !== '' && !candidate.includes('|') && !isMarkerRow(candidate)
         ? candidate
         : null
-    const above = chords !== null ? chordsAt : markers !== null ? start - 1 : start
+    const above = chords !== null ? chordsAt : markers !== null ? marksAt : start
 
-    blocks.push({ chords: chords ?? null, markers: markers ?? null, words: wordsAbove(lines, above), rows })
+    blocks.push({
+      chords: chords ?? null,
+      markers: markers ?? null,
+      hand: hand ?? null,
+      words: wordsAbove(lines, above),
+      rows
+    })
   }
 
   return blocks
@@ -207,6 +224,25 @@ function intoBeats(slots: Slot[], columns: number[], starts: number[]): Beat[] {
   return beats.filter((beat) => beat.slots.length > 0)
 }
 
+/**
+ * Reads the palm mutes and vibrato back onto the slots they were drawn over.
+ *
+ * A wave runs on from its note, so its length is counted from where it starts
+ * until something else is written or it stops — and how many half-beats that
+ * was is the inverse of how it was drawn.
+ */
+function readHand(slots: Slot[], columns: number[], hand: string | null): void {
+  if (hand === null) return
+  slots.forEach((slot, index) => {
+    const column = columns[index] ?? 0
+    if (hand[column] === 'x') slot.palm = true
+    if (hand[column] !== '~') return
+    let run = 0
+    while (hand[column + run] === '~') run += 1
+    slot.vibrato = Math.round((run + 1) / 2)
+  })
+}
+
 /** Says where in its beat each slot stands, now that the beats are known. */
 function markPositions(beats: Beat[], columns: number[], markers: string | null): void {
   let index = 0
@@ -294,6 +330,7 @@ export function parse(text: string): TabDoc {
       })
 
       const slotColumns = shape.map((slot) => slot.at)
+      readHand(slots, slotColumns, block.hand)
       const beats = intoBeats(slots, slotColumns, beatColumns(block.markers))
       markPositions(beats, slotColumns, block.markers)
       columns.push(slotColumns)
