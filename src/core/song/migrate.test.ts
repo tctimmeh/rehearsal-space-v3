@@ -250,11 +250,25 @@ describe('what the waveform tool was doing', () => {
   const read = (waveform: unknown) => migrateSong({ schemaVersion: 1, waveform }, 'x').waveform
 
   it('is kept', () => {
-    expect(read({ tab: 'click', channel: 'bass' })).toEqual({ tab: 'click', channel: 'bass' })
+    expect(read({ tab: 'click', channel: 'bass' })).toEqual({
+      tab: 'click',
+      channel: 'bass',
+      against: null
+    })
+  })
+
+  /* A song from before there was one has nothing to line up against. */
+  it('keeps the channel a take is lined up against, where there is one', () => {
+    expect(read({ tab: 'trim', channel: 'vocal', against: 'drums' }).against).toBe('drums')
+    expect(read({ tab: 'trim', channel: 'vocal' }).against).toBeNull()
   })
 
   it('starts on the loop region in a song that never had it open', () => {
-    expect(migrateSong({ schemaVersion: 1 }, 'x').waveform).toEqual({ tab: 'loop', channel: null })
+    expect(migrateSong({ schemaVersion: 1 }, 'x').waveform).toEqual({
+      tab: 'loop',
+      channel: null,
+      against: null
+    })
   })
 
   it('falls back to the loop region when the tab is not one', () => {

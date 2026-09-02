@@ -120,6 +120,13 @@ export function WaveformTool() {
   const against = audio.find((c) => c.id === againstId) ?? audio[0] ?? null
   const click = clicks.find((c) => c.id === clickId) ?? clicks[0] ?? null
   const peaks = usePeaks(song?.id, against?.id)
+  /* A second channel drawn underneath, to line the first one up against.
+     Trimming and placing a take is done against something else. */
+  const beneathId = song?.waveform.against ?? null
+  const setBeneathId = (channel: string | null) =>
+    update({ waveform: { ...(song as Song).waveform, against: channel === '' ? null : channel } })
+  const beneath = audio.find((c) => c.id === beneathId && c.id !== against?.id) ?? null
+  const beneathPeaks = usePeaks(song?.id, beneath?.id)
 
   const timing = useMemo(() => (click === null ? null : solveMetronome(click)), [click])
   /* Follow the click being aligned until the user pans somewhere else, and
@@ -191,7 +198,18 @@ export function WaveformTool() {
             change={change}
           />
         ) : job === 'trim' ? (
-          <TrimControls channel={against} view={view} onChange={changeChannel} />
+          <>
+            <Picker
+              label="Against"
+              value={beneath?.id ?? ''}
+              options={audio
+                .filter((c) => c.id !== against?.id)
+                .map((c) => ({ id: c.id, label: c.name }))}
+              onChange={setBeneathId}
+              allowNone="Nothing"
+            />
+            <TrimControls channel={against} view={view} onChange={changeChannel} />
+          </>
         ) : (
           <LoopControls loop={loop} view={view} onChange={setRegion} />
         )}
@@ -333,17 +351,30 @@ export function WaveformTool() {
           zoomBy(2 ** (notches * zoomSpeed), timeAt(event.clientX))
         }}
       >
-        <Waveform
-          peaks={peaks}
-          from={from}
-          to={to}
-          /* The file's own beginning, which is not where it starts playing
-             once it has been trimmed. Drawn from there, what was cut off lies
-             where it always did rather than shifting the rest out of true. */
-          offset={(against?.startTime ?? 0) - (against?.offset ?? 0)}
-          color={CHANNEL_SUBJECT_COLOR[against?.subject ?? 'other']}
-          height={WAVE_HEIGHT}
-        />
+        <div className="align__traces">
+          <Waveform
+            peaks={peaks}
+            from={from}
+            to={to}
+            /* The file's own beginning, which is not where it starts playing
+               once it has been trimmed. Drawn from there, what was cut off
+               lies where it always did rather than shifting the rest out of
+               true. */
+            offset={(against?.startTime ?? 0) - (against?.offset ?? 0)}
+            color={CHANNEL_SUBJECT_COLOR[against?.subject ?? 'other']}
+            height={beneath === null ? WAVE_HEIGHT : WAVE_HEIGHT / 2}
+          />
+          {beneath === null ? null : (
+            <Waveform
+              peaks={beneathPeaks}
+              from={from}
+              to={to}
+              offset={beneath.startTime - (beneath.offset ?? 0)}
+              color={CHANNEL_SUBJECT_COLOR[beneath.subject]}
+              height={WAVE_HEIGHT / 2}
+            />
+          )}
+        </div>
 
         {job === 'click' ? (
           <ClickTrackMarks timing={timing} view={view} change={change} />

@@ -79,13 +79,16 @@ export function Picker({
   value,
   options,
   onChange,
-  empty
+  empty,
+  allowNone
 }: {
   label: string
   value: string
   options: { id: string; label: string }[]
   onChange: (id: string) => void
   empty?: string
+  /** Offers picking nothing at all, under this name. */
+  allowNone?: string
 }) {
   return (
     <label className="align__picker">
@@ -93,10 +96,11 @@ export function Picker({
       <select
         className="well input"
         value={value}
-        disabled={options.length === 0}
+        disabled={options.length === 0 && allowNone === undefined}
         onChange={(event) => onChange(event.target.value)}
       >
         {options.length === 0 ? <option>{empty ?? 'None'}</option> : null}
+        {allowNone === undefined ? null : <option value="">{allowNone}</option>}
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.label}

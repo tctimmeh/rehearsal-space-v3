@@ -211,11 +211,13 @@ function parseWaveform(raw: unknown, defaults: WaveformSettings): WaveformSettin
   if (!isRecord(raw)) return defaults
   const tab = raw['tab']
   const channel = raw['channel']
+  const against = raw['against']
   return {
     tab: WAVEFORM_TABS.includes(tab as WaveformSettings['tab'])
       ? (tab as WaveformSettings['tab'])
       : defaults.tab,
-    channel: typeof channel === 'string' ? channel : null
+    channel: typeof channel === 'string' ? channel : null,
+    against: typeof against === 'string' ? against : null
   }
 }
 

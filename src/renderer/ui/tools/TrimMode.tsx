@@ -98,6 +98,10 @@ export function TrimMarks({
         aria-valuetext={`Starts at ${view.clock(channel.startTime)}`}
         style={{ left: view.xOf(channel.startTime), width: widthOf(channel.startTime, ends, view) }}
         onPointerDown={(event) => {
+          /* Only the left button moves the take. The middle one pans the
+             waveform, and it has to reach the strip underneath to do it —
+             taking every button here made the take unpannable to drag over. */
+          if (event.button !== 0) return
           event.stopPropagation()
           event.currentTarget.setPointerCapture(event.pointerId)
           held.current = { x: event.clientX, startTime: channel.startTime }

@@ -36,6 +36,11 @@ const view: View = {
   clock: (time) => `${time.toFixed(2)}s`
 }
 
+const renderMarks = (channel: AudioChannel, onChange: () => void): HTMLElement => {
+  render(<TrimMarks channel={channel} view={view} onChange={onChange} />)
+  return screen.getByRole('slider', { name: /Starts at/ })
+}
+
 describe('trimming a take by looking at it', () => {
   it('cuts the front off where the handle is dragged to', () => {
     const onChange = vi.fn()
@@ -69,16 +74,28 @@ describe('trimming a take by looking at it', () => {
   it('moves the whole take by however far it is dragged', () => {
     const onChange = vi.fn()
     const channel = take({ startTime: 5 })
-    render(<TrimMarks channel={channel} view={view} onChange={onChange} />)
-    const body = screen.getByRole('slider', { name: /Starts at/ })
+    const body = renderMarks(channel, onChange)
 
-    fireEvent.pointerDown(body, { clientX: 200 })
+    fireEvent.pointerDown(body, { clientX: 200, button: 0 })
     fireEvent.pointerMove(body, { clientX: 260 })
 
     const moved = onChange.mock.calls.at(-1)?.[0] as AudioChannel
     /* Six seconds along, from where it was — not to where the pointer is. */
     expect(moved.startTime).toBe(11)
     expect(keptPart(moved)).toEqual(keptPart(channel))
+  })
+
+  /* The middle button pans the waveform, and has to reach the strip under the
+     take to do it. Taking every button on the take made it unpannable to drag
+     over — which is most of the width of a take being worked on. */
+  it('leaves the middle button to the panning underneath', () => {
+    const onChange = vi.fn()
+    const body = renderMarks(take({ startTime: 5 }), onChange)
+
+    fireEvent.pointerDown(body, { clientX: 200, button: 1 })
+    fireEvent.pointerMove(body, { clientX: 260, button: 1 })
+
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('draws what has been cut off, so it can be seen', () => {

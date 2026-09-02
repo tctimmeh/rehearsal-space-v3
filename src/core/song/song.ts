@@ -133,6 +133,14 @@ export interface WaveformSettings {
   tab: 'loop' | 'trim' | 'click'
   /** The channel being looked at, or null for whichever comes first. */
   channel: string | null
+  /**
+   * A second channel drawn underneath, to line the first one up against.
+   *
+   * Trimming and placing a take is done against something else — the take is
+   * early or late compared to what it is played over — and comparing two
+   * traces by memory is not comparing them.
+   */
+  against?: string | null
 }
 
 export const WAVEFORM_TABS = ['loop', 'trim', 'click'] as const
@@ -241,7 +249,7 @@ export function newSong(id: string, now = new Date()): Song {
     tags: [],
     openTools: [],
     tabs: [],
-    waveform: { tab: 'loop', channel: null }
+    waveform: { tab: 'loop', channel: null, against: null }
   }
 }
 
