@@ -90,6 +90,14 @@ export function TabEditor() {
   const error = useTabs((state) => state.error)
 
   const [cursor, setCursor] = useState(AT_START)
+  /*
+   * Where the cursor is now, rather than where it was when this last drew.
+   * Leaving the words moves it and then lets go of them, and the letting go
+   * arrives after the move — answering it from the drawn value would put the
+   * cursor back where it came from, which for a move upwards is downwards.
+   */
+  const standing = useRef(cursor)
+  standing.current = cursor
   /**
    * How many characters fit across, which is how many bars go on a line.
    *
@@ -291,22 +299,18 @@ export function TabEditor() {
        to be put anywhere in particular — whatever was clicked has already said
        where it goes. Settling is what closes a section left unnamed. */
     if (way === 'away') {
-      apply({ doc: useTabs.getState().doc, cursor }, true)
+      apply({ doc: useTabs.getState().doc, cursor: standing.current }, true)
       return
     }
     const above = way === 'up' && bar > 0
-    apply(
-      {
-        doc: useTabs.getState().doc,
-        cursor: {
-          bar: above ? bar - 1 : bar,
-          beat: 0,
-          slot: 0,
-          string: above ? doc.strings - 1 : 0
-        }
-      },
-      true
-    )
+    const to = {
+      bar: above ? bar - 1 : bar,
+      beat: 0,
+      slot: 0,
+      string: above ? doc.strings - 1 : 0
+    }
+    standing.current = to
+    apply({ doc: useTabs.getState().doc, cursor: to }, true)
     field.current?.focus()
   }
 

@@ -1038,6 +1038,30 @@ describe('sections divided by words', () => {
     expect(sheet().querySelector('.tablature__cursor')?.textContent).toBe(before)
   })
 
+  /* Up out of the words is upwards: into the music above them, not back into
+     the music they introduce. */
+  it('goes up out of the words into the system above them', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    for (let step = 0; step < 8; step += 1) press('ArrowRight')
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Chorus:')
+
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'ArrowUp' })
+
+    const lines = [...sheet().querySelectorAll('.tablature__line')]
+    const cursorAt = lines.findIndex((line) => line.querySelector('.tablature__cursor'))
+    const wordsAt = [...sheet().children].findIndex((one) =>
+      one.classList.contains('tablature__words')
+    )
+    const linesBeforeWords = [...sheet().children]
+      .slice(0, wordsAt)
+      .reduce((count, one) => count + one.querySelectorAll('.tablature__line').length, 0)
+    expect(cursorAt).toBeLessThan(linesBeforeWords)
+  })
+
   it('shows the words above the section once they are written', async () => {
     const user = userEvent.setup()
     render(<TabEditor />)
