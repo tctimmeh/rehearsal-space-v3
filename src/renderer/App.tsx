@@ -11,6 +11,7 @@ import { followSongForTabs, useTabs } from './state/tabs'
 import { useView } from './state/view'
 import { useJobs } from './state/jobs'
 import { DropTarget, HeaderBar, ScrubBar, ToastStack } from './ui/shell'
+import { LoadingSong } from './ui/shell/LoadingSong'
 import { LibraryView } from './ui/views/LibraryView'
 import { PlayerView } from './ui/views/PlayerView'
 import { followHotkeys } from './state/hotkeys'
@@ -35,8 +36,14 @@ export function App() {
       <HeaderBar />
       <ScrubBar />
       {error === null ? null : <ErrorBanner message={error} />}
-      {view === 'library' ? <LibraryView /> : null}
-      {view === 'player' ? <PlayerView /> : null}
+      {/* Whichever view is up. A song is often opened from the library and
+          the player is not on screen until it has loaded, so an indicator
+          living in the player is one nobody waiting for a song ever sees. */}
+      <div className="content">
+        <LoadingSong />
+        {view === 'library' ? <LibraryView /> : null}
+        {view === 'player' ? <PlayerView /> : null}
+      </div>
       <ToastStack />
       <DropTarget />
     </div>

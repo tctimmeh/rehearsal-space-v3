@@ -298,6 +298,16 @@
   flex: 1;
   min-height: 0;
 }
+/* Everything under the header and the scrub bar, and the ground the loading
+   card is measured against. */
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /*
  * Over the stage and in the middle of it, where the eye already is: the song
  * has been asked for and nothing has appeared yet.
