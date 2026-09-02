@@ -239,6 +239,10 @@ export function TabEditor() {
    * mean something rather than nothing at all.
    */
   const onPointerDown = (event: React.PointerEvent): void => {
+    /* A click in the words is asking for a caret in the words. Taking focus
+       back for the sheet would put it straight back in the music. */
+    if ((event.target as HTMLElement).closest('.tablature__words') !== null) return
+
     field.current?.focus()
     const sheet = field.current
     /* Pointing somewhere is asking for the cursor to be there, which means
@@ -281,16 +285,28 @@ export function TabEditor() {
    * all been deleted: an unnamed section is not a section, and closing it is
    * exactly what leaving an emptied sixteenth does.
    */
-  const leaveWords = (bar: number, way: 'up' | 'down'): void => {
-    const above = way === 'up' && bar > 0
-    const to = {
-      bar: above ? bar - 1 : bar,
-      beat: 0,
-      slot: 0,
-      string: above ? doc.strings - 1 : 0
-    }
+  const leaveWords = (bar: number, way: 'up' | 'down' | 'away'): void => {
     setWriting(null)
-    apply({ doc, cursor: to }, true)
+    /* Clicking elsewhere is leaving too, but it is not asking for the cursor
+       to be put anywhere in particular — whatever was clicked has already said
+       where it goes. Settling is what closes a section left unnamed. */
+    if (way === 'away') {
+      apply({ doc: useTabs.getState().doc, cursor }, true)
+      return
+    }
+    const above = way === 'up' && bar > 0
+    apply(
+      {
+        doc: useTabs.getState().doc,
+        cursor: {
+          bar: above ? bar - 1 : bar,
+          beat: 0,
+          slot: 0,
+          string: above ? doc.strings - 1 : 0
+        }
+      },
+      true
+    )
     field.current?.focus()
   }
 
@@ -580,7 +596,7 @@ export function TabEditor() {
                  what React has committed, and a keystroke written onto a copy
                  that has not caught up is a keystroke thrown away. */
               onWrite={(words) => edit(nameSection(useTabs.getState().doc, block.bar, words))}
-              onPick={() => setWriting(block.bar)}
+              onEnter={() => setWriting(block.bar)}
               onLeave={(way) => leaveWords(block.bar, way)}
             />
           ) : (
@@ -799,36 +815,24 @@ function SectionWords({
   lines,
   writing,
   onWrite,
-  onPick,
+  onEnter,
   onLeave
 }: {
   lines: string[]
   writing: boolean
   onWrite: (words: string) => void
-  onPick: () => void
-  onLeave: (way: 'up' | 'down') => void
+  onEnter: () => void
+  onLeave: (way: 'up' | 'down' | 'away') => void
 }) {
   const field = useRef<HTMLTextAreaElement>(null)
+  const words = lines.join('\n')
 
   useEffect(() => {
     if (writing) field.current?.focus()
   }, [writing])
 
-  if (!writing) {
-    return (
-      <div className="tablature__words" onPointerDown={onPick}>
-        {lines.map((line, offset) => (
-          <div className="tablature__line" key={offset}>
-            {line === '' ? ' ' : line}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const words = lines.join('\n')
   return (
-    <div className="tablature__words tablature__words--writing">
+    <div className="tablature__words">
       <textarea
         ref={field}
         className="tablature__field"
@@ -838,6 +842,8 @@ function SectionWords({
         spellCheck={false}
         placeholder="Verse, chorus, or how to play it"
         onChange={(event) => onWrite(event.target.value)}
+        onFocus={onEnter}
+        onBlur={() => onLeave('away')}
         onKeyDown={(event) => {
           /* The field sits inside the sheet, whose own handler answers for
              every key: `s` would start picking out beats instead of being
@@ -998,7 +1004,9 @@ function ChordField({
 function nearestRow(sheet: HTMLElement, y: number): HTMLElement | null {
   let best: HTMLElement | null = null
   let closest = Infinity
-  for (const row of sheet.querySelectorAll<HTMLElement>('.tablature__line')) {
+  /* Only the drawn rows: the words above a section are a field of their own
+     and answer for where their caret goes. */
+  for (const row of sheet.querySelectorAll<HTMLElement>('.tablature__line[data-line]')) {
     const box = row.getBoundingClientRect()
     const away = y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0
     if (away < closest) {

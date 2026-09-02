@@ -1006,6 +1006,38 @@ describe('sections divided by words', () => {
     expect(strings().split('\n')[0]?.match(/\|/g)?.length).toBeGreaterThan(2)
   })
 
+  it('takes the caret when the words are clicked', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Verse:')
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'Escape' })
+    expect(document.activeElement).toBe(sheet())
+
+    await user.click(words() as HTMLTextAreaElement)
+
+    expect(document.activeElement).toBe(words())
+  })
+
+  /* The words sit inside the sheet, whose own click handler places the block
+     cursor from the row that was nearest. It must keep out of the words. */
+  it('does not move the cursor in the music when the words are clicked', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Verse:')
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'ArrowDown' })
+    for (let step = 0; step < 3; step += 1) press('ArrowRight')
+    const before = sheet().querySelector('.tablature__cursor')?.textContent
+
+    await user.click(words() as HTMLTextAreaElement)
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'Escape' })
+
+    expect(sheet().querySelector('.tablature__cursor')?.textContent).toBe(before)
+  })
+
   it('shows the words above the section once they are written', async () => {
     const user = userEvent.setup()
     render(<TabEditor />)

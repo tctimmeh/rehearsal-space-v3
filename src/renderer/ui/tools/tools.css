@@ -888,13 +888,15 @@
 .tablature__system + .tablature__words {
   margin-top: var(--tab-row);
 }
+/* A field at all times, so pointing at a word puts the caret in it. Marked
+   only while it has the caret, so that until then it reads as what it is: a
+   heading over the music. */
 .tablature__field {
   display: block;
   width: 100%;
-  padding: 0;
+  padding: 0 0 0 7px;
   border: 0;
-  border-left: 2px solid var(--go);
-  padding-left: 7px;
+  border-left: 2px solid transparent;
   margin-left: -9px;
   background: none;
   color: var(--text);
@@ -904,6 +906,9 @@
   outline: none;
   overflow: hidden;
   white-space: pre-wrap;
+}
+.tablature__field:focus {
+  border-left-color: var(--go);
 }
 .tablature__field::placeholder {
   color: var(--text-faint);
