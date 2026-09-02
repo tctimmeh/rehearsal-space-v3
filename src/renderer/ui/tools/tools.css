@@ -827,17 +827,28 @@
   font-size: 12px;
   min-width: 12ch;
 }
+/*
+ * The chord is named where it will be read: over its beat, on the row above
+ * the beat numbers. A box above the editor meant looking away from the bar
+ * being named in order to name it.
+ */
 .tablature__chord {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  color: var(--text-faint);
+  position: absolute;
+  top: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--go);
+  background: none;
+  /* The colour it will be once it is a chord rather than a field. */
+  color: var(--text-dim);
+  font: inherit;
+  line-height: var(--tab-row);
+  outline: none;
 }
-.tablature__chord input {
-  width: 10ch;
-  padding: 3px 6px;
-  font-size: 12px;
+/* Somewhere for it to stand when the system has no chord row drawn yet. The
+   row appears by itself as soon as there is a chord to draw on it. */
+.tablature__system--naming {
+  padding-top: var(--tab-row);
 }
 /* The sheet is read, so it is a well; the cursor is the only thing on it that
    is touched, and it is moved with the keyboard rather than clicked. */
@@ -865,6 +876,7 @@
 /* Scrolled to a whole system at a time, with room to breathe against the edge:
    the beats a note is counted against are as much a part of it as the note. */
 .tablature__system {
+  position: relative;
   scroll-margin: 14px;
   padding-bottom: 4px;
 }

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type Song } from '@core/song/song'
 import { newTab } from '@core/tab/document'
+import { AT_START, chordAt } from '@core/tab/edit'
 import { TAB_KEY_COUNT } from '@core/tab/keys'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
@@ -348,6 +349,50 @@ describe('rhythm', () => {
 })
 
 describe('joins and chords', () => {
+  /*
+   * The chord is named where it will be read. It used to be typed into a box
+   * above the editor, which meant looking away from the bar being named.
+   */
+  it('opens the field inside the tablature, not above it', () => {
+    render(<TabEditor />)
+    sheet().focus()
+
+    press('ArrowUp', { ctrlKey: true })
+
+    const box = screen.getByLabelText('Chord')
+    expect(sheet().contains(box)).toBe(true)
+    expect(box.closest('.tablature__system')).toBeTruthy()
+    /* A bar opens with a pipe and a dash, so its first slot is column two. */
+    expect((box as HTMLElement).style.left).toBe('2ch')
+  })
+
+  it('stands it over the beat it names', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    /* Onto the third beat, which is four slots along. */
+    for (let step = 0; step < 4; step += 1) press('ArrowRight')
+
+    press('ArrowUp', { ctrlKey: true })
+
+    const box = screen.getByLabelText('Chord') as HTMLElement
+    /* Counted in characters of the drawing, which is what a `ch` is. */
+    expect(box.style.left).toMatch(/^\d+ch$/)
+    expect(Number.parseFloat(box.style.left)).toBeGreaterThan(0)
+  })
+
+  /* The sheet answers for every key it is given, and these are the field's. */
+  it('lets a chord be spelled without the letters doing something else', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('ArrowUp', { ctrlKey: true })
+
+    await user.type(screen.getByLabelText('Chord'), 'Asus4')
+
+    expect(chordAt(useTabs.getState().doc, AT_START)).toBe('Asus4')
+    expect(sheet().querySelectorAll('.tablature__picked').length).toBe(0)
+  })
+
   it('writes a slide after the note under the cursor', () => {
     render(<TabEditor />)
 

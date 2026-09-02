@@ -191,6 +191,9 @@ export function TabEditor() {
    */
   const blocks = useMemo(() => withRoomToWrite(doc, columns, writing), [doc, columns, writing])
   const place = placeOf(doc, cursor, columns)
+  /* Where the chord for this beat is drawn: over the beat's first slot, on the
+     row above the beat numbers. The field is put exactly there. */
+  const overBeat = naming ? placeOf(doc, { ...cursor, slot: 0 }, columns) : null
   /* Which system each block is, for the one that has to be scrolled to. */
   const ordinals = useMemo(() => {
     let seen = -1
@@ -555,16 +558,6 @@ export function TabEditor() {
             ))}
           </select>
         </label>
-        <ChordField
-          naming={naming}
-          beat={cursor.beat + 1}
-          chord={chordAt(doc, cursor)}
-          onChange={(chord) => apply(nameChord({ doc, cursor }, chord), false)}
-          onDone={() => {
-            setNaming(false)
-            field.current?.focus()
-          }}
-        />
         <span className="setting-note">{error ?? (saved ? 'Saved' : 'Saving…')}</span>
         <Button
           className="tablature__help"
@@ -612,10 +605,25 @@ export function TabEditor() {
             />
           ) : (
             <div
-              className="tablature__system"
+              className={
+                overBeat !== null && ordinals[index] === overBeat.system && !hasChordRow(block, doc)
+                  ? 'tablature__system tablature__system--naming'
+                  : 'tablature__system'
+              }
               key={`system-${block.from}`}
               ref={ordinals[index] === place?.system ? showing : undefined}
             >
+              {overBeat !== null && ordinals[index] === overBeat.system ? (
+                <ChordField
+                  at={overBeat.column}
+                  chord={chordAt(doc, cursor)}
+                  onChange={(chord) => apply(nameChord({ doc, cursor }, chord), false)}
+                  onDone={() => {
+                    setNaming(false)
+                    field.current?.focus()
+                  }}
+                />
+              ) : null}
               {block.lines.map((line, offset) => {
                 const at = block.from + offset
                 return (
@@ -958,51 +966,59 @@ function drawLine(
   return <>{parts}</>
 }
 
+/** Whether this system is already drawing a row for chords. */
+const hasChordRow = (block: Block, doc: TabDoc): boolean =>
+  rowsOf(block.lines.length, doc.strings)[0] === 'chord'
+
 /**
  * Where a chord is written.
  *
  * A field rather than a cursor in the drawing: a chord is ordinary text and
  * wants ordinary text editing — backspace, arrows within the word — which a
- * block cursor standing on a moment cannot give. It is written over the beat
- * the cursor is in, and appears above that beat in the drawing as it is typed.
+ * block cursor standing on a moment cannot give.
+ *
+ * It sits exactly where the chord will be: over the beat, on the row above the
+ * beat numbers. Naming a chord in a box above the editor meant looking away
+ * from the bar being named to type, and back again to see what happened.
  */
 function ChordField({
-  naming,
-  beat,
+  at,
   chord,
   onChange,
   onDone
 }: {
-  naming: boolean
-  beat: number
+  /** The column it stands on, in characters of the drawing. */
+  at: number
   chord: string
   onChange: (chord: string) => void
   onDone: () => void
 }) {
   const box = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (naming) box.current?.focus()
-  }, [naming])
-
-  if (!naming) return null
+  useEffect(() => box.current?.focus(), [])
 
   return (
-    <label className="tablature__chord">
-      <span>Chord over beat {beat}</span>
-      <input
-        ref={box}
-        className="well input"
-        value={chord}
-        aria-label="Chord"
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' || event.key === 'Enter' || event.key === 'ArrowDown') {
-            onDone()
-            event.preventDefault()
-          }
-        }}
-      />
-    </label>
+    <input
+      ref={box}
+      className="tablature__chord"
+      /* Counted in characters rather than measured in pixels: the drawing is
+         a grid of them, and one `ch` is one of them by definition. */
+      style={{ left: `${at}ch` }}
+      value={chord}
+      aria-label="Chord"
+      spellCheck={false}
+      size={Math.max(4, chord.length + 1)}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        /* The sheet answers for every key it is given, and these are this
+           field's: `s` would start picking out beats rather than spelling a
+           suspended chord. */
+        event.stopPropagation()
+        if (event.key === 'Escape' || event.key === 'Enter' || event.key === 'ArrowDown') {
+          onDone()
+          event.preventDefault()
+        }
+      }}
+    />
   )
 }
 
