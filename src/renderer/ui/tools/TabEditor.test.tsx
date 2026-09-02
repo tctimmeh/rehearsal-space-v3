@@ -1117,6 +1117,37 @@ describe('sections divided by words', () => {
     expect(document.activeElement).toBe(words())
   })
 
+  /*
+   * Clicking from one section's words into another's leaves the first, and
+   * leaving settles the document. Settling that changes nothing must not hand
+   * back a cursor as though it had moved: the sheet scrolls to wherever the
+   * block cursor stands, which would drag the page away from the words just
+   * clicked.
+   */
+  it('stays where it was clicked rather than scrolling to the block cursor', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Verse:')
+    fireEvent.keyDown(words() as HTMLTextAreaElement, { key: 'Escape' })
+    for (let step = 0; step < 8; step += 1) press('ArrowRight')
+    press('t', { ctrlKey: true })
+    const second = document.activeElement as HTMLTextAreaElement
+    await user.type(second, 'Chorus:')
+    fireEvent.keyDown(second, { key: 'Escape' })
+    const both = screen.getAllByLabelText('Section words')
+    expect(both).toHaveLength(2)
+    await user.click(both[1] as HTMLTextAreaElement)
+    const scrolled = vi.fn()
+    Element.prototype.scrollIntoView = scrolled
+
+    await user.click(both[0] as HTMLTextAreaElement)
+
+    expect(document.activeElement).toBe(both[0])
+    expect(scrolled).not.toHaveBeenCalled()
+  })
+
   /* The words sit inside the sheet, whose own click handler places the block
      cursor from the row that was nearest. It must keep out of the words. */
   it('does not move the cursor in the music when the words are clicked', async () => {

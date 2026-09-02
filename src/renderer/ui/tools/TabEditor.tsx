@@ -30,6 +30,7 @@ import {
   STRINGS_MIN,
   TECHNIQUES,
   type Beat,
+  type Cursor,
   type TabDoc,
   type Technique
 } from '@core/tab/document'
@@ -308,11 +309,22 @@ export function TabEditor() {
    */
   const leaveWords = (bar: number, way: 'up' | 'down' | 'away'): void => {
     setWriting(null)
-    /* Clicking elsewhere is leaving too, but it is not asking for the cursor
-       to be put anywhere in particular — whatever was clicked has already said
-       where it goes. Settling is what closes a section left unnamed. */
+    /*
+     * Clicking elsewhere is leaving too, but it is not asking for the cursor
+     * to be put anywhere — whatever was clicked has already said where it
+     * goes. Settling is what closes a section left unnamed, and the cursor is
+     * only announced as moved where it has actually moved: handing back an
+     * equal cursor as a new value is enough to send the page chasing it, back
+     * to wherever the block cursor stands and away from what was just clicked.
+     */
     if (way === 'away') {
-      apply({ doc: useTabs.getState().doc, cursor: standing.current }, true)
+      const now = useTabs.getState().doc
+      const settled = settle({ doc: now, cursor: standing.current })
+      if (settled.doc !== now) edit(settled.doc)
+      if (!standingAt(settled.cursor, standing.current)) {
+        standing.current = settled.cursor
+        setCursor(settled.cursor)
+      }
       return
     }
     const above = way === 'up' && bar > 0
@@ -1013,6 +1025,13 @@ function drawLine(
 
   return <>{parts}</>
 }
+
+/** Whether two cursors are standing in the same place, rather than equal. */
+const standingAt = (one: Cursor, other: Cursor): boolean =>
+  one.bar === other.bar &&
+  one.beat === other.beat &&
+  one.slot === other.slot &&
+  one.string === other.string
 
 /** Whether this system is already drawing a row for chords. */
 const hasChordRow = (block: Block): boolean => block.rows?.[0] === 'chord'
