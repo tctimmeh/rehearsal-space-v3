@@ -419,8 +419,10 @@ export function TabEditor() {
        what the section is. */
     if (held && event.key.toLowerCase() === 't') {
       const opened = openSection(state)
-      if (opened !== state) apply(opened, false)
-      setWriting(cursor.bar)
+      apply(opened, false)
+      /* From the opened state, not from this one: making room for the section
+         above puts a bar in front of this one, which moves it down. */
+      setWriting(opened.cursor.bar)
       event.preventDefault()
       return
     }

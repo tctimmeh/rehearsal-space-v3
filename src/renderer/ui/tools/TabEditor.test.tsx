@@ -971,6 +971,41 @@ describe('sections divided by words', () => {
     expect(written()).toHaveLength(0)
   })
 
+  /*
+   * A section opened part-way through leaves the one above it a bar to carry
+   * on in, which puts a bar in front of the one being opened. The words go
+   * above the bar that moved, not the one put in front of it.
+   */
+  it('opens the section on the right bar when room is made above it', async () => {
+    const user = userEvent.setup()
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    for (let step = 0; step < 8; step += 1) press('ArrowRight')
+
+    press('t', { ctrlKey: true })
+    await user.type(words() as HTMLTextAreaElement, 'Chorus:')
+
+    const doc = useTabs.getState().doc
+    const at = doc.bars.findIndex((bar) => bar.opens !== undefined)
+    expect(at).toBeGreaterThan(0)
+    expect(doc.bars[at]?.opens).toBe('Chorus:')
+  })
+
+  it('leaves the section above it an empty bar to carry on in', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    for (let step = 0; step < 8; step += 1) press('ArrowRight')
+
+    press('t', { ctrlKey: true })
+
+    const doc = useTabs.getState().doc
+    const at = doc.bars.findIndex((bar) => bar.opens !== undefined)
+    expect(doc.bars[at - 1]?.opens).toBeUndefined()
+    expect(strings().split('\n')[0]?.match(/\|/g)?.length).toBeGreaterThan(2)
+  })
+
   it('shows the words above the section once they are written', async () => {
     const user = userEvent.setup()
     render(<TabEditor />)

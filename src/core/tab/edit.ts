@@ -1,6 +1,7 @@
 import {
   BEATS_MAX,
   BEATS_MIN,
+  emptyBar,
   emptyBeat,
   emptySlot,
   HIGHEST_FRET,
@@ -355,6 +356,44 @@ const inBeats = (bar: Bar, beats: number, strings: number): Bar => ({
 })
 
 /**
+ * Every section ends with an empty bar, so there is somewhere to carry on.
+ *
+ * The document as a whole has always kept one spare at the end; a section with
+ * another section after it had nowhere to grow, because the next section's
+ * first bar came straight after its last. So a bar that opens a section is
+ * given an empty one in front of it, which belongs to the section above and is
+ * where writing it continues.
+ *
+ * Only ever added, never taken away: a section that has several empty bars at
+ * the end has them because somebody emptied them, and closing the gap under
+ * that is not this function's business. The cursor comes along, since bars
+ * after the one inserted have all moved down by one.
+ */
+export function withRoomToCarryOn(state: Editing): Editing {
+  const { doc, cursor } = state
+  const bars: Bar[] = []
+  let bar = cursor.bar
+
+  doc.bars.forEach((one, index) => {
+    if (one.opens !== undefined && bars.length > 0 && !spareAt(bars, bars.length - 1)) {
+      const before = bars[bars.length - 1] as Bar
+      bars.push(emptyBar(doc.strings, before.beats.length))
+      if (cursor.bar >= index) bar += 1
+    }
+    bars.push(one)
+  })
+
+  if (bars.length === doc.bars.length) return state
+  return { doc: { ...doc, bars }, cursor: { ...cursor, bar } }
+}
+
+/** A bar that is empty and starts nothing, which is what a spare one is. */
+const spareAt = (bars: Bar[], at: number): boolean => {
+  const bar = bars[at]
+  return bar !== undefined && bar.opens === undefined && barIsEmpty(bar)
+}
+
+/**
  * Opens a section at the bar the cursor is in.
  *
  * The bar becomes the first of a new system with room above it for a name or a
@@ -369,13 +408,16 @@ export function openSection(state: Editing): Editing {
   const { doc, cursor } = state
   const bar = doc.bars[cursor.bar]
   if (bar === undefined || bar.opens !== undefined) return state
-  return {
+  const opened = {
     ...state,
     doc: {
       ...doc,
       bars: doc.bars.map((one, index) => (index === cursor.bar ? { ...one, opens: '' } : one))
     }
   }
+  /* The section left above this one needs a bar to carry on in, and putting
+     one there moves this bar down past it. */
+  return withRoomToCarryOn(opened)
 }
 
 /** What is written above the section the cursor's bar belongs to. */
@@ -404,9 +446,10 @@ export function nameSection(doc: TabDoc, bar: number, text: string): TabDoc {
  * closes when they leave, which is what calling this on every move amounts to.
  */
 export function settle(state: Editing): Editing {
-  const doc = normalise(state.doc, { bar: state.cursor.bar, beat: state.cursor.beat })
-  const bar = Math.min(state.cursor.bar, doc.bars.length - 1)
-  const index = Math.min(positionIn(state.doc, state.cursor), flatten(doc, bar).length - 1)
-  const string = Math.max(0, Math.min(state.cursor.string, doc.strings - 1))
+  const spaced = withRoomToCarryOn(state)
+  const doc = normalise(spaced.doc, { bar: spaced.cursor.bar, beat: spaced.cursor.beat })
+  const bar = Math.min(spaced.cursor.bar, doc.bars.length - 1)
+  const index = Math.min(positionIn(spaced.doc, spaced.cursor), flatten(doc, bar).length - 1)
+  const string = Math.max(0, Math.min(spaced.cursor.string, doc.strings - 1))
   return { doc, cursor: atPosition(doc, bar, Math.max(0, index), string) }
 }
