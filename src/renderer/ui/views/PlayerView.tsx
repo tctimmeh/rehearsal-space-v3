@@ -3,6 +3,7 @@ import { useSong } from '@renderer/state/song'
 import { closeTool } from '@renderer/state/toolActions'
 import { openToolOfSize, stageOnShow, useTools } from '@renderer/state/tools'
 import { useView } from '@renderer/state/view'
+import { LoadingSong } from '../shell/LoadingSong'
 import { Drawer, GadgetStrip, MixerDock, Stage, ToolRail } from '../shell'
 import { Button } from '../primitives'
 import { MetronomeGadget } from '../tools/MetronomeGadget'
@@ -55,6 +56,7 @@ export function PlayerView() {
         <div className="column">
           <GadgetStrip render={renderGadget} />
           <div className="workspace">
+            <LoadingSong />
             {song === null ? (
               <NoSongLoaded />
             ) : (

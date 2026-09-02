@@ -26,17 +26,13 @@ export function ScrubBar() {
     [seek, span, start]
   )
 
+  /* There is nothing to scrub through yet, and what the app is doing about it
+     is said over the stage rather than in small print out here. */
   if (loading !== null) {
     return (
       <div className="scrub">
         <span className="scrub__time">--:--</span>
-        <div className="well scrub__track scrub__track--loading">
-          <span className="scrub__loading">
-            {loading.total === 0
-              ? 'Loading…'
-              : `Loading ${loading.decoded} of ${loading.total} channels…`}
-          </span>
-        </div>
+        <div className="well scrub__track scrub__track--loading" />
         <span className="scrub__time scrub__time--end">--:--</span>
       </div>
     )
