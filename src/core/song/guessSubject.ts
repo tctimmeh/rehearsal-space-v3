@@ -5,8 +5,10 @@ import { DEFAULT_SUBJECT, type InstrumentSubject } from './channelSubject'
  * Guessing saves the user a step, and the channel's subject is editable, so a
  * wrong guess costs nothing.
  *
- * Order matters: "electric guitar" must not be caught by the plain guitar rule
- * that follows it.
+ * Order matters: acoustic has to be looked for before plain guitar, or an
+ * acoustic take is filed as a guitar and loses the distinction. An electric
+ * one is a guitar — the words that say so are still looked for, because "dist"
+ * and "el-gtr" name no guitar otherwise.
  */
 const HINTS: [pattern: RegExp, subject: InstrumentSubject][] = [
   [/\b(full[\s_-]?mix|mix|master|backing|instrumental|song|track)\b/, 'music'],
@@ -14,8 +16,7 @@ const HINTS: [pattern: RegExp, subject: InstrumentSubject][] = [
   [/(drum|perc|kick|snare|hat|cymbal|kit|beat)/, 'drums'],
   [/(bass|\bdi\b|sub)/, 'bass'],
   [/(acoustic|nylon|steel|\bac[\s_-]?gtr)/, 'acoustic'],
-  [/(electric|\bel[\s_-]?gtr|\belec\b|dist|overdrive|crunch)/, 'electric'],
-  [/(guitar|gtr|riff)/, 'guitar'],
+  [/(electric|\bel[\s_-]?gtr|\belec\b|dist|overdrive|crunch|guitar|gtr|riff)/, 'guitar'],
   [/(piano|keys|keyboard|rhodes|organ|wurli)/, 'piano'],
   [/(synth|pad|arp|lead[\s_-]?synth)/, 'synth'],
   /* Imported click tracks are audio like any other, but they are certainly not

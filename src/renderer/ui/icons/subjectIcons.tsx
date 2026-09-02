@@ -5,8 +5,9 @@ import { Icon } from './Icon'
 
 /**
  * Literal rather than abstract, and drawn to fill the box edge to edge — an
- * abstract mark buys nothing at 18px. Guitar and electric deliberately share a
- * silhouette; the channel name always sits beside the icon.
+ * abstract mark buys nothing at 18px. A guitar and an acoustic share a
+ * silhouette apart from the sound hole; the channel name always sits beside
+ * the icon.
  */
 const guitarBody = (
   <path d="M12 8.8c-2.4 0-4 1.2-4 2.8 0 1 .6 1.8 1.4 2.4-1.4.9-2.4 2.4-2.4 4.2 0 2.6 2.2 4.4 5 4.4s5-1.8 5-4.4c0-1.8-1-3.3-2.4-4.2.8-.6 1.4-1.4 1.4-2.4 0-1.6-1.6-2.8-4-2.8z" />
@@ -43,12 +44,6 @@ const SUBJECT_GLYPHS: Record<ChannelSubject, ReactElement> = {
     </>
   ),
   guitar: (
-    <>
-      {guitarBody}
-      {guitarNeck}
-    </>
-  ),
-  electric: (
     <>
       {guitarBody}
       {guitarNeck}

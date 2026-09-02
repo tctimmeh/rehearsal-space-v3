@@ -13,15 +13,21 @@ describe('guessSubject', () => {
     expect(guessSubject('other.wav')).toBe('other')
   })
 
+  /* An acoustic is worth telling apart from a guitar; an electric is not one
+     of those, it is the guitar. */
   it('prefers the more specific guitar when both could match', () => {
-    expect(guessSubject('electric guitar take 2.wav')).toBe('electric')
     expect(guessSubject('acoustic-guitar.flac')).toBe('acoustic')
     expect(guessSubject('gtr_l.ogg')).toBe('guitar')
   })
 
+  it('takes an electric guitar for a guitar', () => {
+    expect(guessSubject('electric guitar take 2.wav')).toBe('guitar')
+    expect(guessSubject('gtr_dist_crunch.wav')).toBe('guitar')
+  })
+
   it('reads the abbreviations people actually type', () => {
     expect(guessSubject('lead_vox_final.wav')).toBe('vocals')
-    expect(guessSubject('el-gtr-01.wav')).toBe('electric')
+    expect(guessSubject('el-gtr-01.wav')).toBe('guitar')
     expect(guessSubject('kick_in.wav')).toBe('drums')
   })
 

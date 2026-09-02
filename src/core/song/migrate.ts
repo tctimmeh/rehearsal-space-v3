@@ -116,13 +116,28 @@ function parseSpan(raw: Record<string, unknown>): { startTime: number; bpm: numb
   return { startTime: endTime - (measures * beatsPerMeasure * 60) / (bpm || 120), bpm }
 }
 
+/**
+ * Subjects that have been folded into another one since a song was written.
+ *
+ * An electric guitar was its own subject and is a guitar now. Left to the
+ * ordinary fallback it would come back as "other", which is not what anybody
+ * chose — it would lose its colour, its icon and the fact that somebody had
+ * already said what the channel was.
+ */
+const FOLDED_INTO: Record<string, ChannelSubject> = { electric: 'guitar' }
+
+const parseSubject = (raw: unknown): ChannelSubject =>
+  typeof raw === 'string' && raw in FOLDED_INTO
+    ? (FOLDED_INTO[raw] as ChannelSubject)
+    : oneOf<ChannelSubject>(raw, CHANNEL_SUBJECTS, 'other')
+
 function parseChannel(raw: unknown, index: number): Channel | null {
   if (!isRecord(raw)) return null
 
   const base = {
     id: str(raw['id'], `channel-${index}`),
     name: str(raw['name'], 'Channel'),
-    subject: oneOf<ChannelSubject>(raw['subject'], CHANNEL_SUBJECTS, 'other'),
+    subject: parseSubject(raw['subject']),
     gain: clamped(raw['gain'], 1, 0, 1),
     muted: bool(raw['muted'], false),
     soloed: bool(raw['soloed'], false)

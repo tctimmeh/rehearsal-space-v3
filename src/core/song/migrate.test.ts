@@ -310,3 +310,37 @@ describe('the tablature a song has', () => {
     expect(read([{ id: 'a', file: 'tabs/a.txt', name: 'A', strings: 100 }])[0]?.strings).toBe(12)
   })
 })
+
+/*
+ * An electric guitar was a subject of its own and is a guitar now. Left to the
+ * ordinary fallback it would come back as "other" — losing its colour, its
+ * icon, and the fact that somebody had already said what the channel was.
+ */
+describe('a subject that has been folded into another', () => {
+  const channel = (subject: string) => ({
+    id: 'c1',
+    name: 'Take',
+    subject,
+    kind: 'audio',
+    file: 'audio/take.ogg',
+    startTime: 0,
+    duration: 30
+  })
+
+  const readSubject = (subject: string) =>
+    migrateSong({ schemaVersion: 1, channels: [channel(subject)] }, 'x').channels[0]?.subject
+
+  it('comes back as the one it was folded into', () => {
+    expect(readSubject('electric')).toBe('guitar')
+  })
+
+  it('leaves every other subject alone', () => {
+    for (const subject of ['guitar', 'acoustic', 'bass', 'drums', 'vocals', 'music']) {
+      expect(readSubject(subject)).toBe(subject)
+    }
+  })
+
+  it('still falls back for a subject nobody has ever heard of', () => {
+    expect(readSubject('theremin')).toBe('other')
+  })
+})
