@@ -419,3 +419,52 @@ describe('where the tool was left', () => {
     expect(screen.queryByText('00:28')).toBeNull()
   })
 })
+
+/*
+ * The second trace is there to line a take up against something. Under any
+ * other job it is a trace nobody asked for, and it halves the height of the
+ * one they are actually working on.
+ */
+describe('the channel a take is lined up against', () => {
+  const twoTakes = (tab: Song['waveform']['tab']): Song => ({
+    ...newSong('a-song'),
+    id: 'a-song',
+    channels: [music, { ...(music as Song['channels'][number]), id: 'band', name: 'Band' }],
+    waveform: { tab, channel: 'music', against: 'band' }
+  })
+
+  const traces = (container: HTMLElement) => container.querySelectorAll('.align__traces canvas')
+
+  it('is drawn under the take while trimming', () => {
+    useSong.setState({ song: twoTakes('trim') })
+    const { container } = render(<WaveformTool />)
+
+    expect(traces(container)).toHaveLength(2)
+  })
+
+  it('is not drawn while marking out a loop', () => {
+    useSong.setState({ song: twoTakes('loop') })
+    const { container } = render(<WaveformTool />)
+
+    expect(traces(container)).toHaveLength(1)
+  })
+
+  it('is not drawn while lining up a click track', () => {
+    useSong.setState({ song: twoTakes('click') })
+    const { container } = render(<WaveformTool />)
+
+    expect(traces(container)).toHaveLength(1)
+  })
+
+  /* Not forgotten, only put away: coming back to trimming brings it back. */
+  it('is remembered for when trimming comes round again', () => {
+    useSong.setState({ song: twoTakes('loop') })
+    const { container, rerender } = render(<WaveformTool />)
+    expect(traces(container)).toHaveLength(1)
+
+    useSong.setState({ song: twoTakes('trim') })
+    rerender(<WaveformTool />)
+
+    expect(traces(container)).toHaveLength(2)
+  })
+})

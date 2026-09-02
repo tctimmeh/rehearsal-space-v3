@@ -125,7 +125,11 @@ export function WaveformTool() {
   const beneathId = song?.waveform.against ?? null
   const setBeneathId = (channel: string | null) =>
     update({ waveform: { ...(song as Song).waveform, against: channel === '' ? null : channel } })
-  const beneath = audio.find((c) => c.id === beneathId && c.id !== against?.id) ?? null
+  /* Only while trimming. It is there to line a take up against, and drawn
+     under any other job it is a second trace nobody asked for, half the height
+     of the one they are working on. */
+  const beneath =
+    job === 'trim' ? (audio.find((c) => c.id === beneathId && c.id !== against?.id) ?? null) : null
   const beneathPeaks = usePeaks(song?.id, beneath?.id)
 
   const timing = useMemo(() => (click === null ? null : solveMetronome(click)), [click])
