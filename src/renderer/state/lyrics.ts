@@ -78,6 +78,9 @@ export const useLyrics = create<LyricsState>((set, get) => ({
     writing = writing.then(async () => {
       try {
         await window.rehearsal.library.writeLyrics(songId, text)
+        /* Words that amount to nothing take the file with them, which is what
+           the library goes by, so the row is told either way. */
+        useSong.getState().noteLyrics(songId, text.trim() !== '')
         if (get().songId === songId && get().text === text) set({ saved: true, error: null })
       } catch (error) {
         set({ error: `Could not save the lyrics: ${message(error)}` })

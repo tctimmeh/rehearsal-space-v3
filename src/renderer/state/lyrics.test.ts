@@ -69,6 +69,52 @@ describe('reading and writing', () => {
     expect(useLyrics.getState().saved).toBe(true)
   })
 
+  /*
+   * The library reads whether a song has words off the disk, once, when it
+   * lists the songs. Writing some has to say so, or the row goes on claiming
+   * the song has none until the app is started again.
+   */
+  describe('what the library is told', () => {
+    const rowFor = (id: string) => useSong.getState().songs.find((entry) => entry.id === id)
+    const listed = (hasLyrics: boolean) =>
+      useSong.setState({
+        songs: [
+          {
+            id: 'a-song',
+            title: 'A Song',
+            artist: '',
+            channelCount: 0,
+            hasAudio: false,
+            hasLyrics,
+            hasTabs: false,
+            tags: []
+          }
+        ]
+      })
+
+    it('marks the song as having words once they are written', async () => {
+      listed(false)
+      await useLyrics.getState().load('a-song')
+
+      useLyrics.getState().edit('Counted every mile')
+      await useLyrics.getState().flush()
+
+      expect(rowFor('a-song')?.hasLyrics).toBe(true)
+    })
+
+    /* Emptying the words takes the file with them, and the row follows. */
+    it('marks it as having none again when they are all taken away', async () => {
+      listed(true)
+      onDisk.set('a-song', 'Counted every mile')
+      await useLyrics.getState().load('a-song')
+
+      useLyrics.getState().edit('   ')
+      await useLyrics.getState().flush()
+
+      expect(rowFor('a-song')?.hasLyrics).toBe(false)
+    })
+  })
+
   it('reports a write it could not do', async () => {
     const library = window.rehearsal.library as unknown as Record<string, unknown>
     library['writeLyrics'] = vi.fn(async () => {

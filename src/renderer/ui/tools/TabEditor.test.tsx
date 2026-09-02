@@ -606,10 +606,16 @@ describe('several tablatures for one song', () => {
     expect(useSong.getState().song?.tabs[0]?.name).toBe('Bass')
   })
 
-  it('will not remove the only one there is', () => {
+  /* A song that should never have had one is a song that can be rid of it. */
+  it('removes the only one there is, offering to start another', async () => {
     render(<TabEditor />)
 
-    expect(screen.getByRole('button', { name: 'Remove' })).toHaveProperty('disabled', true)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(useSong.getState().song?.tabs).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Start a tab' })).toBeTruthy()
+    /* And nothing is left holding the file that is no longer listed. */
+    await waitFor(() => expect(useTabs.getState().tabId).toBeNull())
   })
 
   /* The entry goes; the file it was written into stays where it is. */

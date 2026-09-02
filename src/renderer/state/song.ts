@@ -52,6 +52,13 @@ interface SongState {
   loading: { decoded: number; total: number } | null
   /** Adds or removes a tag on any song in the library, loaded or not. */
   tagSong: (songId: string, tags: string[]) => Promise<void>
+  /**
+   * Says whether a song's lyrics file now has anything in it.
+   *
+   * The library reads that off the disk when it lists the songs, and nothing
+   * about saving a song says a word about it, so writing lyrics has to tell it.
+   */
+  noteLyrics: (songId: string, written: boolean) => void
   /** Puts the timeline back to the length of the song's own channels. */
   refreshBounds: () => void
   /** Writes any pending change now. */
@@ -98,6 +105,15 @@ export const useSong = create<SongState>((set, get) => ({
   loading: null,
 
   dismissError: () => set({ error: null }),
+
+  noteLyrics: (songId, written) =>
+    set({
+      songs: get().songs.map((entry) =>
+        entry.id === songId && entry.hasLyrics !== written
+          ? { ...entry, hasLyrics: written }
+          : entry
+      )
+    }),
 
   tagSong: async (songId, tags) => {
     const loaded = get().song

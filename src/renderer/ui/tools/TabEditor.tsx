@@ -770,6 +770,7 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
   const song = useSong((state) => state.song)
   const update = useSong((state) => state.update)
   const open = useTabs((state) => state.open)
+  const close = useTabs((state) => state.close)
   const flush = useTabs((state) => state.flush)
   const [renaming, setRenaming] = useState(false)
   const selectName = useSelectOnOpen<HTMLInputElement>()
@@ -803,11 +804,15 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
    * mistake costs a line in song.json rather than an afternoon.
    */
   const remove = (): void => {
-    if (song === null || song.tabs.length <= 1) return
+    if (song === null) return
     const left = song.tabs.filter((tab) => tab.id !== showing.id)
     void update({ tabs: left })
     const next = left[0]
-    if (next !== undefined) void flush().then(() => open(song.id, next))
+    /* Nothing left to open. The editor is let go of rather than left holding a
+       file the song no longer lists, so starting another one reads it afresh
+       instead of showing what was last in memory. */
+    if (next === undefined) void flush().then(close)
+    else void flush().then(() => open(song.id, next))
   }
 
   if (renaming) {
@@ -851,9 +856,7 @@ function TabPicker({ tabs, showing }: { tabs: TabFile[]; showing: TabFile }) {
       </label>
       <Button onClick={() => setRenaming(true)}>Rename</Button>
       <Button onClick={add}>Add</Button>
-      <Button onClick={remove} disabled={tabs.length <= 1}>
-        Remove
-      </Button>
+      <Button onClick={remove}>Remove</Button>
     </>
   )
 }
@@ -1195,8 +1198,7 @@ function NoTabYet() {
 
   const start = (): void => {
     if (song === null) return
-    const tab: TabFile = { id: 'tab', file: 'tabs/tab.txt', name: 'Tab', strings: 6 }
-    void update({ tabs: [tab] })
+    void update({ tabs: [newTabFile([], 'Tab')] })
   }
 
   return (
