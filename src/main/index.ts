@@ -3,6 +3,7 @@ import { app, BrowserWindow, Menu, session, shell } from 'electron'
 
 import { readConfig } from './config'
 import { captureAndExit, requestedCapturePath } from './devCapture'
+import { editItemsFor } from './editMenu'
 import { guardClose } from './closeGuard'
 import { jobs } from './jobs'
 import { registerIpcHandlers } from './ipc'
@@ -53,6 +54,15 @@ function createWindow(uiScale: number): BrowserWindow {
     } else {
       void captureAndExit(window, capturePath)
     }
+  })
+
+  /* Cut, copy and paste where a right-click asks for them. Electron provides
+     no menu of its own, so a text field without this one is a text field that
+     answers a right-click with nothing. */
+  window.webContents.on('context-menu', (_event, params) => {
+    const items = editItemsFor(params)
+    if (items.length === 0) return
+    Menu.buildFromTemplate(items).popup({ window })
   })
 
   window.webContents.setWindowOpenHandler(({ url }) => {
