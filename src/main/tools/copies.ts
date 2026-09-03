@@ -2,9 +2,9 @@ import { chmod, mkdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { FETCHED_TOOLS, type FetchedTool, type ToolInstall } from '../../shared/tools'
-import { downloadTo, findNamed, unpackTarXz } from './fetch'
+import { downloadTo, findNamed, unpack } from './fetch'
 import { answersAsTool } from './probe'
-import { releasesFor, type Download, type Release } from './releases'
+import { executableName, releasesFor, type Download, type Machine, type Release } from './releases'
 import { isRunnable } from './runnable'
 
 /**
@@ -32,7 +32,7 @@ export interface ToolCopies {
 /** The steps of an install, apart so that they can be stood in for in tests. */
 export interface FetchSteps {
   download: typeof downloadTo
-  unpack: typeof unpackTarXz
+  unpack: typeof unpack
   findNamed: typeof findNamed
   /** Whether what was fetched runs, checked before it is kept. */
   works: (tool: FetchedTool, path: string) => Promise<boolean>
@@ -40,7 +40,7 @@ export interface FetchSteps {
 
 interface Options {
   directory: string
-  machine?: { platform: string; arch: string }
+  machine?: Machine
   steps: FetchSteps
   announce?: (installs: ToolInstall[]) => void
 }
@@ -92,7 +92,11 @@ export function createToolCopies({
     tell()
   }
 
-  const pathTo = (tool: FetchedTool): string => join(directory, tool)
+  /* Named as the platform names a program, so the copy is what a Windows
+     PATH would have found and what a launcher would run. */
+  const nameOf = (tool: FetchedTool): string => executableName(tool, machine.platform)
+
+  const pathTo = (tool: FetchedTool): string => join(directory, nameOf(tool))
 
   /**
    * Fetched into a room of its own and only moved into place once it has been
@@ -113,13 +117,13 @@ export function createToolCopies({
       tellSoon()
     })
 
-    if (packing === 'tar.xz') {
+    if (packing !== 'plain') {
       mark(tools, { state: 'fetching', progress: null, error: null })
-      await steps.unpack(arrival, room, [...tools])
+      await steps.unpack(packing, arrival, room, tools.map(nameOf))
     }
 
     for (const tool of tools) {
-      const found = packing === 'plain' ? arrival : await steps.findNamed(room, tool)
+      const found = packing === 'plain' ? arrival : await steps.findNamed(room, nameOf(tool))
       if (found === null) throw new Error(`${url} held no ${tool}`)
       await chmod(found, 0o755)
       if (!(await steps.works(tool, found))) throw new Error(`the ${tool} fetched would not run`)
@@ -185,7 +189,7 @@ export function createToolCopies({
 /** The steps as they are really done. */
 export const realSteps: FetchSteps = {
   download: downloadTo,
-  unpack: unpackTarXz,
+  unpack,
   findNamed,
   works: answersAsTool
 }

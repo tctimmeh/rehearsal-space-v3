@@ -6,6 +6,9 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
 
+import type { Packing } from './releases'
+import { unpackZip } from './zip'
+
 const run = promisify(execFile)
 
 /** Long enough for a slow mirror to answer, short enough to move on from one. */
@@ -77,15 +80,41 @@ function whatWentWrong(error: unknown, abandoned: boolean): string {
 /**
  * Takes named files out of a tarball, wherever in it they are.
  *
- * The two ffmpeg builds lay their tarballs out differently — one puts the
- * programs at the top of a versioned directory, the other under `bin` — so
- * what is asked for is the name, and where it turns up is not this code's
+ * The two Linux ffmpeg builds lay their tarballs out differently — one puts
+ * the programs at the top of a versioned directory, the other under `bin` —
+ * so what is asked for is the name, and where it turns up is not this code's
  * business.
+ *
+ * This is the one thing here that needs a program of its own. `xz` is not
+ * something Node can undo, and writing an LZMA decoder to avoid asking `tar`
+ * is not a trade worth making: it is only reached on Linux, where tar and xz
+ * are part of the base system, and every macOS and Windows build is published
+ * as a zip, which is unpacked in process.
  */
-export async function unpackTarXz(archive: string, into: string, names: string[]): Promise<void> {
-  await run('tar', ['-xJf', archive, '-C', into, '--wildcards', '--no-anchored', ...names], {
-    timeout: UNPACK_TIMEOUT_MS
-  })
+export async function unpackTarXz(
+  archive: string,
+  into: string,
+  names: readonly string[]
+): Promise<void> {
+  try {
+    await run('tar', ['-xJf', archive, '-C', into, '--wildcards', '--no-anchored', ...names], {
+      timeout: UNPACK_TIMEOUT_MS
+    })
+  } catch (error) {
+    const why = error instanceof Error ? error.message : String(error)
+    throw new Error(`tar could not unpack it: ${why}`)
+  }
+}
+
+/** Unpacks whatever arrived, according to how it was packed. */
+export async function unpack(
+  packing: Packing,
+  archive: string,
+  into: string,
+  names: readonly string[]
+): Promise<void> {
+  if (packing === 'tar.xz') await unpackTarXz(archive, into, names)
+  else if (packing === 'zip') await unpackZip(archive, into, names)
 }
 
 /** Finds a file by name anywhere under a directory, or says there is none. */

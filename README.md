@@ -200,13 +200,27 @@ bug.
 
 `ffmpeg`, `ffprobe`, `yt-dlp` and `demucs` are not bundled, but the app keeps
 its own copies of the first three. On start it looks for them in
-`~/.config/rehearsal-space/tools` and fetches whatever is missing from where
-each project publishes its releases — the static Linux builds that ffmpeg.org
-points at, and yt-dlp's own Linux executable — so an upgrade, a removed
-package or a broken `PATH` elsewhere on the machine cannot take them away. A
-fetched copy is asked to run before it is kept, so a download cut off part way
-through is never mistaken for a tool. `demucs` is a Python program with an
-environment behind it and is left to the system.
+`~/.config/rehearsal-space/tools` (the app's user data directory, wherever the
+platform puts it) and fetches whatever is missing from where each project
+publishes its releases — the static builds ffmpeg.org points at for each
+platform, and yt-dlp's own executables — so an upgrade, a removed package or a
+broken `PATH` elsewhere on the machine cannot take them away. A fetched copy
+is asked to run before it is kept, so a download cut off part way through is
+never mistaken for a tool. `demucs` is a Python program with an environment
+behind it and is left to the system.
+
+The download tables in `src/main/tools/releases.ts` cover Linux, macOS and
+Windows on x64 and arm64, and the names carry the platform's suffix, so
+nothing here is what would stop the app running elsewhere. Every macOS and
+Windows build is published as a zip, unpacked in process by
+`src/main/tools/zip.ts` — a couple of headers around `zlib`, checked against
+the archive's own CRC — because neither platform has anything to unpack one
+with that can be relied on. Only the Linux builds are tarballs, and `xz` is
+not something Node can undo, so that one path asks `tar`: it is reached only
+on Linux, where tar and xz are part of the base system. The macOS and Windows
+addresses are written but untested on those platforms; the Apple silicon
+ffmpeg addresses carry the ffmpeg series in the name and will need revisiting
+when ffmpeg 8 lands.
 
 They are looked for in this order: a path you set in Settings, then the app's
 own copy, then `resources/bin` inside the app, then `PATH`. Settings reports

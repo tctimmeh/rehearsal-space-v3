@@ -23,8 +23,8 @@ const steps = (over: Partial<FetchSteps> = {}): FetchSteps => ({
   download: async (url, path) => {
     await writeFile(path, `the program from ${url}`)
   },
-  /* The real tarballs hold a directory whose name nobody should rely on. */
-  unpack: async (archive, into, names) => {
+  /* The real archives hold a directory whose name nobody should rely on. */
+  unpack: async (_packing, archive, into, names) => {
     const held = join(into, 'ffmpeg-7.1-amd64-static')
     await mkdir(held, { recursive: true })
     for (const name of names) await writeFile(join(held, name), await readFile(archive))
@@ -40,8 +40,9 @@ const steps = (over: Partial<FetchSteps> = {}): FetchSteps => ({
 const copiesIn = (over: Partial<FetchSteps> = {}, announce: (i: ToolInstall[]) => void = () => {}) =>
   createToolCopies({ directory, machine: linux, steps: steps(over), announce })
 
-const kept = async (tool: FetchedTool): Promise<string | null> =>
-  readFile(join(directory, tool), 'utf8').catch(() => null)
+/** What is in the copy the app kept, by the name it is kept under. */
+const kept = async (name: string): Promise<string | null> =>
+  readFile(join(directory, name), 'utf8').catch(() => null)
 
 /** A copy already in place, as a previous run would have left it. */
 const already = async (tool: FetchedTool, text = 'an older copy'): Promise<void> => {
@@ -137,13 +138,52 @@ describe('the copies the app keeps', () => {
     const download = vi.fn()
     const elsewhere = createToolCopies({
       directory,
-      machine: { platform: 'darwin', arch: 'x64' },
+      machine: { platform: 'freebsd', arch: 'x64' },
       steps: steps({ download })
     })
 
     await elsewhere.ensure()
 
     expect(download).not.toHaveBeenCalled()
+  })
+
+  /* Where each program is published on its own, each is a download of its own. */
+  it('fetches each program separately where that is how they are published', async () => {
+    const download = vi.fn(async (url: string, path: string) => {
+      await writeFile(path, `the program from ${url}`)
+    })
+    const mac = createToolCopies({
+      directory,
+      machine: { platform: 'darwin', arch: 'x64' },
+      steps: steps({ download, findNamed: async (root, name) => join(root, name) })
+    })
+
+    await mac.ensure()
+
+    expect(download.mock.calls.map(([url]) => url).filter((url) => url.includes('ffprobe'))).toHaveLength(1)
+  })
+
+  /* A Windows program is called ffmpeg.exe, in the archive and on disk: a copy
+     under any other name is not one Windows would run. */
+  it('keeps a copy by the name the platform gives it', async () => {
+    const asked: string[][] = []
+    const windows = createToolCopies({
+      directory,
+      machine: { platform: 'win32', arch: 'x64' },
+      steps: steps({
+        unpack: async (_packing, archive, into, names) => {
+          asked.push([...names])
+          for (const name of names) await writeFile(join(into, name), await readFile(archive))
+        },
+        findNamed: async (root, name) => join(root, name)
+      })
+    })
+
+    await windows.ensure()
+
+    expect(asked[0]).toEqual(['ffmpeg.exe', 'ffprobe.exe'])
+    expect(await kept('ffmpeg.exe')).toMatch(/BtbN/)
+    expect(await kept('yt-dlp.exe')).toMatch(/yt-dlp/)
   })
 })
 

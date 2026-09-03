@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { allReleases, releasesFor } from './releases'
+import { allReleases, executableName, releasesFor } from './releases'
 
 const linux = { platform: 'linux', arch: 'x64' }
 
@@ -44,12 +44,60 @@ describe('where copies come from', () => {
 
   it('has nowhere to get them for a machine nobody publishes for', () => {
     expect(allReleases({ platform: 'linux', arch: 'mips' })).toEqual([])
-    expect(allReleases({ platform: 'darwin', arch: 'arm64' })).toEqual([])
+    expect(allReleases({ platform: 'freebsd', arch: 'x64' })).toEqual([])
+    expect(allReleases({ platform: 'darwin', arch: 'ppc' })).toEqual([])
   })
 
   it('offers only addresses it can be held to', () => {
     for (const download of allReleases(linux).flatMap((release) => release.from)) {
       expect(download.url.startsWith('https://')).toBe(true)
     }
+  })
+})
+
+/*
+ * The app is built for Linux, but nothing here should be what stops it
+ * running elsewhere: unpacking an archive is the only part that needs a
+ * program of its own, and only Linux publishes these as tarballs.
+ */
+describe('the other platforms', () => {
+  const every = (machine: { platform: string; arch: string }) =>
+    allReleases(machine).flatMap((release) => release.from)
+
+  it('has all three for macOS, on either chip', () => {
+    for (const arch of ['x64', 'arm64']) {
+      const tools = allReleases({ platform: 'darwin', arch }).flatMap((release) => release.tools)
+      expect(tools.sort()).toEqual(['ffmpeg', 'ffprobe', 'yt-dlp'])
+    }
+  })
+
+  it('has all three for Windows, on either chip', () => {
+    for (const arch of ['x64', 'arm64']) {
+      const tools = allReleases({ platform: 'win32', arch }).flatMap((release) => release.tools)
+      expect(tools.sort()).toEqual(['ffmpeg', 'ffprobe', 'yt-dlp'])
+    }
+  })
+
+  /* A tarball is the one thing that cannot be unpacked without help. */
+  it('asks for nothing but zips and plain programs away from Linux', () => {
+    for (const machine of [
+      { platform: 'darwin', arch: 'x64' },
+      { platform: 'darwin', arch: 'arm64' },
+      { platform: 'win32', arch: 'x64' },
+      { platform: 'win32', arch: 'arm64' }
+    ]) {
+      expect(every(machine).map((one) => one.packing)).not.toContain('tar.xz')
+    }
+  })
+
+  it('takes the Windows programs by the names Windows gives them', () => {
+    expect(executableName('ffmpeg', 'win32')).toBe('ffmpeg.exe')
+    expect(executableName('ffmpeg', 'darwin')).toBe('ffmpeg')
+    expect(executableName('ffmpeg', 'linux')).toBe('ffmpeg')
+  })
+
+  it('asks each host for the build the chip can run', () => {
+    expect(every({ platform: 'win32', arch: 'arm64' }).every((one) => !one.url.includes('win64'))).toBe(true)
+    expect(every({ platform: 'darwin', arch: 'arm64' }).some((one) => one.url.includes('arm'))).toBe(true)
   })
 })

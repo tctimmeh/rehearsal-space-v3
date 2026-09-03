@@ -1,9 +1,10 @@
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { app } from 'electron'
 
 import { readConfig, updateConfig } from '../config'
 import { createToolCopies, realSteps, type ToolCopies } from './copies'
 import { askVersion } from './probe'
+import { executableName } from './releases'
 import { isRunnable } from './runnable'
 import {
   EXTERNAL_TOOLS,
@@ -51,13 +52,16 @@ interface Candidate {
  */
 async function searchPaths(tool: ExternalTool): Promise<Candidate[]> {
   const chosen = (await readConfig()).toolPaths[tool]
+  /* Windows spells a program's name with a suffix, and demucs is a program
+     like any other in that respect. */
+  const named = isFetchedTool(tool) ? executableName(tool, process.platform) : tool
   const bundled = app.isPackaged
-    ? join(process.resourcesPath, 'bin', tool)
-    : join(app.getAppPath(), 'resources', 'bin', tool)
+    ? join(process.resourcesPath, 'bin', named)
+    : join(app.getAppPath(), 'resources', 'bin', named)
   const onPath = (process.env['PATH'] ?? '')
-    .split(':')
+    .split(delimiter)
     .filter((entry) => entry !== '')
-    .map((entry): Candidate => ({ path: join(entry, tool), source: 'system' }))
+    .map((entry): Candidate => ({ path: join(entry, named), source: 'system' }))
 
   return [
     ...(chosen === undefined ? [] : [{ path: chosen, source: 'chosen' as const }]),
