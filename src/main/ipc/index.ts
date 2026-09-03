@@ -5,11 +5,11 @@ import type { Preferences } from '../../shared/config'
 import { lookUpRhymes } from '../rhymes/datamuse'
 import { IPC_CHANNELS } from '../../shared/ipc'
 import type { SeparateRequest } from '../../shared/stems'
-import { isExternalTool } from '../../shared/tools'
+import { isExternalTool, isFetchedTool } from '../../shared/tools'
 import { readConfig, updateConfig } from '../config'
 import { jobs } from '../jobs'
 import { AUDIO_EXTENSIONS } from '../import/importAudio'
-import { setToolPath, toolStatus } from '../tools'
+import { refetchTool, setToolPath, toolInstalls, toolStatus } from '../tools'
 import {
   addRecording,
   createSong,
@@ -217,4 +217,13 @@ export function registerIpcHandlers(): void {
     if (!isExternalTool(tool)) throw new Error(`Unknown tool: ${String(tool)}`)
     return setToolPath(tool, null)
   })
+
+  ipcMain.handle(IPC_CHANNELS.toolsRefetch, (_event, tool: unknown) => {
+    if (!isExternalTool(tool) || !isFetchedTool(tool)) {
+      throw new Error(`The app does not fetch ${String(tool)}.`)
+    }
+    return refetchTool(tool)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.toolsInstalls, () => toolInstalls())
 }

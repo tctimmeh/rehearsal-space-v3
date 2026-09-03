@@ -198,12 +198,22 @@ bug.
 
 ## External tools
 
-`ffmpeg`, `ffprobe`, `yt-dlp` and `demucs` are not bundled. They are
-looked for in this order: a path you set in Settings, then the app's own
-`resources/bin`, then `PATH`. Settings reports what was found and lets you
-point any of them at a specific binary — useful for a local build that is not
-installed system-wide. Anything that runs them goes through the job queue, so the UI never
-blocks: work reports as a toast with progress, keeps its console log for
+`ffmpeg`, `ffprobe`, `yt-dlp` and `demucs` are not bundled, but the app keeps
+its own copies of the first three. On start it looks for them in
+`~/.config/rehearsal-space/tools` and fetches whatever is missing from where
+each project publishes its releases — the static Linux builds that ffmpeg.org
+points at, and yt-dlp's own Linux executable — so an upgrade, a removed
+package or a broken `PATH` elsewhere on the machine cannot take them away. A
+fetched copy is asked to run before it is kept, so a download cut off part way
+through is never mistaken for a tool. `demucs` is a Python program with an
+environment behind it and is left to the system.
+
+They are looked for in this order: a path you set in Settings, then the app's
+own copy, then `resources/bin` inside the app, then `PATH`. Settings reports
+what was found, where it came from, and lets you fetch a copy again — yt-dlp
+goes stale within weeks — or point any of them at a specific binary, useful
+for a local build that is not installed system-wide. Anything that runs them
+goes through the job queue, so the UI never blocks: work reports as a toast with progress, keeps its console log for
 diagnosis, and cancelling kills the whole process tree rather than orphaning
 workers. Successful jobs take themselves off the queue; failures stay until
 dismissed.

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'ele
 
 import { IPC_CHANNELS, type RehearsalApi } from '../shared/ipc'
 import type { Job } from '../shared/jobs'
+import type { ToolInstall } from '../shared/tools'
 
 const api: RehearsalApi = {
   /* Electron no longer puts a path on File; this is the sanctioned way to get one. */
@@ -72,7 +73,17 @@ const api: RehearsalApi = {
   tools: {
     status: (refresh) => ipcRenderer.invoke(IPC_CHANNELS.toolsStatus, refresh === true),
     choose: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsChoose, tool),
-    clear: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsClear, tool)
+    clear: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsClear, tool),
+    refetch: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsRefetch, tool),
+    installs: () => ipcRenderer.invoke(IPC_CHANNELS.toolsInstalls),
+    onInstalls: (handler) => {
+      const listener = (_event: IpcRendererEvent, installs: ToolInstall[]): void =>
+        handler(installs)
+      ipcRenderer.on(IPC_CHANNELS.toolsInstallsChanged, listener)
+      return () => {
+        ipcRenderer.off(IPC_CHANNELS.toolsInstallsChanged, listener)
+      }
+    }
   }
 }
 

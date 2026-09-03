@@ -814,7 +814,7 @@
   text-overflow: ellipsis;
 }
 .tool-row__state {
-  width: 68px;
+  width: 110px;
   flex: none;
   text-align: right;
   font-size: 11px;
@@ -833,6 +833,10 @@
 }
 .tool-row[data-found='false'] .tool-row__state {
   color: var(--mute);
+}
+/* A copy that could not be fetched says why, where the version would be. */
+.tool-row[data-failed='true'] .tool-row__detail {
+  color: #ffb4b0;
 }
 
 /* ---------- drag and drop ---------- */

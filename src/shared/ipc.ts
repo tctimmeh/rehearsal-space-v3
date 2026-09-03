@@ -3,7 +3,7 @@ import type { AppConfig, Preferences } from './config'
 import type { SeparateRequest } from './stems'
 import type { RhymeLookup } from '@core/rhymes/rhymes'
 import type { Job } from './jobs'
-import type { ExternalTool, ToolStatus } from './tools'
+import type { ExternalTool, FetchedTool, ToolInstall, ToolStatus } from './tools'
 
 /**
  * The single source of truth for what the renderer may ask the main process to
@@ -77,6 +77,12 @@ export interface RehearsalApi {
     choose(tool: ExternalTool): Promise<ToolStatus[] | null>
     /** Goes back to searching for the tool rather than using a set path. */
     clear(tool: ExternalTool): Promise<ToolStatus[]>
+    /** Fetches the app's own copy again, for one gone stale or never got. */
+    refetch(tool: FetchedTool): Promise<ToolStatus[]>
+    /** The copies being fetched now, and the ones that could not be. */
+    installs(): Promise<ToolInstall[]>
+    /** Pushed from main as fetching goes on. Returns an unsubscribe. */
+    onInstalls(handler: (installs: ToolInstall[]) => void): () => void
   }
 }
 
@@ -116,5 +122,8 @@ export const IPC_CHANNELS = {
   jobsChanged: 'jobs:changed',
   toolsStatus: 'tools:status',
   toolsChoose: 'tools:choose',
-  toolsClear: 'tools:clear'
+  toolsClear: 'tools:clear',
+  toolsRefetch: 'tools:refetch',
+  toolsInstalls: 'tools:installs',
+  toolsInstallsChanged: 'tools:installs-changed'
 } as const

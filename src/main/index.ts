@@ -6,6 +6,9 @@ import { captureAndExit, requestedCapturePath } from './devCapture'
 import { guardClose } from './closeGuard'
 import { jobs } from './jobs'
 import { registerIpcHandlers } from './ipc'
+import { fetchMissingTools, watchToolInstalls } from './tools'
+import { IPC_CHANNELS } from '../shared/ipc'
+import type { ToolInstall } from '../shared/tools'
 
 /**
  * The window is scaled by the user's UI scale (default 1.2): this is a tool you
@@ -96,6 +99,20 @@ void app.whenReady().then(async () => {
   registerIpcHandlers()
   const { uiScale } = await readConfig()
   createWindow(uiScale)
+
+  watchToolInstalls((installs: ToolInstall[]) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(IPC_CHANNELS.toolsInstallsChanged, installs)
+      }
+    }
+  })
+  /*
+   * The tools the app runs are its own business. What the machine has can be
+   * upgraded, removed or broken by anything else on it, so the app keeps
+   * copies of its own and fetches whatever is missing while it starts.
+   */
+  fetchMissingTools()
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow((await readConfig()).uiScale)
