@@ -105,6 +105,20 @@ export function confinedEnv(
     /* It is not writing to a terminal, and a bar redrawn with \r is no use. */
     UV_NO_PROGRESS: '1',
 
+    /*
+     * Python writes to a pipe in whatever the machine's code page is, which
+     * on an English Windows is cp1252 and cannot spell most of what a song
+     * title might contain. demucs prints the name of the track before it
+     * starts, so a file with a ⧸ in it — which is what stands in for the
+     * slash in AC⧸DC — killed the separation before a note was read.
+     *
+     * Both are set, and the order matters: UTF-8 mode alone loses to a
+     * PYTHONIOENCODING the machine already had, so the encoding is named
+     * outright as well. It is what this app reads the output as anyway.
+     */
+    PYTHONUTF8: '1',
+    PYTHONIOENCODING: 'utf-8',
+
     HF_HOME: layout.models,
     TORCH_HOME: layout.models,
     HF_HUB_DISABLE_TELEMETRY: '1',

@@ -54,6 +54,18 @@ describe('what it is run with', () => {
     expect(confinedEnv(windows, 'win32', 'C:\\Windows')['PATH']).toBe('C:\\tools;C:\\Windows')
   })
 
+  /*
+   * Python writes to a pipe in the machine's code page unless told
+   * otherwise, and cp1252 cannot spell a ⧸ — which is what stands in for the
+   * slash in a band's name. demucs prints the track's name before it starts.
+   */
+  it('has Python speak UTF-8, whatever the machine reads and writes', () => {
+    expect(environment['PYTHONUTF8']).toBe('1')
+    /* Named outright as well: UTF-8 mode loses to a PYTHONIOENCODING that is
+       already set, and this one is set over whatever the machine had. */
+    expect(environment['PYTHONIOENCODING']).toBe('utf-8')
+  })
+
   /* Whatever the user's shell says about Python is not about this Python. */
   it('clears what the machine had to say about Python', () => {
     for (const name of ['VIRTUAL_ENV', 'PYTHONHOME', 'PYTHONPATH', 'UV_INDEX_URL']) {
