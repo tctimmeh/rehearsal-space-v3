@@ -108,7 +108,19 @@ export function createToolCopies({
     tools: readonly DownloadedTool[],
     room: string
   ): Promise<void> => {
-    const arrival = join(room, 'download')
+    /*
+     * Named as the platform names the program, where the download is the
+     * program itself.
+     *
+     * Windows decides what a file is by its extension: asked to run one whose
+     * name has none, it appends `.exe` and looks for a file that was never
+     * written. So a perfectly good yt-dlp.exe called `download` fails the
+     * check that what arrived actually runs, and the copy is thrown away.
+     * Nothing unpacked has this problem — it comes out of the archive under
+     * its own name — which is why ffmpeg was fine and yt-dlp was not.
+     */
+    const only = tools.length === 1 ? tools[0] : undefined
+    const arrival = join(room, packing === 'plain' && only !== undefined ? nameOf(only) : 'download')
     await steps.download(url, arrival, (fraction) => {
       for (const tool of tools) {
         const install = installs.get(tool)

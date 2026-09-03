@@ -230,6 +230,11 @@ export function watchToolInstalls(onChange: (installs: ToolInstall[]) => void): 
   }
 }
 
+/** Where a tool is, or null. For anything that can do without it. */
+export async function findTool(tool: ExternalTool): Promise<string | null> {
+  return (await locate(tool))?.path ?? null
+}
+
 /** Throws with a message worth showing when a tool a feature needs is absent. */
 export async function requireTool(tool: ExternalTool): Promise<string> {
   const at = await locate(tool)

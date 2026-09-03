@@ -163,6 +163,32 @@ describe('the copies the app keeps', () => {
     expect(download.mock.calls.map(([url]) => url).filter((url) => url.includes('ffprobe'))).toHaveLength(1)
   })
 
+  /*
+   * Windows decides what a file is by its extension, and will not run one
+   * that has none — it appends `.exe` and looks for a file that is not there.
+   * So a download that is the program itself has to arrive under the name the
+   * program goes by, or the check that it runs throws away a good copy.
+   */
+  it('downloads a program under the name the platform runs it by', async () => {
+    const asked: string[] = []
+    const windows = createToolCopies({
+      directory,
+      machine: { platform: 'win32', arch: 'x64' },
+      steps: steps({
+        works: async (_tool, path) => {
+          asked.push(path)
+          return true
+        },
+        findNamed: async (root, name) => join(root, name)
+      })
+    })
+
+    await windows.refetch(['yt-dlp'])
+
+    expect(asked.every((path) => path.endsWith('yt-dlp.exe'))).toBe(true)
+    expect(await kept('yt-dlp.exe')).toMatch(/yt-dlp/)
+  })
+
   /* A Windows program is called ffmpeg.exe, in the archive and on disk: a copy
      under any other name is not one Windows would run. */
   it('keeps a copy by the name the platform gives it', async () => {

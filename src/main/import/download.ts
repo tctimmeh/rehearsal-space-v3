@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { ytDlpProgress } from '@core/jobs/progress'
 import type { AudioChannel } from '@core/song/song'
 import { jobs } from '../jobs'
-import { requireTool } from '../tools'
+import { findTool, requireTool } from '../tools'
 import { importAudio } from './importAudio'
 
 /**
@@ -24,6 +24,12 @@ export async function downloadAudio(
   takenIds: string[]
 ): Promise<AudioChannel> {
   const ytDlp = await requireTool('yt-dlp')
+  /*
+   * yt-dlp reaches for ffmpeg to tidy up some of what it fetches, and the
+   * app's own is deliberately not on PATH — on Windows there is unlikely to
+   * be one anywhere else at all. Told where it is rather than left to look.
+   */
+  const ffmpeg = await findTool('ffmpeg')
   const workspace = await mkdtemp(join(tmpdir(), 'rehearsal-download-'))
 
   try {
@@ -37,6 +43,7 @@ export async function downloadAudio(
           args: [
             '--newline',
             '--no-playlist',
+            ...(ffmpeg === null ? [] : ['--ffmpeg-location', ffmpeg]),
             '-f',
             'bestaudio/best',
             '-o',
