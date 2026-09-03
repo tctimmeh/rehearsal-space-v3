@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow, Menu, session, shell } from 'electron'
 
 import { readConfig } from './config'
+import { applicationMenuFor } from './appMenu'
 import { captureAndExit, requestedCapturePath } from './devCapture'
 import { editItemsFor } from './editMenu'
 import { guardClose } from './closeGuard'
@@ -81,7 +82,7 @@ function createWindow(uiScale: number): BrowserWindow {
 }
 
 /*
- * No menu, which means no reload.
+ * No menu, which means no reload — except on macOS, which needs one.
  *
  * Electron ships a default menu whose View entry answers Ctrl-R, Ctrl-Shift-R
  * and F5 by reloading the window. This is an application, not a web page:
@@ -93,8 +94,14 @@ function createWindow(uiScale: number): BrowserWindow {
  *
  * Taking the menu away leaves the keys themselves alone, which matters:
  * Ctrl-R is how a repeat is marked in the tablature.
+ *
+ * macOS is the exception, because there cut, copy, paste and select all are
+ * routed through the application menu: without one, ⌘C and ⌘V do nothing in
+ * any text field in the app, and neither does ⌘Q. It gets a menu of exactly
+ * those and nothing that reloads anything — see `appMenu.ts`.
  */
-Menu.setApplicationMenu(null)
+const menu = applicationMenuFor(process.platform)
+Menu.setApplicationMenu(menu === null ? null : Menu.buildFromTemplate(menu))
 
 void app.whenReady().then(async () => {
   /*
@@ -105,6 +112,17 @@ void app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_contents, permission, grant) => {
     grant(permission === 'media')
   })
+
+  /* The About in the Mac menu bar is the system's own panel, so it should at
+     least say what the app's own About dialog says. */
+  if (process.platform === 'darwin') {
+    app.setAboutPanelOptions({
+      applicationName: app.getName(),
+      applicationVersion: app.getVersion(),
+      copyright: '© Tim Court',
+      website: 'https://github.com/tctimmeh/rehearsal-space-v3'
+    })
+  }
 
   registerIpcHandlers()
   const { uiScale } = await readConfig()
