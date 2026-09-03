@@ -206,8 +206,7 @@ publishes its releases — the static builds ffmpeg.org points at for each
 platform, and yt-dlp's own executables — so an upgrade, a removed package or a
 broken `PATH` elsewhere on the machine cannot take them away. A fetched copy
 is asked to run before it is kept, so a download cut off part way through is
-never mistaken for a tool. `demucs` is a Python program with an environment
-behind it and is left to the system.
+never mistaken for a tool.
 
 The download tables in `src/main/tools/releases.ts` cover Linux, macOS and
 Windows on x64 and arm64, and the names carry the platform's suffix, so
@@ -215,18 +214,61 @@ nothing here is what would stop the app running elsewhere. Every macOS and
 Windows build is published as a zip, unpacked in process by
 `src/main/tools/zip.ts` — a couple of headers around `zlib`, checked against
 the archive's own CRC — because neither platform has anything to unpack one
-with that can be relied on. Only the Linux builds are tarballs, and `xz` is
-not something Node can undo, so that one path asks `tar`: it is reached only
-on Linux, where tar and xz are part of the base system. The macOS and Windows
+with that can be relied on, and gzipped tarballs by `src/main/tools/tar.ts`
+the same way. Only the Linux ffmpeg builds are `xz` tarballs, which is not
+something Node can undo, so that one path asks `tar`: it is reached only on
+Linux, where tar and xz are part of the base system. The macOS and Windows
 addresses are written but untested on those platforms; the Apple silicon
 ffmpeg addresses carry the ffmpeg series in the name and will need revisiting
 when ffmpeg 8 lands.
 
+### demucs
+
+`demucs` is a Python program with an environment behind it, so it is built
+rather than downloaded — and it is the better part of a gigabyte, so it is
+never fetched unasked. Ask for stems on a machine without it and the app
+offers to install its own, saying what that costs; the tools panel offers the
+same, and a Remove that takes it all back.
+
+Saying yes fetches [uv](https://docs.astral.sh/uv/) — one static binary from
+Astral, pinned to a version rather than tracking latest, because the whole
+install rests on which flags and variables it answers to — and has it build a
+private Python and install demucs from PyPI, with PyTorch's own processor-only
+build (`--torch-backend=cpu`: a fifth of the size of the one carrying a
+graphics stack nothing here would use). It runs as one job in the queue, so it
+reports progress, keeps its log and can be cancelled like anything else.
+
+Everything lands under `<user data>/tools/demucs` — uv, the Python, the
+environment, the model weights — and the environment variables in
+`src/main/tools/demucsEnv.ts` are what keep it there, so nothing touches the
+user's own Python or caches and removing it really does remove it. Two of
+those variables are load-bearing beyond tidiness: `HF_HOME`, because 4.1.0
+keeps its models on the HuggingFace hub and the weights fetched during the
+install would otherwise be fetched again at the first separation; and `PATH`
+with the app's own tools directory first, because demucs falls back to
+`ffmpeg` for audio it cannot read itself — which is every channel here, as
+they are all ogg — and the app's ffmpeg is deliberately not on the machine's
+PATH.
+
+The install ends by running the demucs it just built. That is not ceremony:
+demucs 4.1.0 imports `numpy` on every platform but declares it only for Intel
+macs, so installing exactly what it asks for leaves an environment that cannot
+import it. The app asks for `numpy` explicitly, and the last step is what
+would catch the next such thing, with the reason in the job's log.
+
+Only three machines can have it: `sphn`, which demucs reads audio with,
+publishes wheels for Linux x86_64, Apple silicon and Windows x64 and no
+others. Elsewhere the offer is replaced by the reason, and a demucs installed
+some other way is still used. Versions are pinned in one place
+(`DEMUCS_VERSION`, `PYTHON_VERSION`, `UV_VERSION`); if "it installed but will
+not run" ever turns up, the next step is a hash-pinned requirements file per
+platform rather than a resolve at install time.
+
 They are looked for in this order: a path you set in Settings, then the app's
 own copy, then `resources/bin` inside the app, then `PATH`. Settings reports
 what was found, where it came from, and lets you fetch a copy again — yt-dlp
-goes stale within weeks — or point any of them at a specific binary, useful
-for a local build that is not installed system-wide. Anything that runs them
+goes stale within weeks — install or remove demucs, or point any of them at a
+specific binary, useful for a local build that is not installed system-wide. Anything that runs them
 goes through the job queue, so the UI never blocks: work reports as a toast with progress, keeps its console log for
 diagnosis, and cancelling kills the whole process tree rather than orphaning
 workers. Successful jobs take themselves off the queue; failures stay until

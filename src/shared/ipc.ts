@@ -3,7 +3,7 @@ import type { AppConfig, Preferences } from './config'
 import type { SeparateRequest } from './stems'
 import type { RhymeLookup } from '@core/rhymes/rhymes'
 import type { Job } from './jobs'
-import type { ExternalTool, FetchedTool, ToolInstall, ToolStatus } from './tools'
+import type { ExternalTool, ToolInstall, ToolStatus } from './tools'
 
 /**
  * The single source of truth for what the renderer may ask the main process to
@@ -77,8 +77,15 @@ export interface RehearsalApi {
     choose(tool: ExternalTool): Promise<ToolStatus[] | null>
     /** Goes back to searching for the tool rather than using a set path. */
     clear(tool: ExternalTool): Promise<ToolStatus[]>
-    /** Fetches the app's own copy again, for one gone stale or never got. */
-    refetch(tool: FetchedTool): Promise<ToolStatus[]>
+    /**
+     * Puts the app's own copy in place — fetched, or built where it is demucs.
+     * Always at the user's asking.
+     */
+    install(tool: ExternalTool): Promise<ToolStatus[]>
+    /** Takes the app's own copy away again, for the room it takes up. */
+    remove(tool: ExternalTool): Promise<ToolStatus[]>
+    /** Why this machine cannot have one, tool by tool. Null where it can. */
+    installable(): Promise<Partial<Record<ExternalTool, string>>>
     /** The copies being fetched now, and the ones that could not be. */
     installs(): Promise<ToolInstall[]>
     /** Pushed from main as fetching goes on. Returns an unsubscribe. */
@@ -123,7 +130,9 @@ export const IPC_CHANNELS = {
   toolsStatus: 'tools:status',
   toolsChoose: 'tools:choose',
   toolsClear: 'tools:clear',
-  toolsRefetch: 'tools:refetch',
+  toolsInstall: 'tools:install',
+  toolsRemove: 'tools:remove',
+  toolsInstallable: 'tools:installable',
   toolsInstalls: 'tools:installs',
   toolsInstallsChanged: 'tools:installs-changed'
 } as const

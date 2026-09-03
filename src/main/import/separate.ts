@@ -8,7 +8,7 @@ import { uniqueSlug } from '@core/song/slug'
 import type { AudioChannel } from '@core/song/song'
 import { stemsOf, type SeparateRequest } from '../../shared/stems'
 import { jobs } from '../jobs'
-import { requireTool } from '../tools'
+import { demucsCommand, requireTool } from '../tools'
 import { placedLike, sourceLength } from '@core/song/trim'
 import { ensureSongFolders, planConversion, takenStems } from './importAudio'
 
@@ -28,7 +28,7 @@ export async function separateStems(
   source: AudioChannel,
   { model, stems, muteSource }: SeparateRequest
 ): Promise<AudioChannel[]> {
-  const demucs = await requireTool('demucs')
+  const demucs = await demucsCommand()
   const ffmpeg = await requireTool('ffmpeg')
   await ensureSongFolders(songDirectory)
 
@@ -66,8 +66,11 @@ export async function separateStems(
       subject: source.subject,
       steps: [
         {
-          command: demucs,
+          command: demucs.path,
           args: ['-n', model, '-o', workspace, sourcePath],
+          /* Where its models are kept, and an ffmpeg to fall back on for the
+             audio it cannot read itself — which here is all of it. */
+          env: demucs.env,
           progress: demucsProgress(),
           weight: SEPARATION_WEIGHT
         },

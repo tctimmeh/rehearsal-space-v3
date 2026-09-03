@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { FetchedTool, ToolInstall } from '../../shared/tools'
+import { FETCHED_AT_START, type DownloadedTool, type ToolInstall } from '../../shared/tools'
 import { createToolCopies, type FetchSteps } from './copies'
 
 const linux = { platform: 'linux', arch: 'x64' }
@@ -45,7 +45,7 @@ const kept = async (name: string): Promise<string | null> =>
   readFile(join(directory, name), 'utf8').catch(() => null)
 
 /** A copy already in place, as a previous run would have left it. */
-const already = async (tool: FetchedTool, text = 'an older copy'): Promise<void> => {
+const already = async (tool: DownloadedTool, text = 'an older copy'): Promise<void> => {
   await mkdir(directory, { recursive: true })
   await writeFile(join(directory, tool), text)
   await chmod(join(directory, tool), 0o755)
@@ -53,7 +53,7 @@ const already = async (tool: FetchedTool, text = 'an older copy'): Promise<void>
 
 describe('the copies the app keeps', () => {
   it('fetches every tool it has none of', async () => {
-    await copiesIn().ensure()
+    await copiesIn().ensure(FETCHED_AT_START)
 
     expect(await kept('ffmpeg')).toMatch(/johnvansickle/)
     expect(await kept('ffprobe')).toMatch(/johnvansickle/)
@@ -66,7 +66,7 @@ describe('the copies the app keeps', () => {
     await already('yt-dlp')
     const download = vi.fn()
 
-    await copiesIn({ download }).ensure()
+    await copiesIn({ download }).ensure(FETCHED_AT_START)
 
     expect(download).not.toHaveBeenCalled()
     expect(await kept('ffmpeg')).toBe('an older copy')
@@ -78,7 +78,7 @@ describe('the copies the app keeps', () => {
   it('fetches the pair when only one of them is missing', async () => {
     await already('ffmpeg')
 
-    await copiesIn().ensure()
+    await copiesIn().ensure(FETCHED_AT_START)
 
     expect(await kept('ffprobe')).toMatch(/johnvansickle/)
     expect(await kept('ffmpeg')).toMatch(/johnvansickle/)
@@ -99,7 +99,7 @@ describe('the copies the app keeps', () => {
       await writeFile(path, `the program from ${url}`)
     })
 
-    await copiesIn({ download }).ensure()
+    await copiesIn({ download }).ensure(FETCHED_AT_START)
 
     expect(await kept('ffmpeg')).toMatch(/BtbN/)
   })
@@ -112,7 +112,7 @@ describe('the copies the app keeps', () => {
   it('keeps nothing that will not run', async () => {
     const works = vi.fn(async () => false)
 
-    await copiesIn({ works }).ensure()
+    await copiesIn({ works }).ensure(FETCHED_AT_START)
 
     expect(await kept('yt-dlp')).toBeNull()
   })
@@ -128,7 +128,7 @@ describe('the copies the app keeps', () => {
   })
 
   it('clears up after itself, leaving only the tools', async () => {
-    await copiesIn().ensure()
+    await copiesIn().ensure(FETCHED_AT_START)
 
     const { readdir } = await import('node:fs/promises')
     expect((await readdir(directory)).sort()).toEqual(['ffmpeg', 'ffprobe', 'yt-dlp'])
@@ -142,7 +142,7 @@ describe('the copies the app keeps', () => {
       steps: steps({ download })
     })
 
-    await elsewhere.ensure()
+    await elsewhere.ensure(FETCHED_AT_START)
 
     expect(download).not.toHaveBeenCalled()
   })
@@ -158,7 +158,7 @@ describe('the copies the app keeps', () => {
       steps: steps({ download, findNamed: async (root, name) => join(root, name) })
     })
 
-    await mac.ensure()
+    await mac.ensure(FETCHED_AT_START)
 
     expect(download.mock.calls.map(([url]) => url).filter((url) => url.includes('ffprobe'))).toHaveLength(1)
   })
@@ -179,7 +179,7 @@ describe('the copies the app keeps', () => {
       })
     })
 
-    await windows.ensure()
+    await windows.ensure(FETCHED_AT_START)
 
     expect(asked[0]).toEqual(['ffmpeg.exe', 'ffprobe.exe'])
     expect(await kept('ffmpeg.exe')).toMatch(/BtbN/)
@@ -192,7 +192,7 @@ describe('what it says while it is fetching', () => {
     const seen: ToolInstall[][] = []
     const copies = copiesIn({}, (installs) => seen.push(installs))
 
-    await copies.ensure()
+    await copies.ensure(FETCHED_AT_START)
 
     expect(seen.some((installs) => installs.some((one) => one.tool === 'ffmpeg'))).toBe(true)
     expect(copies.underway()).toEqual([])

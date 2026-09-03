@@ -1,7 +1,7 @@
 import { chmod, mkdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { FETCHED_TOOLS, type FetchedTool, type ToolInstall } from '../../shared/tools'
+import { type DownloadedTool, type ToolInstall } from '../../shared/tools'
 import { downloadTo, findNamed, unpack } from './fetch'
 import { answersAsTool } from './probe'
 import { executableName, releasesFor, type Download, type Machine, type Release } from './releases'
@@ -19,11 +19,11 @@ import { isRunnable } from './runnable'
  */
 export interface ToolCopies {
   /** Where the copy of a tool lives, whether or not there is one there yet. */
-  pathTo(tool: FetchedTool): string
-  /** Fetches whatever is missing. Safe to call on every start. */
-  ensure(): Promise<void>
+  pathTo(tool: DownloadedTool): string
+  /** Fetches whichever of these is missing. Safe to call on every start. */
+  ensure(tools: readonly DownloadedTool[]): Promise<void>
   /** Fetches these whether or not they are already here, for an update. */
-  refetch(tools: readonly FetchedTool[]): Promise<void>
+  refetch(tools: readonly DownloadedTool[]): Promise<void>
   /** What is being fetched now, and what could not be. */
   underway(): ToolInstall[]
   watch(onChange: (installs: ToolInstall[]) => void): () => void
@@ -35,7 +35,7 @@ export interface FetchSteps {
   unpack: typeof unpack
   findNamed: typeof findNamed
   /** Whether what was fetched runs, checked before it is kept. */
-  works: (tool: FetchedTool, path: string) => Promise<boolean>
+  works: (tool: DownloadedTool, path: string) => Promise<boolean>
 }
 
 interface Options {
@@ -57,7 +57,7 @@ export function createToolCopies({
   steps,
   announce
 }: Options): ToolCopies {
-  const installs = new Map<FetchedTool, ToolInstall>()
+  const installs = new Map<DownloadedTool, ToolInstall>()
   const watchers = new Set<(installs: ToolInstall[]) => void>()
   let told = 0
   let telling: ReturnType<typeof setTimeout> | null = null
@@ -82,21 +82,21 @@ export function createToolCopies({
     telling = setTimeout(tell, Math.max(0, TELL_INTERVAL_MS - (Date.now() - told)))
   }
 
-  const mark = (tools: readonly FetchedTool[], install: Omit<ToolInstall, 'tool'>): void => {
+  const mark = (tools: readonly DownloadedTool[], install: Omit<ToolInstall, 'tool'>): void => {
     for (const tool of tools) installs.set(tool, { tool, ...install })
     tell()
   }
 
-  const unmark = (tools: readonly FetchedTool[]): void => {
+  const unmark = (tools: readonly DownloadedTool[]): void => {
     for (const tool of tools) installs.delete(tool)
     tell()
   }
 
   /* Named as the platform names a program, so the copy is what a Windows
      PATH would have found and what a launcher would run. */
-  const nameOf = (tool: FetchedTool): string => executableName(tool, machine.platform)
+  const nameOf = (tool: DownloadedTool): string => executableName(tool, machine.platform)
 
-  const pathTo = (tool: FetchedTool): string => join(directory, nameOf(tool))
+  const pathTo = (tool: DownloadedTool): string => join(directory, nameOf(tool))
 
   /**
    * Fetched into a room of its own and only moved into place once it has been
@@ -105,7 +105,7 @@ export function createToolCopies({
    */
   const takeFrom = async (
     { url, packing }: Download,
-    tools: readonly FetchedTool[],
+    tools: readonly DownloadedTool[],
     room: string
   ): Promise<void> => {
     const arrival = join(room, 'download')
@@ -157,7 +157,7 @@ export function createToolCopies({
 
   /* One at a time. Two hundred-megabyte downloads at once take no less time
      between them and make each other's progress look stalled. */
-  const fetchAll = async (wanted: readonly FetchedTool[]): Promise<void> => {
+  const fetchAll = async (wanted: readonly DownloadedTool[]): Promise<void> => {
     if (wanted.length === 0) return
     await mkdir(directory, { recursive: true })
     for (const release of releasesFor(wanted, machine)) await install(release)
@@ -167,9 +167,9 @@ export function createToolCopies({
     pathTo,
     underway,
 
-    ensure: async () => {
-      const missing: FetchedTool[] = []
-      for (const tool of FETCHED_TOOLS) {
+    ensure: async (tools) => {
+      const missing: DownloadedTool[] = []
+      for (const tool of tools) {
         if (!(await isRunnable(pathTo(tool)))) missing.push(tool)
       }
       await fetchAll(missing)

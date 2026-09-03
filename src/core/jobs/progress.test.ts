@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { demucsProgress, ffmpegProgress, ytDlpProgress } from './progress'
+import { demucsProgress, ffmpegProgress, uvProgress, ytDlpProgress } from './progress'
 
 describe('ffmpegProgress', () => {
   const read = ffmpegProgress(240)
@@ -66,5 +66,50 @@ describe('demucsProgress', () => {
   it('ignores demucs’s other output', () => {
     expect(read('Separating track /tmp/full_mix.ogg')).toBeNull()
     expect(read('Selected model is a bag of 4 models.')).toBeNull()
+  })
+})
+
+/*
+ * uv is not writing to a terminal here, so there is no bar to read — only the
+ * stages it announces, and the sizes of what it is fetching.
+ */
+describe('uv', () => {
+  it('climbs through the stages it announces', () => {
+    const read = uvProgress()
+
+    expect(read('Using CPython 3.12.11')).toBeCloseTo(0.04)
+    expect(read('Resolved 41 packages in 812ms')).toBeCloseTo(0.1)
+    expect(read('Prepared 41 packages in 1m 02s')).toBeCloseTo(0.9)
+    expect(read('Installed 41 packages in 3.21s')).toBe(1)
+  })
+
+  /* Nearly all of the time is spent on a few large wheels, so what is read
+     across the middle is how much of them has arrived. */
+  it('reads how much of the wheels have arrived', () => {
+    const read = uvProgress()
+    read('Resolved 41 packages in 812ms')
+    read('Downloading torch (176.1MiB)')
+    read('Downloading numpy (16.0MiB)')
+
+    const half = read(' Downloaded torch')
+
+    expect(half).toBeGreaterThan(0.5)
+    expect(half).toBeLessThan(0.9)
+    expect(read(' Downloaded numpy')).toBeCloseTo(0.9)
+  })
+
+  it('never goes backwards, whatever it is told', () => {
+    const read = uvProgress()
+    read('Prepared 41 packages in 1m 02s')
+
+    expect(read('Resolved 41 packages in 812ms')).toBeNull()
+    expect(read('Using CPython 3.12.11')).toBeNull()
+  })
+
+  it('says nothing about lines that said nothing', () => {
+    const read = uvProgress()
+
+    expect(read('warning: something or other')).toBeNull()
+    expect(read('')).toBeNull()
   })
 })

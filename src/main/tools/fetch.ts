@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
 
 import type { Packing } from './releases'
+import { unpackTarGz } from './tar'
 import { unpackZip } from './zip'
 
 const run = promisify(execFile)
@@ -114,6 +115,7 @@ export async function unpack(
   names: readonly string[]
 ): Promise<void> {
   if (packing === 'tar.xz') await unpackTarXz(archive, into, names)
+  else if (packing === 'tar.gz') await unpackTarGz(archive, into, names)
   else if (packing === 'zip') await unpackZip(archive, into, names)
 }
 

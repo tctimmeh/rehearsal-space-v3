@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { faderToGain, gainToDb, gainToFader } from '@core/mix/fader'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
@@ -7,7 +7,9 @@ import type { DemucsModel } from '@shared/stems'
 import { useAlign } from '@renderer/state/align'
 import { useSong, type MixerPatch } from '@renderer/state/song'
 import { openTool } from '@renderer/state/toolActions'
+import { useToolNamed, useToolStatus } from '@renderer/state/toolStatus'
 import { ChannelEditor } from '../channels/ChannelEditor'
+import { DemucsInstallDialog } from '../channels/DemucsInstallDialog'
 import { DownloadDialog } from '../channels/DownloadDialog'
 import { StemsDialog } from '../channels/StemsDialog'
 import { SubjectIcon } from '../icons/subjectIcons'
@@ -53,6 +55,12 @@ export function MixerDock() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [stemsId, setStemsId] = useState<string | null>(null)
+  /* Separating needs demucs, which is the one tool the app does not fetch
+     unasked. Knowing whether it is there decides which dialog this is. */
+  const demucs = useToolNamed('demucs')
+  const installDemucs = useToolStatus((state) => state.install)
+  const watchTools = useToolStatus((state) => state.watch)
+  useEffect(() => watchTools(), [watchTools])
   const [downloading, setDownloading] = useState(false)
 
   const byId = (id: string | null) =>
@@ -157,7 +165,19 @@ export function MixerDock() {
         />
       )}
 
-      {stems === null ? null : (
+      {stems === null || demucs.found || !demucs.known ? null : (
+        <DemucsInstallDialog
+          whyNot={demucs.whyNot}
+          installing={demucs.installing}
+          onDismiss={() => setStemsId(null)}
+          onInstall={() => {
+            setStemsId(null)
+            void installDemucs('demucs')
+          }}
+        />
+      )}
+
+      {stems === null || !demucs.found ? null : (
         <StemsDialog
           busy={importing}
           onDismiss={() => setStemsId(null)}

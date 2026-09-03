@@ -199,3 +199,63 @@ describe('createJobManager', () => {
     await running
   })
 })
+
+/*
+ * Some steps have to be told where to look — the demucs install runs entirely
+ * inside the app's own directory, and says so through the environment.
+ */
+describe('the environment a step runs in', () => {
+  const said = (manager: ReturnType<typeof watcher>['manager'], id: string): string =>
+    manager.log(id).join('\n')
+
+  const ran = (script: string, env?: Record<string, string | undefined>) => ({
+    ...shell(script),
+    steps: [{ command: 'sh', args: ['-c', script], ...(env === undefined ? {} : { env }) }]
+  })
+
+  it('hands the step what it was given', async () => {
+    const { manager, latest } = watcher()
+
+    await manager.run(ran('echo "[$RS_MARK]"', { RS_MARK: 'here' }))
+
+    expect(said(manager, latest()[0]?.id ?? '')).toContain('[here]')
+  })
+
+  /* Over the app's own environment, not instead of it: replacing it loses the
+     machine's PATH, and on Windows what a process cannot start without. */
+  it('keeps what the app already had', async () => {
+    const { manager, latest } = watcher()
+
+    await manager.run(ran('echo "[$HOME][$RS_MARK]"', { RS_MARK: 'here' }))
+
+    expect(said(manager, latest()[0]?.id ?? '')).toContain(
+      `[${process.env['HOME'] ?? ''}][here]`
+    )
+  })
+
+  /* A user's own VIRTUAL_ENV or PYTHONPATH would be answered before the app's
+     own, and the failure would look like the install being broken. */
+  it('can take a variable away', async () => {
+    const { manager, latest } = watcher()
+
+    await manager.run(ran('echo "[$HOME]"', { HOME: undefined }))
+
+    expect(said(manager, latest()[0]?.id ?? '')).toContain('[]')
+  })
+
+  it('gives it to that step and no other', async () => {
+    const { manager, latest } = watcher()
+
+    await manager.run({
+      ...shell('echo'),
+      steps: [
+        { command: 'sh', args: ['-c', 'echo "one[$RS_MARK]"'], env: { RS_MARK: 'here' } },
+        { command: 'sh', args: ['-c', 'echo "two[$RS_MARK]"'] }
+      ]
+    })
+
+    const log = said(manager, latest()[0]?.id ?? '')
+    expect(log).toContain('one[here]')
+    expect(log).toContain('two[]')
+  })
+})

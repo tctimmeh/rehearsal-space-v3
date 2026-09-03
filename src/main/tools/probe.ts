@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
-import type { ExternalTool } from '../../shared/tools'
+import type { ProvidedTool } from '../../shared/tools'
 
 const run = promisify(execFile)
 
@@ -19,15 +19,16 @@ interface Probe {
  * like the tool being broken: ffmpeg exits non-zero on `--version`, and demucs
  * has no version flag, answering `--help` with a usage block.
  */
-const PROBES: Record<ExternalTool, Probe> = {
+const PROBES: Record<ProvidedTool, Probe> = {
   ffmpeg: { args: ['-version'], readsVersion: true },
   ffprobe: { args: ['-version'], readsVersion: true },
   'yt-dlp': { args: ['--version'], readsVersion: true },
-  demucs: { args: ['--help'], readsVersion: false }
+  demucs: { args: ['--help'], readsVersion: false },
+  uv: { args: ['--version'], readsVersion: true }
 }
 
 /** What the tool calls itself, or null when it will not say. */
-export async function askVersion(tool: ExternalTool, path: string): Promise<string | null> {
+export async function askVersion(tool: ProvidedTool, path: string): Promise<string | null> {
   const probe = PROBES[tool]
   if (!probe.readsVersion) return null
   try {
@@ -48,7 +49,7 @@ export async function askVersion(tool: ExternalTool, path: string): Promise<stri
  * look plausible and the wrong shape to run, so a fetched copy is asked to do
  * something before it is kept.
  */
-export async function answersAsTool(tool: ExternalTool, path: string): Promise<boolean> {
+export async function answersAsTool(tool: ProvidedTool, path: string): Promise<boolean> {
   try {
     await run(path, PROBES[tool].args, { timeout: PROBE_TIMEOUT_MS })
     return true

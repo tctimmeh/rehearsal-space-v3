@@ -45,7 +45,16 @@ export function installBridge(overrides: Partial<RehearsalApi['library']> = {}) 
         dismiss: vi.fn(),
         onChanged: vi.fn(() => () => undefined)
       },
-      tools: { status: vi.fn(async () => []), choose: vi.fn(), clear: vi.fn() }
+      tools: {
+        status: vi.fn(async () => []),
+        choose: vi.fn(),
+        clear: vi.fn(),
+        install: vi.fn(async () => []),
+        remove: vi.fn(async () => []),
+        installable: vi.fn(async () => ({})),
+        installs: vi.fn(async () => []),
+        onInstalls: vi.fn(() => () => undefined)
+      }
     }
   })
 

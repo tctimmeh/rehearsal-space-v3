@@ -18,6 +18,14 @@ export interface JobStep {
   command: string
   args: string[]
   cwd?: string
+  /**
+   * Extra environment for this step, over the app's own rather than instead of
+   * it — replacing it outright loses the machine's own PATH, and on Windows
+   * the variables a process cannot start without. A value of `undefined`
+   * takes a variable away, which is how a user's own Python settings are kept
+   * from answering for the app's.
+   */
+  env?: Record<string, string | undefined>
   /** Reads progress from the step's output lines. */
   progress?: ProgressReader
   /**
@@ -241,6 +249,9 @@ function runStep(
 
     const child = spawn(step.command, args, {
       ...(step.cwd === undefined ? {} : { cwd: step.cwd }),
+      /* Logged nowhere: the arguments already show every path worth seeing,
+         and an environment carries whatever else the machine keeps in it. */
+      ...(step.env === undefined ? {} : { env: { ...process.env, ...step.env } }),
       stdio: ['ignore', 'pipe', 'pipe'],
       /* Its own process group, so cancelling takes the whole tree with it. */
       detached: true

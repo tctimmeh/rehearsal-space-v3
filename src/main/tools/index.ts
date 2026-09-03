@@ -2,16 +2,18 @@ import { delimiter, join } from 'node:path'
 import { app } from 'electron'
 
 import { readConfig, updateConfig } from '../config'
+import { jobs } from '../jobs'
 import { createToolCopies, realSteps, type ToolCopies } from './copies'
+import { createDemucsInstaller, type DemucsInstaller } from './demucs'
 import { askVersion } from './probe'
 import { executableName } from './releases'
 import { isRunnable } from './runnable'
 import {
   EXTERNAL_TOOLS,
-  isFetchedTool,
+  FETCHED_AT_START,
+  isDownloadedTool,
   TOOL_PURPOSE,
   type ExternalTool,
-  type FetchedTool,
   type ToolInstall,
   type ToolSource,
   type ToolStatus
@@ -26,17 +28,48 @@ import {
 const privateDirectory = (): string => join(app.getPath('userData'), 'tools')
 
 let copies: ToolCopies | null = null
+let demucs: DemucsInstaller | null = null
+
+/** Told whenever what the app has of its own changes, or is changing. */
+const changed = (): void => {
+  /* What was found is now different, and the answer is cached. */
+  cached = null
+  for (const listener of listeners) listener(toolInstalls())
+}
 
 export function toolCopies(): ToolCopies {
   copies ??= createToolCopies({
     directory: privateDirectory(),
     steps: realSteps,
-    announce: () => {
-      /* What was found is now different, and the answer is cached. */
-      cached = null
-    }
+    announce: changed
   })
   return copies
+}
+
+/**
+ * demucs, which is built rather than downloaded.
+ *
+ * uv is fetched into demucs's own directory by a second set of copies rooted
+ * there, so it is the same download, unpacking and it-must-run check as every
+ * other tool gets — and so that removing demucs takes uv with it.
+ */
+export function demucsInstaller(): DemucsInstaller {
+  demucs ??= createDemucsInstaller({
+    directory: privateDirectory(),
+    run: (spec) => jobs.run(spec),
+    announce: changed,
+    fetchUv: async (layout, onProgress) => {
+      const forUv = createToolCopies({
+        directory: layout.root,
+        steps: realSteps,
+        announce: (installs) => onProgress(installs[0]?.progress ?? null)
+      })
+      await forUv.ensure(['uv'])
+      const failed = forUv.underway().find((one) => one.state === 'failed')
+      if (failed !== undefined) throw new Error(failed.error ?? 'uv could not be fetched')
+    }
+  })
+  return demucs
 }
 
 interface Candidate {
@@ -52,9 +85,9 @@ interface Candidate {
  */
 async function searchPaths(tool: ExternalTool): Promise<Candidate[]> {
   const chosen = (await readConfig()).toolPaths[tool]
-  /* Windows spells a program's name with a suffix, and demucs is a program
-     like any other in that respect. */
-  const named = isFetchedTool(tool) ? executableName(tool, process.platform) : tool
+  /* Windows spells a program's name with a suffix, demucs included. */
+  const named = executableName(tool, process.platform)
+  const own = privatePathFor(tool)
   const bundled = app.isPackaged
     ? join(process.resourcesPath, 'bin', named)
     : join(app.getAppPath(), 'resources', 'bin', named)
@@ -65,12 +98,17 @@ async function searchPaths(tool: ExternalTool): Promise<Candidate[]> {
 
   return [
     ...(chosen === undefined ? [] : [{ path: chosen, source: 'chosen' as const }]),
-    ...(isFetchedTool(tool)
-      ? [{ path: toolCopies().pathTo(tool), source: 'private' as const }]
-      : []),
+    ...(own === null ? [] : [{ path: own, source: 'private' as const }]),
     { path: bundled, source: 'bundled' },
     ...onPath
   ]
+}
+
+/** Where the app's own copy of this would be, if it keeps one at all. */
+function privatePathFor(tool: ExternalTool): string | null {
+  if (isDownloadedTool(tool)) return toolCopies().pathTo(tool)
+  if (tool === 'demucs') return demucsInstaller().pathTo()
+  return null
 }
 
 async function locate(tool: ExternalTool): Promise<Candidate | null> {
@@ -121,30 +159,69 @@ export async function setToolPath(tool: ExternalTool, path: string | null): Prom
  *
  * Nothing waits for this: the app runs without these tools, only with less of
  * itself working, and a hundred megabytes of ffmpeg is not something to hold
- * a window shut for.
+ * a window shut for. demucs is not among them — it is hundreds of megabytes
+ * and nobody is to be given it without being asked.
  */
 export function fetchMissingTools(): void {
   void toolCopies()
-    .ensure()
-    .then(() => {
-      cached = null
-    })
+    .ensure(FETCHED_AT_START)
+    .then(changed)
 }
 
-/** Fetches a copy again, for a tool that has gone stale or was never got. */
-export async function refetchTool(tool: FetchedTool): Promise<ToolStatus[]> {
-  await toolCopies().refetch([tool])
+/**
+ * Puts the app's own copy of a tool in place: fetched, or built where it is
+ * demucs. Asked for by the user, every time.
+ */
+export async function installTool(tool: ExternalTool): Promise<ToolStatus[]> {
+  if (tool === 'demucs') await demucsInstaller().install()
+  else if (isDownloadedTool(tool)) await toolCopies().refetch([tool])
+  else throw new Error(`The app cannot install ${tool}.`)
   return toolStatus({ refresh: true })
 }
 
-export const toolInstalls = (): ToolInstall[] => toolCopies().underway()
+/** Takes the app's own copy away again, for the room it takes up. */
+export async function removeTool(tool: ExternalTool): Promise<ToolStatus[]> {
+  if (tool !== 'demucs') throw new Error(`The app cannot remove its ${tool}.`)
+  await demucsInstaller().remove()
+  return toolStatus({ refresh: true })
+}
 
-export const watchToolInstalls = (onChange: (installs: ToolInstall[]) => void): (() => void) =>
-  toolCopies().watch(onChange)
+/** Why this machine cannot have a tool the app would otherwise provide. */
+export const whyNotInstallable = (tool: ExternalTool): string | null =>
+  tool === 'demucs' ? demucsInstaller().installable() : null
+
+const listeners = new Set<(installs: ToolInstall[]) => void>()
+
+export function toolInstalls(): ToolInstall[] {
+  const demucsInstall = demucsInstaller().underway()
+  return [...toolCopies().underway(), ...(demucsInstall === null ? [] : [demucsInstall])]
+}
+
+export function watchToolInstalls(onChange: (installs: ToolInstall[]) => void): () => void {
+  listeners.add(onChange)
+  return () => {
+    listeners.delete(onChange)
+  }
+}
 
 /** Throws with a message worth showing when a tool a feature needs is absent. */
 export async function requireTool(tool: ExternalTool): Promise<string> {
   const at = await locate(tool)
   if (at === null) throw new Error(`${tool} was not found. ${TOOL_PURPOSE[tool]} needs it.`)
   return at.path
+}
+
+/**
+ * How to run demucs: where it is, and what it needs around it.
+ *
+ * The environment matters wherever the program came from. demucs falls back to
+ * ffmpeg for audio it cannot read itself — which is every channel here, since
+ * they are all ogg — and the app's own ffmpeg is deliberately not on PATH, so
+ * without this a machine with no system ffmpeg would fail inside demucs.
+ */
+export async function demucsCommand(): Promise<{
+  path: string
+  env: Record<string, string | undefined>
+}> {
+  return { path: await requireTool('demucs'), env: demucsInstaller().environment() }
 }

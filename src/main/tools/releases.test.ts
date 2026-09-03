@@ -64,22 +64,45 @@ describe('the other platforms', () => {
   const every = (machine: { platform: string; arch: string }) =>
     allReleases(machine).flatMap((release) => release.from)
 
-  it('has all three for macOS, on either chip', () => {
+  const everything = ['ffmpeg', 'ffprobe', 'uv', 'yt-dlp']
+
+  it('has all of them for macOS, on either chip', () => {
     for (const arch of ['x64', 'arm64']) {
       const tools = allReleases({ platform: 'darwin', arch }).flatMap((release) => release.tools)
-      expect(tools.sort()).toEqual(['ffmpeg', 'ffprobe', 'yt-dlp'])
+      expect(tools.sort()).toEqual(everything)
     }
   })
 
-  it('has all three for Windows, on either chip', () => {
+  it('has all of them for Windows, on either chip', () => {
     for (const arch of ['x64', 'arm64']) {
       const tools = allReleases({ platform: 'win32', arch }).flatMap((release) => release.tools)
-      expect(tools.sort()).toEqual(['ffmpeg', 'ffprobe', 'yt-dlp'])
+      expect(tools.sort()).toEqual(everything)
     }
   })
 
-  /* A tarball is the one thing that cannot be unpacked without help. */
-  it('asks for nothing but zips and plain programs away from Linux', () => {
+  /* uv is what demucs is installed with, so it is fetched like anything else
+     — but only when demucs is, and into demucs's own directory. */
+  it('takes uv from Astral, as a tarball or a zip on Windows', () => {
+    const uvFor = (machine: { platform: string; arch: string }) =>
+      allReleases(machine).find((release) => release.tools.includes('uv'))?.from[0]
+
+    expect(uvFor(linux)?.url).toContain('astral-sh/uv')
+    expect(uvFor(linux)?.packing).toBe('tar.gz')
+    expect(uvFor({ platform: 'darwin', arch: 'arm64' })?.packing).toBe('tar.gz')
+    expect(uvFor({ platform: 'win32', arch: 'x64' })?.packing).toBe('zip')
+  })
+
+  /* Everything else is fetched from whatever is newest. uv is not: the whole
+     demucs install rests on which flags this version answers to. */
+  it('asks for one version of uv rather than whatever is newest', () => {
+    const url = allReleases(linux).find((release) => release.tools.includes('uv'))?.from[0]?.url
+
+    expect(url).not.toContain('/latest/')
+    expect(url).toMatch(/releases\/download\/\d+\.\d+\.\d+\//)
+  })
+
+  /* An xz tarball is the one thing that cannot be unpacked without help. */
+  it('asks for nothing but zips, gzipped tarballs and plain programs away from Linux', () => {
     for (const machine of [
       { platform: 'darwin', arch: 'x64' },
       { platform: 'darwin', arch: 'arm64' },

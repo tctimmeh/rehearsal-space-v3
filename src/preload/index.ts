@@ -74,7 +74,9 @@ const api: RehearsalApi = {
     status: (refresh) => ipcRenderer.invoke(IPC_CHANNELS.toolsStatus, refresh === true),
     choose: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsChoose, tool),
     clear: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsClear, tool),
-    refetch: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsRefetch, tool),
+    install: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsInstall, tool),
+    remove: (tool) => ipcRenderer.invoke(IPC_CHANNELS.toolsRemove, tool),
+    installable: () => ipcRenderer.invoke(IPC_CHANNELS.toolsInstallable),
     installs: () => ipcRenderer.invoke(IPC_CHANNELS.toolsInstalls),
     onInstalls: (handler) => {
       const listener = (_event: IpcRendererEvent, installs: ToolInstall[]): void =>
