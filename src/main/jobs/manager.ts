@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type { ProgressReader } from '@core/jobs/progress'
 import type { ChannelSubject } from '@core/song/channelSubject'
 import type { Job } from '../../shared/jobs'
+import { groupsChildren, stopWork } from './stop'
 
 /** A finished job is marked done and then takes itself off the queue. */
 const DONE_LINGER_MS = 4000
@@ -80,16 +81,16 @@ export class JobFailedError extends Error {
 }
 
 /**
- * Signals the job's whole process group rather than just the process we
- * spawned. yt-dlp runs ffmpeg and demucs runs workers, and a survivor keeps the
- * output pipes open — which delays `close` until it finishes anyway, so a
- * cancel that only killed the parent would appear to do nothing.
+ * Stops the job's whole tree of processes rather than the one we spawned —
+ * see `stop.ts` for why, and for what each platform makes of it.
  */
-function signalGroup(record: JobRecord, signal: NodeJS.Signals): void {
+function stopTree(record: JobRecord, signal: NodeJS.Signals): void {
   const pid = record.child?.pid
   if (pid === undefined) return
+  const stop = stopWork(process.platform, pid, signal)
   try {
-    process.kill(-pid, signal)
+    if (stop.kind === 'signal') process.kill(stop.pid, stop.signal)
+    else spawn(stop.command, stop.args, { stdio: 'ignore', windowsHide: true })
   } catch {
     /* Already gone, or never started. */
   }
@@ -175,12 +176,12 @@ export function createJobManager(
     cancel: (id) => {
       const record = records.get(id)
       if (record === null || record === undefined) return
-      signalGroup(record, 'SIGTERM')
-      record.timers.push(setTimeout(() => signalGroup(record, 'SIGKILL'), SIGKILL_DELAY_MS))
+      stopTree(record, 'SIGTERM')
+      record.timers.push(setTimeout(() => stopTree(record, 'SIGKILL'), SIGKILL_DELAY_MS))
     },
 
     cancelAll: () => {
-      for (const record of records.values()) signalGroup(record, 'SIGTERM')
+      for (const record of records.values()) stopTree(record, 'SIGTERM')
     },
 
     run: async (spec) => {
@@ -253,8 +254,12 @@ function runStep(
          and an environment carries whatever else the machine keeps in it. */
       ...(step.env === undefined ? {} : { env: { ...process.env, ...step.env } }),
       stdio: ['ignore', 'pipe', 'pipe'],
-      /* Its own process group, so cancelling takes the whole tree with it. */
-      detached: true
+      /* Its own process group, so cancelling takes the whole tree with it.
+         Windows has no groups; there the tree is walked by pid instead. */
+      detached: groupsChildren(process.platform),
+      /* These are console programs, and a console apiece flashing up over the
+         music would be its own kind of wrong. */
+      windowsHide: true
     })
     record.child = child
 

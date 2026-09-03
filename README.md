@@ -143,6 +143,13 @@ one will notice first:
   a reputation. A certificate is the only cure.
 - **Linux** signs nothing anyway.
 
+Cancelling a job stops the whole tree of processes it started, which the two
+platforms spell differently: a signal to the process group where there are
+groups, and `taskkill /t` walking the tree by pid on Windows, which has
+neither groups nor signals worth the name. `src/main/jobs/stop.ts` decides
+which, and is the only part of that anybody can read back from another
+platform.
+
 [`.github/workflows/check.yml`](.github/workflows/check.yml) runs the
 typecheck and the tests on every push to main and every pull request, on one
 machine: the suite is about what the app does, not what the platform does, and

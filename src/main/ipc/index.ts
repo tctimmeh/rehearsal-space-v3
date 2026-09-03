@@ -9,6 +9,7 @@ import { EXTERNAL_TOOLS, isExternalTool } from '../../shared/tools'
 import { readConfig, updateConfig } from '../config'
 import { jobs } from '../jobs'
 import { AUDIO_EXTENSIONS } from '../import/importAudio'
+import { whereToolsLive } from '../tools/places'
 import {
   installTool,
   removeTool,
@@ -206,10 +207,14 @@ export function registerIpcHandlers(): void {
     if (!isExternalTool(tool)) throw new Error(`Unknown tool: ${String(tool)}`)
 
     const window = BrowserWindow.fromWebContents(event.sender)
+    const chosenAlready = (await readConfig()).toolPaths[tool]
+    const startAt =
+      chosenAlready ??
+      whereToolsLive({ platform: process.platform, arch: process.arch })
     const options: OpenDialogOptions = {
       title: `Choose the ${tool} executable`,
       properties: ['openFile'],
-      defaultPath: (await readConfig()).toolPaths[tool] ?? '/usr/bin'
+      ...(startAt === undefined ? {} : { defaultPath: startAt })
     }
     const result = await (window === null
       ? dialog.showOpenDialog(options)
