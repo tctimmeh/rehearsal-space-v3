@@ -208,6 +208,14 @@ broken `PATH` elsewhere on the machine cannot take them away. A fetched copy
 is asked to run before it is kept, so a download cut off part way through is
 never mistaken for a tool.
 
+`yt-dlp` is asked to update itself at every start, with its own `-U`. It is the
+one tool here that goes stale by itself — it keeps up with sites that change
+under it, and a copy a few weeks old starts failing on downloads that worked
+last month. Only the app's own copy is ever updated: `-U` rewrites the program
+where it stands, and a package manager's file is that package manager's
+business. It is quiet about it, on the grounds that no network at startup is an
+ordinary morning and the copy already here still works.
+
 The download tables in `src/main/tools/releases.ts` cover Linux, macOS and
 Windows on x64 and arm64, and the names carry the platform's suffix, so
 nothing here is what would stop the app running elsewhere. Every macOS and

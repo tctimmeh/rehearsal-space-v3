@@ -5,9 +5,10 @@ import { readConfig, updateConfig } from '../config'
 import { jobs } from '../jobs'
 import { createToolCopies, realSteps, type ToolCopies } from './copies'
 import { createDemucsInstaller, type DemucsInstaller } from './demucs'
-import { askVersion } from './probe'
+import { askVersion, runTool } from './probe'
 import { executableName } from './releases'
 import { isRunnable } from './runnable'
+import { updateInPlace, UPDATE_TIMEOUT_MS } from './update'
 import {
   EXTERNAL_TOOLS,
   FETCHED_AT_START,
@@ -155,17 +156,42 @@ export async function setToolPath(tool: ExternalTool, path: string | null): Prom
 }
 
 /**
- * Fetches the copies the app is missing, at startup.
+ * Puts the app's tools in order, at startup: fetches what is missing, and
+ * brings yt-dlp up to date.
  *
- * Nothing waits for this: the app runs without these tools, only with less of
- * itself working, and a hundred megabytes of ffmpeg is not something to hold
- * a window shut for. demucs is not among them — it is hundreds of megabytes
- * and nobody is to be given it without being asked.
+ * Nothing waits for any of it: the app runs without these tools, only with
+ * less of itself working, and a hundred megabytes of ffmpeg is not something
+ * to hold a window shut for. demucs is not among them — it is hundreds of
+ * megabytes and nobody is to be given it without being asked.
  */
 export function fetchMissingTools(): void {
-  void toolCopies()
-    .ensure(FETCHED_AT_START)
-    .then(changed)
+  void (async () => {
+    /* Whether there is one already decides whether updating means anything: a
+       copy just fetched is the newest there is. */
+    const had = await isRunnable(toolCopies().pathTo('yt-dlp'))
+    await toolCopies().ensure(FETCHED_AT_START)
+    changed()
+    if (had) await catchUpYtDlp()
+  })()
+}
+
+/**
+ * Asks the app's own yt-dlp to update itself.
+ *
+ * Quietly: no window waits for it, no queue entry, and a failure is not worth
+ * saying anything about — no network at startup is an ordinary morning, and
+ * the copy that is here still works. What it did show up in is the version the
+ * tools panel reports.
+ */
+async function catchUpYtDlp(): Promise<void> {
+  try {
+    const ran = await updateInPlace(await locate('yt-dlp'), (path, args) =>
+      runTool(path, args, UPDATE_TIMEOUT_MS)
+    )
+    if (ran) changed()
+  } catch {
+    /* Stale beats absent, and it will be tried again tomorrow. */
+  }
 }
 
 /**

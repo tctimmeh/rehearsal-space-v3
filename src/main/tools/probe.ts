@@ -27,6 +27,11 @@ const PROBES: Record<ProvidedTool, Probe> = {
   uv: { args: ['--version'], readsVersion: true }
 }
 
+/** Runs a tool for its own sake, throwing what it said if it will not. */
+export async function runTool(path: string, args: string[], timeout: number): Promise<void> {
+  await run(path, args, { timeout })
+}
+
 /** What the tool calls itself, or null when it will not say. */
 export async function askVersion(tool: ProvidedTool, path: string): Promise<string | null> {
   const probe = PROBES[tool]
