@@ -24,7 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:tuner": "vitest run --config vitest.replay.config.ts",
-    "pack": "npm run build && electron-builder --linux"
+    "pack": "npm run build && electron-builder"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

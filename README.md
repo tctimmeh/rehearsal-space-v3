@@ -83,13 +83,20 @@ env -u ELECTRON_RUN_AS_NODE ELECTRON_DISABLE_SANDBOX=1 \
 npm run pack         # typecheck + build + electron-builder
 ```
 
-Out come two things, both described in
-[electron-builder.yml](electron-builder.yml), neither needing an argument:
+Out come the files for whatever platform you are on, all described in
+[electron-builder.yml](electron-builder.yml):
 
 | | |
 |---|---|
-| `dist/rehearsal-space-<version>.AppImage` | one file, runs from anywhere, installs nothing |
-| `dist/rehearsal-space-<version>.deb` | installs itself, launcher and icons included |
+| `rehearsal-space-<version>-linux-x86_64.AppImage` | one file, runs from anywhere, installs nothing |
+| `rehearsal-space-<version>-linux-amd64.deb` | installs itself, launcher and icons included |
+| `rehearsal-space-<version>-mac-arm64.dmg` | Apple silicon |
+| `rehearsal-space-<version>-mac-x64.dmg` | Intel |
+| `rehearsal-space-<version>-win-x64.exe` | installs for the current user, no administrator |
+| `rehearsal-space-<version>-win-x64.zip` | the same thing, unpacked, installing nothing |
+
+The platform and processor are in the name because a release holds a file for
+each, and "which one do I want" should be answerable from the name.
 
 `pack` typechecks and builds but does not run the tests — `npm test` is still
 yours to run.
@@ -101,6 +108,45 @@ An AppImage wants libfuse2 to mount itself. On a machine without it:
 ```
 
 A single target when that is all you want: `npx electron-builder --linux deb`.
+Windows packages fine from Linux — nothing here is compiled, so it is the
+Windows Electron in an installer — but macOS needs a Mac: the icon conversion
+alone is a macOS-only program.
+
+### Releases, built by GitHub
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds all
+three platforms — Linux on Ubuntu, both Macs on an Apple silicon runner,
+Windows on Windows — and, when the commit is tagged `v<version>`, puts the
+files on a **draft** release for that tag. Draft, because a build that
+packages is not a build that works, and only Linux has ever been run in anger.
+Run it by hand (`workflow_dispatch`) and it builds the same files and leaves
+them as artifacts, publishing nothing.
+
+The tag has to agree with `package.json`, and the workflow refuses if it does
+not: a release named for a version the app does not call itself would be wrong
+in the one place nobody thinks to check.
+
+```sh
+npm version minor          # writes package.json and tags it
+git push --follow-tags
+```
+
+Nothing is signed with a real certificate, which is what everybody downloading
+one will notice first:
+
+- **macOS** builds are ad-hoc signed — enough to run on Apple silicon, which
+  refuses unsigned code outright — but not notarised, so the first open has to
+  be through the context menu rather than a double-click. Real signing is a
+  paid Apple account: add `CSC_LINK` and `CSC_KEY_PASSWORD` as repository
+  secrets and take `identity: null` out of `electron-builder.yml`.
+- **Windows** builds are unsigned, so SmartScreen warns until the download has
+  a reputation. A certificate is the only cure.
+- **Linux** signs nothing anyway.
+
+[`.github/workflows/check.yml`](.github/workflows/check.yml) runs the
+typecheck and the tests on every push to main and every pull request, on one
+machine: the suite is about what the app does, not what the platform does, and
+it drives real subprocesses through `sh -c`.
 
 ### What goes in, and what must not
 

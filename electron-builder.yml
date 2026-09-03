@@ -10,7 +10,9 @@ copyright: © Tim Court
 
 # A file that is going to be downloaded and typed at a shell prompt, so no
 # spaces in it: the product name is for the desktop, not for the filename.
-artifactName: ${name}-${version}.${ext}
+# The platform and processor are in the name because a release holds a file
+# for each, and "which one do I want" should be answerable from the name.
+artifactName: ${name}-${version}-${os}-${arch}.${ext}
 
 directories:
   buildResources: build
@@ -51,3 +53,42 @@ linux:
 deb:
   # Debian files audio software under sound; the default is "default".
   packageCategory: sound
+
+mac:
+  target:
+    # A disk image per processor. Apple silicon and Intel are separate builds
+    # rather than one universal binary, which would be both of them in one
+    # file and twice the download for everybody.
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  category: public.app-category.music
+  # Signed with no identity, which is an ad-hoc signature: enough for the code
+  # to run at all on Apple silicon, which refuses anything unsigned. It is not
+  # a developer certificate, so macOS still holds the download in quarantine
+  # until it is opened once from the context menu. Notarising needs a paid
+  # account; set CSC_LINK and CSC_KEY_PASSWORD and this can go.
+  identity: null
+
+win:
+  target:
+    # One that installs, and one that does not.
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+
+nsis:
+  # Installs for the person running it, so no administrator prompt.
+  perMachine: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+# Where a tagged build goes. Draft, so a release is looked at before anybody
+# else sees it.
+publish:
+  provider: github
+  releaseType: draft

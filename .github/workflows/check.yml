@@ -1,0 +1,30 @@
+# Typecheck and tests, on the way in.
+#
+# One machine, not three. The suite covers what the app does rather than what
+# the platform does — and it drives real subprocesses through `sh -c`, which
+# Windows has nothing to say to. What is worth knowing about the other
+# platforms is whether they package, and that is the release workflow's job.
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test

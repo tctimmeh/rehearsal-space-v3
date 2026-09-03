@@ -1,0 +1,90 @@
+# Builds the app for every platform it runs on, and — for a tagged commit —
+# puts the files on a draft release for that tag.
+#
+# Draft, so that nothing is published to anybody until it has been looked at:
+# a build that packages is not the same as a build that works, and only two of
+# these three platforms have ever been run on.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# electron-builder writes the draft release and uploads to it.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # One platform failing should not take the other two down with it: the
+      # ones that did build are still worth having.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            for: --linux
+            name: linux
+          # Both Macs are built here. Nothing in this app is compiled, so the
+          # Intel build is the Intel Electron in a disk image, which an Apple
+          # silicon machine can assemble perfectly well.
+          - os: macos-latest
+            for: --mac
+            name: macos
+          - os: windows-latest
+            for: --win
+            name: windows
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # A release named for a version the app does not call itself would be
+      # wrong in the one place nobody thinks to check.
+      - name: The tag and the version agree
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          declared=$(node -p "require('./package.json').version")
+          if [ "$tagged" != "$declared" ]; then
+            echo "Tag $GITHUB_REF_NAME says $tagged; package.json says $declared." >&2
+            exit 1
+          fi
+
+      - run: npm run build
+
+      - name: Package${{ startsWith(github.ref, 'refs/tags/') && ' and publish' || '' }}
+        shell: bash
+        run: npx electron-builder ${{ matrix.for }} --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Nothing here is signed with a real certificate, so there is no
+          # keychain to go looking through. Adding CSC_LINK and
+          # CSC_KEY_PASSWORD as secrets, and taking `identity: null` out of
+          # electron-builder.yml, is what turns signing on.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      # Kept whether or not this was a release, so a run started by hand is
+      # still something you can download and try.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.dmg
+            dist/*.exe
+            dist/*.zip
