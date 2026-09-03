@@ -1,6 +1,6 @@
 {
   "name": "rehearsal-space",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "An all-in-one tool for music practice and song-writing",
   "desktopName": "rehearsal-space.desktop",
   "main": "out/main/index.js",
