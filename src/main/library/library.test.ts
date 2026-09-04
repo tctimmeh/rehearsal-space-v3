@@ -68,6 +68,30 @@ describe('createLibrary', () => {
     expect(await directories()).toEqual(['coast-road', 'coast-road-2'])
   })
 
+  /*
+   * Importing, downloading and separating hand absolute paths to ffmpeg, and
+   * those paths stop being true the moment the directory moves: the
+   * conversion writes the file and the pass that reads it back finds nothing
+   * there. Naming a song while it is still converting is the ordinary way to
+   * meet that.
+   */
+  it('leaves the directory where it is while work is under way', async () => {
+    let working = true
+    const busyLibrary = createLibrary(root, { busy: () => working })
+    const song = await busyLibrary.create()
+
+    const saved = await busyLibrary.write({ ...song, title: 'Jailbreak' })
+
+    expect(saved.id).toBe(song.id)
+    expect(await directories()).toEqual([song.id])
+
+    /* And it catches up the next time the song is written. */
+    working = false
+    const later = await busyLibrary.write({ ...saved, title: 'Jailbreak' })
+    expect(later.id).toBe('jailbreak')
+    expect(await directories()).toEqual(['jailbreak'])
+  })
+
   it('leaves the directory alone when the title changes but the slug does not', async () => {
     const song = await library.create()
     const renamed = await library.write({ ...song, title: 'Coast Road' })

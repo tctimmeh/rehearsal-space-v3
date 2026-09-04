@@ -79,7 +79,20 @@ export interface SongLibrary {
 }
 
 /** One directory per song, inside `root`. The directory name is the song's id. */
-export function createLibrary(root: string): SongLibrary {
+export interface LibraryOptions {
+  /**
+   * Whether something is running that would mind the ground moving.
+   *
+   * Importing, downloading and separating all hand absolute paths to ffmpeg
+   * and the rest, and those paths stop being true the moment a song's
+   * directory is renamed. The conversion writes the file and the pass that
+   * reads it back finds nothing there — which is what happens if somebody
+   * names the song while it is still converting, as anybody would.
+   */
+  busy?: () => boolean
+}
+
+export function createLibrary(root: string, { busy = () => false }: LibraryOptions = {}): SongLibrary {
   const ensureRoot = async (): Promise<string> => {
     await mkdir(root, { recursive: true })
     return root
@@ -118,6 +131,9 @@ export function createLibrary(root: string): SongLibrary {
   const renameToMatchTitle = async (song: Song): Promise<string> => {
     const desired = slugify(song.title)
     if (desired === song.id) return song.id
+    /* Not while work is under way. The name is worth having and not worth
+       breaking an import for; the next save after the queue empties does it. */
+    if (busy()) return song.id
 
     const target = uniqueSlug(desired, (await ids()).filter((id) => id !== song.id))
     if (target === song.id) return song.id

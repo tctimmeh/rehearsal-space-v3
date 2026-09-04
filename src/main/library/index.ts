@@ -3,15 +3,21 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import type { AudioChannel, Song, SongSummary } from '@core/song/song'
+import { isFinished } from '../../shared/jobs'
 import type { SeparateRequest } from '../../shared/stems'
 import { readConfig, updateConfig } from '../config'
 import { downloadAudio } from '../import/download'
 import { importAudio } from '../import/importAudio'
 import { separateStems } from '../import/separate'
+import { jobs } from '../jobs'
 import { createLibrary, insideSong, writeAtomically } from './library'
 
 /** The library folder is a setting, so it is resolved per call rather than held. */
-const library = async () => createLibrary((await readConfig()).libraryPath)
+/* Nothing renames a song's directory while a job is holding paths into it. */
+const library = async () =>
+  createLibrary((await readConfig()).libraryPath, {
+    busy: () => jobs.list().some((job) => !isFinished(job))
+  })
 
 export const listSongs = async (): Promise<SongSummary[]> => (await library()).list()
 export const readSong = async (id: string): Promise<Song> => (await library()).read(id)
