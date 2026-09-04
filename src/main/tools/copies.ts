@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { type DownloadedTool, type ToolInstall } from '../../shared/tools'
 import { downloadTo, findNamed, unpack } from './fetch'
-import { answersAsTool } from './probe'
+import { whyItWillNotRun } from './probe'
 import { executableName, releasesFor, type Download, type Machine, type Release } from './releases'
 import { isRunnable } from './runnable'
 
@@ -34,8 +34,9 @@ export interface FetchSteps {
   download: typeof downloadTo
   unpack: typeof unpack
   findNamed: typeof findNamed
-  /** Whether what was fetched runs, checked before it is kept. */
-  works: (tool: DownloadedTool, path: string) => Promise<boolean>
+  /** Why what was fetched will not run, or null when it does. Checked
+      before it is kept, and what it says is all anybody has to go on. */
+  works: (tool: DownloadedTool, path: string) => Promise<string | null>
 }
 
 interface Options {
@@ -138,7 +139,8 @@ export function createToolCopies({
       const found = packing === 'plain' ? arrival : await steps.findNamed(room, nameOf(tool))
       if (found === null) throw new Error(`${url} held no ${tool}`)
       await chmod(found, 0o755)
-      if (!(await steps.works(tool, found))) throw new Error(`the ${tool} fetched would not run`)
+      const wrong = await steps.works(tool, found)
+      if (wrong !== null) throw new Error(`the ${tool} fetched would not run — ${wrong}`)
       await rename(found, pathTo(tool))
     }
   }
@@ -203,5 +205,5 @@ export const realSteps: FetchSteps = {
   download: downloadTo,
   unpack,
   findNamed,
-  works: answersAsTool
+  works: whyItWillNotRun
 }

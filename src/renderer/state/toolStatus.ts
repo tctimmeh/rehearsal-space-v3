@@ -53,8 +53,24 @@ export const useToolStatus = create<ToolStatusState>((set, get) => {
 
     watch: () => {
       let fetching = false
+      /* What has already been said, so that a failure sitting there being
+         reported again does not put a banner back the moment it is waved
+         away. */
+      let raised = ''
       const stop = window.rehearsal.tools.onInstalls((installs) => {
         set({ installs })
+
+        /*
+         * A failure is worth more than the corner of a row it happened in.
+         * These are long messages — what the program said for itself — and
+         * the install can be started from the mixer, with no tools panel
+         * open to read anything in.
+         */
+        const failed = installs.find((one) => one.state === 'failed')
+        const said = failed === undefined ? '' : `${failed.tool}: ${failed.error ?? 'it did not say why'}`
+        if (said !== '' && said !== raised) set({ error: said })
+        raised = said
+
         /* A copy that has just arrived changes what there is to show. */
         const now = installs.some((one) => one.state === 'fetching')
         if (fetching && !now) void get().refresh(true)
@@ -66,7 +82,22 @@ export const useToolStatus = create<ToolStatusState>((set, get) => {
       return stop
     },
 
-    refresh: (recheck = false) => act(() => window.rehearsal.tools.status(recheck)),
+    /*
+     * Looking again is not an act of its own, and must not wipe the slate:
+     * what is looked at again after a fetch settles is exactly the fetch that
+     * has just failed, and clearing the error here took the message away a
+     * moment after it arrived.
+     */
+    refresh: async (recheck = false) => {
+      set({ busy: true })
+      try {
+        set({ tools: await window.rehearsal.tools.status(recheck) })
+      } catch (failure) {
+        set({ error: message(failure) })
+      } finally {
+        set({ busy: false })
+      }
+    },
     install: (tool) => act(() => window.rehearsal.tools.install(tool)),
     remove: (tool) => act(() => window.rehearsal.tools.remove(tool)),
     choose: (tool) => act(() => window.rehearsal.tools.choose(tool)),

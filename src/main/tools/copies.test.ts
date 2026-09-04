@@ -33,7 +33,7 @@ const steps = (over: Partial<FetchSteps> = {}): FetchSteps => ({
     const at = join(root, 'ffmpeg-7.1-amd64-static', name)
     return (await readFile(at).catch(() => null)) === null ? null : at
   },
-  works: async () => true,
+  works: async () => null,
   ...over
 })
 
@@ -110,11 +110,24 @@ describe('the copies the app keeps', () => {
    * looks like the tool itself being broken.
    */
   it('keeps nothing that will not run', async () => {
-    const works = vi.fn(async () => false)
+    const works = vi.fn(async () => 'it exited with code 1')
 
     await copiesIn({ works }).ensure(FETCHED_AT_START)
 
     expect(await kept('yt-dlp')).toBeNull()
+  })
+
+  /* "It would not run" is true of everything that goes wrong here and useful
+     for none of it. What the copy said is the whole of what anybody has to go
+     on, so it is carried into the message rather than dropped. */
+  it('says what the copy that would not run said', async () => {
+    const copies = copiesIn({
+      works: async () => 'the system stopped it outright'
+    })
+
+    await copies.refetch(['yt-dlp'])
+
+    expect(copies.underway()[0]?.error).toContain('the system stopped it outright')
   })
 
   it('leaves the copy it had when fetching another fails', async () => {
@@ -177,7 +190,7 @@ describe('the copies the app keeps', () => {
       steps: steps({
         works: async (_tool, path) => {
           asked.push(path)
-          return true
+          return null
         },
         findNamed: async (root, name) => join(root, name)
       })

@@ -834,9 +834,13 @@
 .tool-row[data-found='false'] .tool-row__state {
   color: var(--mute);
 }
-/* A copy that could not be fetched says why, where the version would be. */
+/* A copy that could not be fetched says why, where the version would be.
+   That is a sentence rather than a path, so it wraps instead of being cut
+   off — the whole of it is the point. */
 .tool-row[data-failed='true'] .tool-row__detail {
   color: #ffb4b0;
+  white-space: normal;
+  overflow: visible;
 }
 
 /* ---------- drag and drop ---------- */
