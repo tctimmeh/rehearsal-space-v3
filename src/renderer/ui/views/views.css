@@ -166,7 +166,10 @@
 }
 .song-row__open {
   /* As wide as the name and no wider. Filling the column made the empty space
-     beside a short title open the song, which is a click nobody aimed. */
+     beside a short title open the song, which is a click nobody aimed.
+     A hand over it, since the app points at nothing by default: this is the
+     one thing in the row that takes you somewhere. */
+  cursor: pointer;
   display: inline-block;
   max-width: 100%;
   min-width: 0;
