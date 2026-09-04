@@ -143,6 +143,14 @@ one will notice first:
   a reputation. A certificate is the only cure.
 - **Linux** signs nothing anyway.
 
+What that looks like to somebody downloading one, and how to get past it, is
+in [build/release-notes.md](build/release-notes.md), which every release
+carries as its notes. Notarising macOS properly is an Apple Developer account
+and then `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
+`APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` as repository secrets, with
+`identity: null` out of the config and `mac.notarize` in it. Until then the
+warning is the price of not paying.
+
 Cancelling a job stops the whole tree of processes it started, which the two
 platforms spell differently: a signal to the process group where there are
 groups, and `taskkill /t` walking the tree by pid on Windows, which has

@@ -92,3 +92,9 @@ nsis:
 publish:
   provider: github
   releaseType: draft
+
+# What the release says. Nothing here is signed with a certificate anybody has
+# paid for, so both macOS and Windows stop a first run, and a release that did
+# not say how to get past that would be a release nobody could open.
+releaseInfo:
+  releaseNotesFile: build/release-notes.md
