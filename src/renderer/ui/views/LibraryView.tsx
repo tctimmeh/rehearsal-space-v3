@@ -100,14 +100,18 @@ export function LibraryView() {
         ) : (
           shown.map((summary) => (
             <div key={summary.id} className="song-row" data-loaded={summary.id === song?.id}>
-              <button
-                type="button"
-                className="song-row__open col-name"
-                onClick={() => void openSong(summary.id)}
-              >
-                <span className="song-row__title">{summary.title}</span>
+              {/* The name opens the song and nothing else does: the rest of
+                  the row is somewhere to rest a pointer, not a target. */}
+              <span className="col-name">
+                <button
+                  type="button"
+                  className="song-row__open song-row__title"
+                  onClick={() => void openSong(summary.id)}
+                >
+                  {summary.title}
+                </button>
                 <span className="song-row__artist">{summary.artist || 'No artist'}</span>
-              </button>
+              </span>
 
               <Holds summary={summary} />
 

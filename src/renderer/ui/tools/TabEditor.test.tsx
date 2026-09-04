@@ -9,6 +9,7 @@ import { AT_START, chordAt } from '@core/tab/edit'
 import { TAB_KEY_COUNT } from '@core/tab/keys'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
+import { useTools } from '@renderer/state/tools'
 import { installBridge } from '@renderer/testing/bridge'
 import { installResizeObserver } from '@renderer/testing/resize'
 import { TabEditor } from './TabEditor'
@@ -1428,5 +1429,67 @@ describe('repeats', () => {
     const file = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
     expect(file).toContain('||')
     expect(file).toContain(':')
+  })
+})
+
+/*
+ * The tablature is all keyboard, so opening it puts the cursor in it. A song
+ * arriving underneath one that was already open is a different thing: whoever
+ * loaded it wants to press play, and the space bar that starts the music
+ * would otherwise be typed into a bar.
+ */
+describe('who gets the cursor', () => {
+  const opened = (justOpened: 'tab' | null) => useTools.setState({ justOpened })
+
+  afterEach(() => opened(null))
+
+  it('takes it when the tool is the thing that was just opened', () => {
+    opened('tab')
+
+    render(<TabEditor />)
+
+    expect(document.activeElement).toBe(sheet())
+  })
+
+  it('leaves it alone when a song brought the tool back with it', () => {
+    opened(null)
+
+    render(<TabEditor />)
+
+    expect(document.activeElement).not.toBe(sheet())
+  })
+
+  /*
+   * As a song load really arrives: the tool is drawn first and which file is
+   * open lands a moment later. That second arrival is the tool settling, and
+   * mistaking it for somebody choosing a file is what took the cursor.
+   */
+  it('leaves it alone when the file arrives after the tool is drawn', async () => {
+    opened(null)
+    useTabs.setState({ songId: null, tabId: null, file: null })
+
+    render(<TabEditor />)
+    await waitFor(() => expect(useTabs.getState().tabId).toBe('tab'))
+
+    expect(document.activeElement).not.toBe(sheet())
+  })
+
+  /* Loading another song while the tool is open is the same thing again. */
+  it('leaves it alone when another song arrives underneath it', async () => {
+    opened('tab')
+    render(<TabEditor />)
+    expect(document.activeElement).toBe(sheet())
+    sheet().blur()
+
+    useSong.setState({
+      song: {
+        ...withTab(),
+        id: 'another-song',
+        tabs: [{ id: 'tab', file: 'tabs/tab.txt', name: 'Tab', strings: 6 }]
+      }
+    })
+    await waitFor(() => expect(useSong.getState().song?.id).toBe('another-song'))
+
+    expect(document.activeElement).not.toBe(sheet())
   })
 })

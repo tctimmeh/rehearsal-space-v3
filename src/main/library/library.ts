@@ -81,18 +81,18 @@ export interface SongLibrary {
 /** One directory per song, inside `root`. The directory name is the song's id. */
 export interface LibraryOptions {
   /**
-   * Whether something is running that would mind the ground moving.
-   *
-   * Importing, downloading and separating all hand absolute paths to ffmpeg
-   * and the rest, and those paths stop being true the moment a song's
-   * directory is renamed. The conversion writes the file and the pass that
-   * reads it back finds nothing there — which is what happens if somebody
-   * names the song while it is still converting, as anybody would.
+   * Whether this song has work going on inside it that would mind the ground
+   * moving. See `holding.ts` — the short of it is that anything running holds
+   * an absolute path into the song's folder, and renaming the folder makes
+   * every one of those paths a lie.
    */
-  busy?: () => boolean
+  heldStill?: (songId: string) => boolean
 }
 
-export function createLibrary(root: string, { busy = () => false }: LibraryOptions = {}): SongLibrary {
+export function createLibrary(
+  root: string,
+  { heldStill = () => false }: LibraryOptions = {}
+): SongLibrary {
   const ensureRoot = async (): Promise<string> => {
     await mkdir(root, { recursive: true })
     return root
@@ -131,9 +131,10 @@ export function createLibrary(root: string, { busy = () => false }: LibraryOptio
   const renameToMatchTitle = async (song: Song): Promise<string> => {
     const desired = slugify(song.title)
     if (desired === song.id) return song.id
-    /* Not while work is under way. The name is worth having and not worth
-       breaking an import for; the next save after the queue empties does it. */
-    if (busy()) return song.id
+    /* Not while work is under way in it. The name is worth having and not
+       worth breaking an import for; the next save once the work is done does
+       the renaming. */
+    if (heldStill(song.id)) return song.id
 
     const target = uniqueSlug(desired, (await ids()).filter((id) => id !== song.id))
     if (target === song.id) return song.id

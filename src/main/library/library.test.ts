@@ -75,10 +75,11 @@ describe('createLibrary', () => {
    * there. Naming a song while it is still converting is the ordinary way to
    * meet that.
    */
-  it('leaves the directory where it is while work is under way', async () => {
-    let working = true
-    const busyLibrary = createLibrary(root, { busy: () => working })
+  it('leaves the directory where it is while work is under way in it', async () => {
+    const working = new Set<string>()
+    const busyLibrary = createLibrary(root, { heldStill: (id) => working.has(id) })
     const song = await busyLibrary.create()
+    working.add(song.id)
 
     const saved = await busyLibrary.write({ ...song, title: 'Jailbreak' })
 
@@ -86,10 +87,22 @@ describe('createLibrary', () => {
     expect(await directories()).toEqual([song.id])
 
     /* And it catches up the next time the song is written. */
-    working = false
+    working.delete(song.id)
     const later = await busyLibrary.write({ ...saved, title: 'Jailbreak' })
     expect(later.id).toBe('jailbreak')
     expect(await directories()).toEqual(['jailbreak'])
+  })
+
+  /* Held one song at a time: naming a song while another is importing is
+     nobody's business but that song's. */
+  it('still renames a song that nothing is happening to', async () => {
+    const importing = await createLibrary(root).create()
+    const busyLibrary = createLibrary(root, { heldStill: (id) => id === importing.id })
+    const other = await busyLibrary.write({ ...importing, id: 'other', title: 'Other' })
+
+    const saved = await busyLibrary.write({ ...other, title: 'Coast Road' })
+
+    expect(saved.id).toBe('coast-road')
   })
 
   it('leaves the directory alone when the title changes but the slug does not', async () => {

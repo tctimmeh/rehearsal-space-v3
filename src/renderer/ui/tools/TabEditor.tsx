@@ -67,6 +67,7 @@ import {
 import type { TabFile } from '@core/song/song'
 import { newTabFile } from '@core/tab/files'
 import { useSong } from '@renderer/state/song'
+import { useTools } from '@renderer/state/tools'
 import { useTabs } from '@renderer/state/tabs'
 import { isTyping } from '@renderer/state/hotkeys'
 import { Button, useSelectOnOpen, wasEscapeAnswered } from '../primitives'
@@ -160,9 +161,38 @@ export function TabEditor() {
     history.current = beginHistory({ doc: useTabs.getState().doc, cursor: AT_START })
   }, [revision])
 
-  /* Opening the tool is asking to write in it, and there is nothing else here
-     to click on first. */
-  useEffect(() => field.current?.focus(), [tabId])
+  /*
+   * Opening the tool is asking to write in it, and there is nothing else here
+   * to click on first. A song arriving underneath a tool that was already
+   * open is not asking for anything of the sort: whoever loaded it wants to
+   * press play, and the space bar that starts the music would otherwise be
+   * typed into a bar.
+   *
+   * Switching between a song's tab files is asking again, though — the
+   * picker is a control nobody wants to leave the cursor in.
+   */
+  const askedFor = useRef(useTools.getState().justOpened === 'tab')
+  const lastShown = useRef<{ song: string | null; tab: string | null }>({
+    song: song?.id ?? null,
+    tab: tabId
+  })
+  useEffect(() => {
+    const was = lastShown.current
+    lastShown.current = { song: song?.id ?? null, tab: tabId }
+
+    if (askedFor.current) {
+      /* Not until there is something to put it in: which file is open arrives
+         a moment after the tool is drawn, and until then there is no sheet. */
+      if (field.current === null) return
+      askedFor.current = false
+      field.current.focus()
+      return
+    }
+
+    /* The first file arriving is the tool settling, not somebody choosing. */
+    const sameSong = was.song === (song?.id ?? null)
+    if (sameSong && was.tab !== null && tabId !== was.tab) field.current?.focus()
+  }, [tabId, song?.id])
 
   useEscapeReturnsHere(field)
 

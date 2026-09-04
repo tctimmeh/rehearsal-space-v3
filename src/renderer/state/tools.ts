@@ -4,6 +4,15 @@ import { TOOL_IDS, TOOL_META, type ToolId } from '@core/tools'
 
 interface ToolsState {
   open: Record<ToolId, boolean>
+  /**
+   * The tool the user last opened themselves, which a song bringing its tools
+   * back does not count as.
+   *
+   * A tool that takes the keyboard on opening — the tablature, which is all
+   * keyboard — needs to tell the two apart: opening it is asking to type in
+   * it, and a song arriving underneath one that was already open is not.
+   */
+  justOpened: ToolId | null
   toggle: (id: ToolId) => void
   close: (id: ToolId) => void
   /** Replaces the open set for the tools a predicate selects, leaving the rest. */
@@ -14,31 +23,35 @@ const allClosed = Object.fromEntries(TOOL_IDS.map((id) => [id, false])) as Recor
 
 export const useTools = create<ToolsState>((set) => ({
   open: allClosed,
+  justOpened: null,
 
   /* Only one stage tool fits, so opening one closes the other. Gadgets and the
      drawer are independent of everything. */
   toggle: (id) =>
     set((state) => {
       const nowOpen = !state.open[id]
+      const asked = nowOpen ? id : state.justOpened
       if (!nowOpen || TOOL_META[id].size !== 'stage') {
-        return { open: { ...state.open, [id]: nowOpen } }
+        return { open: { ...state.open, [id]: nowOpen }, justOpened: asked }
       }
       const open = { ...state.open }
       for (const other of TOOL_IDS) {
         if (TOOL_META[other].size === 'stage') open[other] = other === id
       }
-      return { open }
+      return { open, justOpened: asked }
     }),
 
   close: (id) => set((state) => ({ open: { ...state.open, [id]: false } })),
 
+  /* A song bringing its tools back is not somebody asking for one, which is
+     why nothing here counts as just opened. */
   setOpenScoped: (selects, opened) =>
     set((state) => {
       const open = { ...state.open }
       for (const id of TOOL_IDS) {
         if (selects(id)) open[id] = opened.includes(id)
       }
-      return { open }
+      return { open, justOpened: null }
     })
 }))
 

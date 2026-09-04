@@ -91,7 +91,6 @@
   box-shadow: inset 2px 0 0 var(--loaded-accent, var(--text));
 }
 .song-row__title {
-  display: block;
   font-size: 13px;
   font-weight: 550;
 }
@@ -166,12 +165,17 @@
   justify-content: flex-end;
 }
 .song-row__open {
-  /* Only the song's own name opens it now; the tags beside it are their own
-     controls, and a button cannot hold buttons. */
-  display: block;
+  /* As wide as the name and no wider. Filling the column made the empty space
+     beside a short title open the song, which is a click nobody aimed. */
+  display: inline-block;
+  max-width: 100%;
   min-width: 0;
   text-align: left;
   padding: 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .song-row__delete {
   visibility: hidden;

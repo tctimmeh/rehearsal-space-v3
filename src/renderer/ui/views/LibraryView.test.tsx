@@ -45,6 +45,19 @@ afterEach(() => {
 })
 
 describe('the delete dialog', () => {
+  /* The name opens the song and nothing else does: filling the column made
+     the empty space beside a short title open it, which is a click nobody
+     aimed at anything. */
+  it('opens a song from its name and not from the space beside it', () => {
+    render(<LibraryView />)
+
+    const opens = screen.getByRole('button', { name: 'Coast Road' })
+
+    expect(opens.textContent).toBe('Coast Road')
+    expect(opens.querySelector('.song-row__artist')).toBeNull()
+    expect(opens.className).toContain('song-row__open')
+  })
+
   it('names the song whose row was clicked', async () => {
     const user = userEvent.setup()
     render(<LibraryView />)

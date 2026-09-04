@@ -3,21 +3,18 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import type { AudioChannel, Song, SongSummary } from '@core/song/song'
-import { isFinished } from '../../shared/jobs'
 import type { SeparateRequest } from '../../shared/stems'
 import { readConfig, updateConfig } from '../config'
 import { downloadAudio } from '../import/download'
 import { importAudio } from '../import/importAudio'
 import { separateStems } from '../import/separate'
-import { jobs } from '../jobs'
+import { holdingSong, songIsHeld } from './holding'
 import { createLibrary, insideSong, writeAtomically } from './library'
 
 /** The library folder is a setting, so it is resolved per call rather than held. */
-/* Nothing renames a song's directory while a job is holding paths into it. */
+/* Nothing renames a song's folder while something is working inside it. */
 const library = async () =>
-  createLibrary((await readConfig()).libraryPath, {
-    busy: () => jobs.list().some((job) => !isFinished(job))
-  })
+  createLibrary((await readConfig()).libraryPath, { heldStill: songIsHeld })
 
 export const listSongs = async (): Promise<SongSummary[]> => (await library()).list()
 export const readSong = async (id: string): Promise<Song> => (await library()).read(id)
@@ -47,14 +44,18 @@ const songDirectory = async (id: string): Promise<string> =>
  * comes back.
  */
 export async function importChannel(songId: string, sourcePath: string): Promise<Song> {
-  const directory = await songDirectory(songId)
-  const existing = await readSong(songId)
-  const channel = await importAudio({
-    songDirectory: directory,
-    sourcePath,
-    takenIds: existing.channels.map((entry) => entry.id)
+  const channel = await holdingSong(songId, async () => {
+    const directory = await songDirectory(songId)
+    const existing = await readSong(songId)
+    return importAudio({
+      songDirectory: directory,
+      sourcePath,
+      takenIds: existing.channels.map((entry) => entry.id)
+    })
   })
 
+  /* Outside the hold, so a name typed while this was running is answered the
+     moment the work it would have broken is over. */
   const song = await readSong(songId)
   return writeSong({ ...song, channels: [...song.channels, channel] })
 }
@@ -127,13 +128,11 @@ export async function writeLyrics(songId: string, text: string): Promise<void> {
 
 /** Downloads the audio behind a URL and adds it as a channel. */
 export async function downloadChannel(songId: string, url: string): Promise<Song> {
-  const directory = await songDirectory(songId)
-  const existing = await readSong(songId)
-  const channel = await downloadAudio(
-    directory,
-    url,
-    existing.channels.map((entry) => entry.id)
-  )
+  const channel = await holdingSong(songId, async () => {
+    const directory = await songDirectory(songId)
+    const existing = await readSong(songId)
+    return downloadAudio(directory, url, existing.channels.map((entry) => entry.id))
+  })
 
   const song = await readSong(songId)
   return writeSong({ ...song, channels: [...song.channels, channel] })
@@ -148,14 +147,15 @@ export async function separateChannel(
   songId: string,
   request: SeparateRequest
 ): Promise<Song> {
-  const directory = await songDirectory(songId)
-  const before = await readSong(songId)
-  const source = before.channels.find((entry) => entry.id === request.channelId)
-  if (source === undefined || source.kind !== 'audio') {
-    throw new Error('That channel has no audio to separate.')
-  }
-
-  const stems = await separateStems(directory, source as AudioChannel, request)
+  const stems = await holdingSong(songId, async () => {
+    const directory = await songDirectory(songId)
+    const before = await readSong(songId)
+    const source = before.channels.find((entry) => entry.id === request.channelId)
+    if (source === undefined || source.kind !== 'audio') {
+      throw new Error('That channel has no audio to separate.')
+    }
+    return separateStems(directory, source as AudioChannel, request)
+  })
 
   const song = await readSong(songId)
   return writeSong({
@@ -183,28 +183,30 @@ export async function addRecording(
   startTime: number,
   name: string
 ): Promise<Song> {
-  const directory = await songDirectory(songId)
-  const existing = await readSong(songId)
-  const workspace = await mkdtemp(join(tmpdir(), 'rehearsal-take-'))
-  const source = join(workspace, `${name}.wav`)
+  const channel = await holdingSong(songId, async () => {
+    const directory = await songDirectory(songId)
+    const existing = await readSong(songId)
+    const workspace = await mkdtemp(join(tmpdir(), 'rehearsal-take-'))
+    const source = join(workspace, `${name}.wav`)
 
-  try {
-    await writeFile(source, wav)
-    const channel = await importAudio({
-      songDirectory: directory,
-      sourcePath: source,
-      takenIds: existing.channels.map((entry) => entry.id),
-      origin: { type: 'record' },
-      name,
-      /* Whatever was played into it, it is certainly not the full mix — which
-         is what an unrecognised name would otherwise be taken for. */
-      subject: 'other',
-      startTime
-    })
+    try {
+      await writeFile(source, wav)
+      return await importAudio({
+        songDirectory: directory,
+        sourcePath: source,
+        takenIds: existing.channels.map((entry) => entry.id),
+        origin: { type: 'record' },
+        name,
+        /* Whatever was played into it, it is certainly not the full mix —
+           which is what an unrecognised name would otherwise be taken for. */
+        subject: 'other',
+        startTime
+      })
+    } finally {
+      await rm(workspace, { recursive: true, force: true })
+    }
+  })
 
-    const song = await readSong(songId)
-    return writeSong({ ...song, channels: [...song.channels, channel] })
-  } finally {
-    await rm(workspace, { recursive: true, force: true })
-  }
+  const song = await readSong(songId)
+  return writeSong({ ...song, channels: [...song.channels, channel] })
 }
