@@ -87,14 +87,8 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 
-# Where a tagged build goes. Draft, so a release is looked at before anybody
-# else sees it.
-publish:
-  provider: github
-  releaseType: draft
-
-# What the release says. Nothing here is signed with a certificate anybody has
-# paid for, so both macOS and Windows stop a first run, and a release that did
-# not say how to get past that would be a release nobody could open.
-releaseInfo:
-  releaseNotesFile: build/release-notes.md
+# Nothing is published from here. The workflow builds on three machines and
+# releases from one, because three of these racing to make the same release
+# make two of them and split the files between them. What the release says is
+# in build/release-notes.md, which that job reads.
+publish: null
