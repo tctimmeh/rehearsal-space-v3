@@ -16,6 +16,18 @@ import type { Machine } from './releases'
 export const DEMUCS_VERSION = '4.1.0'
 /** demucs 4.1 wants 3.10 or better; every part of it has wheels for 3.12. */
 export const PYTHON_VERSION = '3.12'
+/**
+ * The last demucs that read audio without sphn.
+ *
+ * sphn publishes builds for three machines, and demucs 4.1 cannot be
+ * installed anywhere else without a Rust compiler. 4.0.1 decoded through
+ * torchaudio instead, takes the same arguments, writes the same files in the
+ * same places, and separates with the same two models — so where the newest
+ * cannot go, this goes instead, and nothing above it knows the difference.
+ */
+export const DEMUCS_WITHOUT_SPHN = '4.0.1'
+/** What that one was built against, and what its dependencies still ship for. */
+export const PYTHON_FOR_OLDER = '3.11'
 /** demucs asks only for torch 2.1 or better, which in a year means anything. */
 export const TORCH_LIMIT = 'torch<3'
 /**
@@ -133,28 +145,51 @@ export function confinedEnv(
   }
 }
 
-/**
- * Why demucs cannot be installed on this machine, or null when it can.
- *
- * `sphn`, which demucs decodes audio with, publishes builds for three
- * machines and no others. Everywhere else the install would spend several
- * hundred megabytes discovering it needs a Rust compiler, so it is not
- * offered — whatever is on the machine already still works.
+/** Which demucs to install here, and what to build it with. */
+export interface Recipe {
+  python: string
+  /** Everything installed into the environment, pinned. */
+  packages: string[]
+}
+
+const NEWEST: Recipe = {
+  python: PYTHON_VERSION,
+  packages: [`demucs==${DEMUCS_VERSION}`, TORCH_LIMIT, NUMPY]
+}
+
+/*
+ * PyTorch stopped building for Intel Macs after 2.2, which is why demucs
+ * marks that limit itself; and a torch built against numpy 1 cannot load
+ * numpy 2, which is a crash rather than a refusal to install. Both are held
+ * down, and torchaudio comes along because this is the demucs that decodes
+ * with it.
  */
-export function demucsInstallable({ platform, arch }: Machine): string | null {
-  const built: Record<string, readonly string[]> = {
-    linux: ['x64'],
-    darwin: ['arm64'],
-    win32: ['x64']
-  }
-  const arches = built[platform]
-  if (arches === undefined) {
+const OLDER: Recipe = {
+  python: PYTHON_FOR_OLDER,
+  packages: [`demucs==${DEMUCS_WITHOUT_SPHN}`, 'torch<2.3', 'torchaudio<2.3', 'numpy<2']
+}
+
+/**
+ * What to install on this machine, or null where nothing can be.
+ *
+ * Only Windows on anything but an Intel processor is left out, and only
+ * because PyTorch publishes nothing it could run.
+ */
+export function recipeFor({ platform, arch }: Machine): Recipe | null {
+  if (platform === 'linux') return arch === 'x64' ? NEWEST : arch === 'arm64' ? OLDER : null
+  if (platform === 'darwin') return arch === 'arm64' ? NEWEST : arch === 'x64' ? OLDER : null
+  if (platform === 'win32') return arch === 'x64' ? NEWEST : null
+  return null
+}
+
+/** Why demucs cannot be installed on this machine, or null when it can. */
+export function demucsInstallable(machine: Machine): string | null {
+  if (recipeFor(machine) !== null) return null
+  const { platform, arch } = machine
+  if (!['linux', 'darwin', 'win32'].includes(platform)) {
     return 'The app can only install demucs on Linux, macOS or Windows.'
   }
-  if (!arches.includes(arch)) {
-    return `The app cannot install demucs for this processor: sphn, which demucs reads audio with, publishes no build for ${platform} ${arch}.`
-  }
-  return null
+  return `The app cannot install demucs for this processor: PyTorch publishes no build for ${platform} ${arch}.`
 }
 
 /**
@@ -167,6 +202,7 @@ export function demucsInstallable({ platform, arch }: Machine): string | null {
  */
 export function installSteps(
   layout: DemucsLayout,
+  recipe: Recipe,
   models: readonly string[],
   environment: Record<string, string | undefined>,
   progress: () => ProgressReader
@@ -175,7 +211,7 @@ export function installSteps(
   return [
     withEnv({
       command: layout.uv,
-      args: ['venv', '--python', PYTHON_VERSION, layout.venv],
+      args: ['venv', '--python', recipe.python, layout.venv],
       progress: progress(),
       weight: 1
     }),
@@ -189,9 +225,7 @@ export function installSteps(
         /* PyTorch's own processor-only build: a fifth of the size of the one
            that carries a graphics stack nothing here would use. */
         '--torch-backend=cpu',
-        `demucs==${DEMUCS_VERSION}`,
-        TORCH_LIMIT,
-        NUMPY
+        ...recipe.packages
       ],
       progress: progress(),
       weight: 8

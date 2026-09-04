@@ -325,13 +325,22 @@ macs, so installing exactly what it asks for leaves an environment that cannot
 import it. The app asks for `numpy` explicitly, and the last step is what
 would catch the next such thing, with the reason in the job's log.
 
-Only three machines can have it: `sphn`, which demucs reads audio with,
-publishes wheels for Linux x86_64, Apple silicon and Windows x64 and no
-others. Elsewhere the offer is replaced by the reason, and a demucs installed
-some other way is still used. Versions are pinned in one place
-(`DEMUCS_VERSION`, `PYTHON_VERSION`, `UV_VERSION`); if "it installed but will
-not run" ever turns up, the next step is a hash-pinned requirements file per
-platform rather than a resolve at install time.
+Which demucs, though, depends on the machine. `sphn`, which demucs 4.1 reads
+audio with, publishes wheels for Linux x86_64, Apple silicon and Windows x64
+and nowhere else — so on an Intel Mac or an ARM Linux box, the app installs
+**4.0.1** instead, the last demucs that decoded through torchaudio. It takes
+the same arguments, writes the same files in the same places, and separates
+with the same two models, so nothing above `demucsEnv.ts` knows the
+difference. It is pinned to Python 3.11, `torch<2.3` — PyTorch stopped
+building for Intel Macs after 2.2 — and `numpy<2`, because a torch built
+against numpy 1 does not refuse numpy 2, it crashes.
+
+That leaves Windows on ARM as the only machine that cannot have it at all,
+PyTorch publishing nothing it could run. There the offer is replaced by the
+reason, and a demucs installed some other way is still used. Versions are
+pinned in one place (`recipeFor` in `demucsEnv.ts`, and `UV_VERSION`); if "it
+installed but will not run" ever turns up, the next step is a hash-pinned
+requirements file per platform rather than a resolve at install time.
 
 They are looked for in this order: a path you set in Settings, then the app's
 own copy, then `resources/bin` inside the app, then `PATH`. Settings reports

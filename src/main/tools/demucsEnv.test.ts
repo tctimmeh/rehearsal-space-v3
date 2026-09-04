@@ -4,9 +4,11 @@ import { uvProgress } from '@core/jobs/progress'
 import {
   confinedEnv,
   DEMUCS_VERSION,
+  DEMUCS_WITHOUT_SPHN,
   demucsInstallable,
   demucsLayout,
-  installSteps
+  installSteps,
+  recipeFor
 } from './demucsEnv'
 
 const linux = { platform: 'linux', arch: 'x64' }
@@ -76,22 +78,49 @@ describe('what it is run with', () => {
 })
 
 describe('which machines can have it', () => {
-  /* sphn, which demucs reads audio with, publishes three builds and no more. */
-  it('says yes to the three sphn publishes for', () => {
-    expect(demucsInstallable(linux)).toBeNull()
-    expect(demucsInstallable({ platform: 'darwin', arch: 'arm64' })).toBeNull()
-    expect(demucsInstallable({ platform: 'win32', arch: 'x64' })).toBeNull()
+  /* Everywhere sphn publishes a build, which is where the newest demucs can
+     read audio at all. */
+  it('installs the newest where the newest can go', () => {
+    for (const machine of [
+      linux,
+      { platform: 'darwin', arch: 'arm64' },
+      { platform: 'win32', arch: 'x64' }
+    ]) {
+      expect(demucsInstallable(machine)).toBeNull()
+      expect(recipeFor(machine)?.packages[0]).toBe(`demucs==${DEMUCS_VERSION}`)
+    }
   })
 
-  it('says why not, on the ones it does not', () => {
+  /*
+   * sphn publishes for three machines. Where it does not, the last demucs
+   * that decoded without it goes instead — it takes the same arguments and
+   * writes the same files, so nothing above here knows the difference.
+   */
+  it('installs the one that does without sphn where sphn cannot go', () => {
     for (const machine of [
-      { platform: 'linux', arch: 'arm64' },
       { platform: 'darwin', arch: 'x64' },
-      { platform: 'win32', arch: 'arm64' }
+      { platform: 'linux', arch: 'arm64' }
     ]) {
-      expect(demucsInstallable(machine)).toMatch(/sphn/)
+      expect(demucsInstallable(machine)).toBeNull()
+      expect(recipeFor(machine)?.packages[0]).toBe(`demucs==${DEMUCS_WITHOUT_SPHN}`)
     }
+  })
+
+  /* That demucs decodes with torchaudio, and a torch built against numpy 1
+     cannot load numpy 2 — which is a crash rather than a refusal. */
+  it('holds down what the older one was built against', () => {
+    const older = recipeFor({ platform: 'darwin', arch: 'x64' })
+
+    expect(older?.python).toBe('3.11')
+    expect(older?.packages).toContain('torchaudio<2.3')
+    expect(older?.packages).toContain('numpy<2')
+  })
+
+  it('says why not where nothing can go', () => {
+    /* PyTorch publishes nothing a Windows machine on ARM could run. */
+    expect(demucsInstallable({ platform: 'win32', arch: 'arm64' })).toMatch(/PyTorch/)
     expect(demucsInstallable({ platform: 'freebsd', arch: 'x64' })).toMatch(/Linux, macOS/)
+    expect(recipeFor({ platform: 'win32', arch: 'arm64' })).toBeNull()
   })
 })
 
@@ -99,6 +128,7 @@ describe('the commands that build it', () => {
   const layout = demucsLayout('/tools', 'linux')
   const steps = installSteps(
     layout,
+    recipeFor(linux) ?? { python: '3.12', packages: [] },
     ['htdemucs'],
     confinedEnv(layout, 'linux', '/usr/bin'),
     uvProgress

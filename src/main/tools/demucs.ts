@@ -6,11 +6,10 @@ import type { ToolInstall } from '../../shared/tools'
 import { JobFailedError, type JobSpec } from '../jobs/manager'
 import {
   confinedEnv,
-  DEMUCS_VERSION,
   demucsInstallable,
   demucsLayout,
   installSteps,
-  PYTHON_VERSION,
+  recipeFor,
   type DemucsLayout
 } from './demucsEnv'
 import type { Machine } from './releases'
@@ -131,12 +130,16 @@ export function createDemucsInstaller({
          saying "installing" so the row does not fall quiet halfway. */
       fetching(null)
 
+      const recipe = recipeFor(machine)
+      if (recipe === null) throw new Error(demucsInstallable(machine) ?? 'It cannot go here.')
+
       await run({
         title: 'Installing demucs',
-        detail: `demucs ${DEMUCS_VERSION} · Python ${PYTHON_VERSION}`,
+        detail: `${recipe.packages[0] ?? 'demucs'} · Python ${recipe.python}`,
         subject: 'other',
         steps: installSteps(
           layout,
+          recipe,
           DEMUCS_MODELS.map((model) => model.id),
           environment(),
           uvProgress

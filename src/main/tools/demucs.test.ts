@@ -30,6 +30,14 @@ const fetchUv: DemucsInstallerOptions['fetchUv'] = async (layout) => {
 }
 
 /** The job runner, which by default builds what the real one would leave. */
+const buildsItFor = async (platform: string): Promise<void> => {
+  const layout = demucsLayout(directory, platform)
+  await mkdir(join(layout.venv, 'bin'), { recursive: true })
+  await mkdir(layout.cache, { recursive: true })
+  await mkdir(layout.pythons, { recursive: true })
+  await writeFile(layout.demucs, '#!/bin/sh\n', { mode: 0o755 })
+}
+
 const buildsIt = async (): Promise<void> => {
   const layout = layoutIn()
   await mkdir(join(layout.venv, 'bin'), { recursive: true })
@@ -194,10 +202,31 @@ describe('when it does not work', () => {
 
   it('will not start on a machine nobody publishes the parts for', async () => {
     const run = vi.fn(buildsIt)
-    const { installer } = installerWith({ machine: { platform: 'linux', arch: 'arm64' }, run })
+    const { installer } = installerWith({ machine: { platform: 'win32', arch: 'arm64' }, run })
 
-    await expect(installer.install()).rejects.toThrow(/sphn/)
+    await expect(installer.install()).rejects.toThrow(/PyTorch/)
     expect(run).not.toHaveBeenCalled()
+  })
+
+  /* Where the newest demucs cannot go, an older one that can goes instead —
+     and the install is the same install, with different pins. */
+  it('installs the older one where the newest cannot go', async () => {
+    const specs: JobSpec[] = []
+    const mac = createDemucsInstaller({
+      directory,
+      machine: { platform: 'darwin', arch: 'x64' },
+      systemPath: '/usr/bin',
+      run: async (spec) => {
+        specs.push(spec)
+        await buildsItFor('darwin')
+      },
+      fetchUv
+    })
+
+    await mac.install()
+
+    expect(specs[0]?.steps[1]?.args.join(' ')).toContain('demucs==4.0.1')
+    expect(specs[0]?.steps[0]?.args).toContain('3.11')
   })
 
   it('says so plainly when there is no room for it', async () => {
