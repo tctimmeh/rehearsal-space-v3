@@ -28,8 +28,6 @@ const renderStage = (id: ToolId) => {
   switch (id) {
     case 'lyrics':
       return <LyricsEditor />
-    case 'chords':
-      return <ChordChart />
     case 'tab':
       return <TabEditor />
     case 'waveform':
@@ -67,7 +65,7 @@ export function PlayerView() {
             )}
             {drawerTool === null ? null : (
               <Drawer title={TOOL_META[drawerTool].label} onClose={() => closeTool(drawerTool)}>
-                <RhymesDrawer />
+                {drawerTool === 'chords' ? <ChordChart /> : <RhymesDrawer />}
               </Drawer>
             )}
           </div>

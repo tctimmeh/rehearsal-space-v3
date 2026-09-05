@@ -7,10 +7,12 @@ import { useSong } from '@renderer/state/song'
  * What you can play in a key.
  *
  * The seven chords of the key are the answer to most questions, so they are
- * the whole top of the chart, big enough to read from a music stand. What sits
- * under them is what songs reach for when seven is not enough: the same
- * degrees borrowed from the parallel key, the chord that leads to each degree,
- * and — in a minor key — the chords that make a dominant possible at all.
+ * the whole top of the chart. Under them is the same seven counted from the
+ * relative key — the same chords, which is the point, numbered as that key
+ * numbers them — and then what songs reach for when seven is not enough.
+ *
+ * It sits in the drawer beside the music rather than on the stage: it is
+ * something to glance at while writing, not something to work in.
  */
 export function ChordChart() {
   const song = useSong((state) => state.song)
@@ -20,43 +22,45 @@ export function ChordChart() {
 
   const { tonic, mode } = song.key
   const chart = keyChart(tonic, mode)
+  const relative = keyChart(chart.relative.tonic, chart.relative.mode)
   const setKey = (next: { tonic?: string; mode?: Mode }) =>
     void update({ key: { tonic: next.tonic ?? tonic, mode: next.mode ?? mode } })
 
   return (
-    <div className="chart" style={{ '--degree-color': CHANNEL_SUBJECT_COLOR.piano } as React.CSSProperties}>
+    <div
+      className="chart"
+      style={{ '--degree-color': CHANNEL_SUBJECT_COLOR.piano } as React.CSSProperties}
+    >
       <div className="chart__keys">
-        <div className="chart__tonics" role="group" aria-label="Key">
-          {tonicsFor(mode).map((name) => (
-            <button
-              key={name}
-              type="button"
-              className="raised chart__tonic"
-              data-engaged={name === tonic}
-              onClick={() => setKey({ tonic: name })}
-            >
-              {prettyChord(name)}
-            </button>
-          ))}
-        </div>
+        <label className="chart__pick">
+          <span>Key</span>
+          <select
+            className="well input"
+            value={tonic}
+            onChange={(event) => setKey({ tonic: event.target.value })}
+          >
+            {tonicsFor(mode).map((name) => (
+              <option key={name} value={name}>
+                {prettyChord(name)}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <div className="chart__modes" role="group" aria-label="Mode">
-          {(['major', 'minor'] as const).map((name) => (
-            <button
-              key={name}
-              type="button"
-              className="raised chart__mode"
-              data-engaged={name === mode}
-              onClick={() => setKey({ mode: name, tonic: nearestTonic(tonic, name) })}
-            >
-              {name === 'major' ? 'Major' : 'Minor'}
-            </button>
-          ))}
-        </div>
-
-        <span className="chart__signature">
-          {chart.signature} · relative {prettyChord(chart.relative.tonic)} {chart.relative.mode}
-        </span>
+        <label className="chart__pick">
+          <span>Mode</span>
+          <select
+            className="well input"
+            value={mode}
+            onChange={(event) => {
+              const wanted = event.target.value as Mode
+              setKey({ mode: wanted, tonic: nearestTonic(tonic, wanted) })
+            }}
+          >
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+          </select>
+        </label>
       </div>
 
       <div className="chart__degrees">
@@ -70,24 +74,25 @@ export function ChordChart() {
       </div>
 
       <div className="chart__extras">
+        {/* The same seven chords, which is what makes them worth listing: what
+            changes is which one is home, and so what every chord is called. */}
+        <Group
+          name={`In ${prettyChord(relative.tonic)} ${relative.mode}`}
+          chords={relative.diatonic}
+        />
+
         <Group
           name={`Borrowed from ${prettyChord(chart.parallel.tonic)} ${chart.parallel.mode}`}
-          note="the same degrees, from the key that shares this tonic"
           chords={chart.borrowed}
         />
 
         {chart.fromHarmonicMinor.length === 0 ? null : (
-          <Group
-            name="From harmonic minor"
-            note="natural minor has no dominant, which is why few songs stay in it"
-            chords={chart.fromHarmonicMinor}
-          />
+          <Group name="From harmonic minor" chords={chart.fromHarmonicMinor} />
         )}
 
         {chart.secondaryDominants.length === 0 ? null : (
           <div className="chart__group">
             <h4 className="chart__group-name">Leading to each degree</h4>
-            <p className="chart__group-note">the dominant of each chord, borrowed for a bar</p>
             <div className="chart__chips">
               {chart.secondaryDominants.map((entry) => (
                 <span key={entry.chord} className="raised chart__chip">
@@ -103,12 +108,11 @@ export function ChordChart() {
   )
 }
 
-function Group({ name, note, chords }: { name: string; note: string; chords: ChordEntry[] }) {
+function Group({ name, chords }: { name: string; chords: ChordEntry[] }) {
   if (chords.length === 0) return null
   return (
     <div className="chart__group">
       <h4 className="chart__group-name">{name}</h4>
-      <p className="chart__group-note">{note}</p>
       <div className="chart__chips">
         {chords.map((entry) => (
           <span key={entry.triad} className="raised chart__chip">

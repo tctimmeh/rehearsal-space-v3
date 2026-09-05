@@ -77,12 +77,36 @@ describe('the chart', () => {
     expect(degrees().map((cell) => cell.triad)).toContain('A♭')
   })
 
-  it('says what the key carries and what it is related to', () => {
+  /* The same seven chords as the key above, which is the point of showing
+     them: what changes is which one is home, and so what each is called. */
+  it('counts the same seven chords again from the relative key', () => {
+    render(<ChordChart />)
+
+    expect(chipsUnder(/In A minor/)).toEqual([
+      'Am i',
+      'Bdim ii°',
+      'C ♭III',
+      'Dm iv',
+      'Em v',
+      'F ♭VI',
+      'G ♭VII'
+    ])
+  })
+
+  it('says nothing about how many sharps or flats the key carries', () => {
     useSong.setState({ song: inKey('Eb', 'major') })
     render(<ChordChart />)
 
-    expect(screen.getByText(/3 flats/)).toBeDefined()
-    expect(screen.getByText(/relative C minor/)).toBeDefined()
+    expect(screen.queryByText(/flats/)).toBeNull()
+    expect(screen.queryByText(/relative/i)).toBeNull()
+  })
+
+  /* What borrowed and leading mean is something you know or look up once;
+     printed under every heading it is a paragraph in the way of the chords. */
+  it('names its groups and leaves them unexplained', () => {
+    render(<ChordChart />)
+
+    expect(document.querySelector('.chart__group-note')).toBeNull()
   })
 
   it('offers what the parallel key has and this one does not', () => {
@@ -162,7 +186,7 @@ describe('choosing a key', () => {
     const user = userEvent.setup()
     render(<ChordChart />)
 
-    await user.click(screen.getByRole('button', { name: 'G' }))
+    await user.selectOptions(screen.getByLabelText('Key'), 'G')
 
     await waitFor(() => expect(useSong.getState().song?.key).toEqual({ tonic: 'G', mode: 'major' }))
   })
@@ -172,7 +196,7 @@ describe('choosing a key', () => {
     useSong.setState({ song: inKey('Eb', 'major') })
     render(<ChordChart />)
 
-    await user.click(screen.getByRole('button', { name: 'Minor' }))
+    await user.selectOptions(screen.getByLabelText('Mode'), 'minor')
 
     /* E flat minor, not D sharp minor: the same pitch, written as people write it. */
     await waitFor(() =>
@@ -180,9 +204,18 @@ describe('choosing a key', () => {
     )
   })
 
+  /* Twelve keys and two modes in a drawer as wide as a phone: two lists, not
+     fourteen buttons taking the room the chords are meant to have. */
+  it('offers the whole key as two lists rather than a wall of buttons', () => {
+    render(<ChordChart />)
+
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(screen.getByLabelText('Key').tagName).toBe('SELECT')
+  })
+
   it('offers no key that nobody writes in', () => {
     render(<ChordChart />)
-    const tonics = [...document.querySelectorAll('.chart__tonic')].map((b) => b.textContent)
+    const tonics = [...screen.getByLabelText('Key').children].map((one) => one.textContent)
 
     expect(tonics).toHaveLength(12)
     expect(tonics).toContain('E♭')

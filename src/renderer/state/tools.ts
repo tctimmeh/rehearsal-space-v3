@@ -25,18 +25,21 @@ export const useTools = create<ToolsState>((set) => ({
   open: allClosed,
   justOpened: null,
 
-  /* Only one stage tool fits, so opening one closes the other. Gadgets and the
-     drawer are independent of everything. */
+  /* The stage holds one tool and so does the drawer, so opening one there
+     closes whatever was in its place. Gadgets stack and mind nobody. */
   toggle: (id) =>
     set((state) => {
       const nowOpen = !state.open[id]
       const asked = nowOpen ? id : state.justOpened
-      if (!nowOpen || TOOL_META[id].size !== 'stage') {
+      const size = TOOL_META[id].size
+      /* Gadgets sit side by side and mind nobody. The stage and the drawer are
+         each one place, so opening something there closes whatever held it. */
+      if (!nowOpen || size === 'gadget') {
         return { open: { ...state.open, [id]: nowOpen }, justOpened: asked }
       }
       const open = { ...state.open }
       for (const other of TOOL_IDS) {
-        if (TOOL_META[other].size === 'stage') open[other] = other === id
+        if (TOOL_META[other].size === size) open[other] = other === id
       }
       return { open, justOpened: asked }
     }),

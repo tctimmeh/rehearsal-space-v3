@@ -51,7 +51,9 @@ export const TOOL_META: Record<ToolId, ToolMeta> = {
     id: 'chords',
     label: 'Chord chart',
     shortLabel: 'Chords',
-    size: 'stage',
+    /* Beside the music rather than in place of it: it is something to glance
+       at while writing, not something to work in. */
+    size: 'drawer',
     scope: 'song'
   },
   tab: { id: 'tab', label: 'Tablature', shortLabel: 'Tab', size: 'stage', scope: 'song' },
