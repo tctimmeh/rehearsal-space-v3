@@ -41,6 +41,18 @@ export type Technique = '-' | '/' | '\\' | '^' | '.' | 'b' | 'r'
 export const TECHNIQUES: Technique[] = ['-', '/', '\\', '^', '.', 'b', 'r']
 
 /**
+ * The cursor's slot when it sits in the column a bar opens with.
+ *
+ * A technique is written in the column that follows the note it comes out of,
+ * so what comes *into* a note is written in the column before it — which the
+ * first note of a bar does not have inside the bar. It has the opening column,
+ * which is there to keep the notes off the bar line and is otherwise empty, so
+ * that is where a slide into a bar's first note goes, and a pre-bend released
+ * down to it.
+ */
+export const OPENING = -1
+
+/**
  * Where in a beat a slot falls: the beat itself, its `e`, its `&`, or its `a`.
  *
  * A beat always holds the beat and the `&` — that is what an eighth is — and
@@ -97,6 +109,8 @@ export interface Beat {
 }
 
 export interface Bar {
+  /** What comes into the first note, per string. Absent when nothing does. */
+  into?: Technique[]
   beats: Beat[]
   /**
    * Free text introducing the section this bar opens: a name for it, or a
@@ -192,6 +206,7 @@ export function setStrings(doc: TabDoc, wanted: number): TabDoc {
     strings,
     bars: doc.bars.map((bar) => ({
       ...bar,
+      ...(bar.into === undefined ? {} : { into: resize(bar.into, '-' as Technique) }),
       beats: bar.beats.map((beat) => ({
         ...beat,
         slots: beat.slots.map((slot) => ({
@@ -215,7 +230,8 @@ export const slotIsEmpty = (slot: Slot): boolean =>
 export const beatIsEmpty = (beat: Beat): boolean =>
   beat.chord === null && beat.slots.every(slotIsEmpty)
 
-export const barIsEmpty = (bar: Bar): boolean => bar.beats.every(beatIsEmpty)
+export const barIsEmpty = (bar: Bar): boolean =>
+  bar.beats.every(beatIsEmpty) && (bar.into ?? []).every((join) => join === '-')
 
 /** How many beats a bar is in, which is what the time signature amounts to here. */
 export const beatCount = (bar: Bar): number => bar.beats.length

@@ -1215,8 +1215,17 @@ describe('sections divided by words', () => {
     /* Two bars of music and the spare that opening a section left behind. */
     expect(bars(0)).toBe(3)
 
-    /* Back to the 9 and take it away, which leaves that bar spare too. */
-    for (let step = 0; step < 16; step += 1) press('ArrowLeft')
+    /* Back to the 9 and take it away, which leaves that bar spare too. Walked
+       by where the cursor is rather than by a count of presses: the column a
+       bar opens with is a place it stops now, so crossing a bar line takes one
+       step more than it used to. */
+    for (
+      let step = 0;
+      step < 40 && sheet().querySelector('.tablature__cursor')?.textContent !== '9';
+      step += 1
+    ) {
+      press('ArrowLeft')
+    }
     press('Delete')
     press('ArrowLeft')
 
@@ -1570,5 +1579,86 @@ describe('bends', () => {
 
     const written = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
     expect(written).toContain('7b')
+  })
+})
+
+/*
+ * A technique says what happens coming out of the note it follows, so what
+ * happens coming *into* one is written in the column before it. The first note
+ * of a bar has no column before it inside the bar — it has the one the bar
+ * opens with, and the cursor can now sit there.
+ */
+describe('a technique before the first beat', () => {
+  it('steps left out of the first beat onto the opening column', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+
+    press('ArrowLeft')
+    press('/')
+
+    expect(strings()).toContain('|/7-')
+  })
+
+  it('comes back to the note again', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('ArrowLeft')
+
+    press('ArrowRight')
+    press('7')
+
+    expect(strings()).toContain('|-7-')
+  })
+
+  /* A pre-bend, released down to the note it is struck on. */
+  it('writes a release into the note', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('ArrowLeft')
+
+    press('r')
+
+    expect(strings()).toContain('|r7-')
+  })
+
+  it('takes it off again when it is typed twice', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('ArrowLeft')
+    press('/')
+
+    press('/')
+
+    expect(strings()).toContain('|-7-')
+  })
+
+  /* There is no note there to write, and a keystroke that means nothing should
+     do nothing rather than something surprising. */
+  it('ignores a fret typed where there is no slot', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    const before = strings()
+
+    press('ArrowLeft')
+    press('9')
+
+    expect(strings()).toBe(before)
+  })
+
+  it('does not make the bar any wider', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('ArrowLeft')
+    /* Measured after the cursor has moved: settling is what adds the empty bar
+       to carry on in, and that is not what this is about. */
+    const before = strings().split('\n')[0]?.length
+
+    press('/')
+
+    expect(strings().split('\n')[0]?.length).toBe(before)
   })
 })

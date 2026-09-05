@@ -294,3 +294,52 @@ describe('what a bend costs', () => {
     expect(beats?.[0]?.slots[0]?.after[0]).toBe('-')
   })
 })
+
+/*
+ * What comes *into* a note is written in the column before it, which the first
+ * note of a bar does not have inside the bar. It has the column the bar opens
+ * with, which is there to keep notes off the bar line and is otherwise empty.
+ */
+describe('a technique before the first beat', () => {
+  const bar = (line: string): string =>
+    [
+      '  1   2   3   4',
+      '|-----------------|',
+      `|${line}|`,
+      '|-----------------|',
+      '|-----------------|',
+      '|-----------------|',
+      '|-----------------|'
+    ].join('\n') + '\n'
+
+  it('comes back the same, slid into', () => {
+    const text = bar('/5---------------')
+
+    expect(render(parse(text))).toBe(text)
+  })
+
+  /* A pre-bend: already bent when it is struck, and released down to the 7. */
+  it('comes back the same, released into', () => {
+    const text = bar('r7---------------')
+
+    expect(render(parse(text))).toBe(text)
+  })
+
+  it('is read as belonging to the bar, on the string it was written on', () => {
+    const doc = parse(bar('/5---------------'))
+
+    expect(doc.bars[0]?.into?.[1]).toBe('/')
+    expect(doc.bars[0]?.into?.[0]).toBe('-')
+  })
+
+  it('leaves the bar no wider than it was', () => {
+    expect(render(parse(bar('/5---------------'))).length).toBe(
+      render(parse(bar('-5---------------'))).length
+    )
+  })
+
+  /* Nothing there is the ordinary case, and it is not written down at all. */
+  it('says nothing when nothing comes in', () => {
+    expect(parse(bar('-5---------------')).bars[0]?.into).toBeUndefined()
+  })
+})

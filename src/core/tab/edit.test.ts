@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { newTab, normalise, setStrings, type Cursor, type TabDoc } from './document'
+import { OPENING, newTab, normalise, setStrings, type Cursor, type TabDoc } from './document'
 import {
   AT_START,
   deleteNote,
@@ -87,15 +87,29 @@ describe('moving about', () => {
     expect(at(state)).toMatchObject({ bar: 1, beat: 0, slot: 0 })
   })
 
+  /* Leftwards out of a bar passes through the column it opens with, which is
+     where a slide into its first note is written. */
   it('comes back into the last slot of the bar before', () => {
     let state = start(2)
     for (let step = 0; step < 8; step += 1) state = moveRight(state)
 
-    expect(at(moveLeft(state))).toMatchObject({ bar: 0, beat: 3, slot: 1 })
+    expect(at(moveLeft(state))).toMatchObject({ bar: 1, beat: 0, slot: OPENING })
+    expect(at(moveLeft(moveLeft(state)))).toMatchObject({ bar: 0, beat: 3, slot: 1 })
+  })
+
+  it('goes back into the first slot from the opening column', () => {
+    const state = moveLeft(start())
+
+    expect(at(state).slot).toBe(OPENING)
+    expect(at(moveRight(state))).toEqual(AT_START)
   })
 
   it('stops at the very beginning and the very end', () => {
-    expect(at(moveLeft(start()))).toEqual(AT_START)
+    /* The very beginning is the opening column of the first bar, which a note
+       on its first beat can be slid into. */
+    const opening = moveLeft(start())
+    expect(at(opening)).toMatchObject({ bar: 0, beat: 0, slot: OPENING })
+    expect(at(moveLeft(opening))).toEqual(at(opening))
 
     let state = start()
     for (let step = 0; step < 20; step += 1) state = moveRight(state)

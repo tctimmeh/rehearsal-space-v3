@@ -1,4 +1,5 @@
 import {
+  OPENING,
   BEATS_MAX,
   BEATS_MIN,
   emptyBar,
@@ -63,18 +64,26 @@ const flatten = (doc: TabDoc, bar: number): { beat: number; slot: number }[] => 
 }
 
 const positionIn = (doc: TabDoc, cursor: Cursor): number =>
-  flatten(doc, cursor.bar).findIndex(
-    (place) => place.beat === cursor.beat && place.slot === cursor.slot
-  )
+  cursor.slot === OPENING
+    ? OPENING
+    : flatten(doc, cursor.bar).findIndex(
+        (place) => place.beat === cursor.beat && place.slot === cursor.slot
+      )
 
 const atPosition = (doc: TabDoc, bar: number, index: number, string: number): Cursor => {
+  /* One before the first slot is the column the bar opens with, which is a
+     place in its own right rather than somewhere to be clamped away from. */
+  if (index <= OPENING) return { bar, beat: 0, slot: OPENING, string }
   const slots = flatten(doc, bar)
-  const held = slots[Math.max(0, Math.min(slots.length - 1, index))]
+  const held = slots[Math.min(slots.length - 1, index)]
   return { bar, beat: held?.beat ?? 0, slot: held?.slot ?? 0, string }
 }
 
 /** Changes one slot without disturbing the rest of the document. */
 function withSlot(doc: TabDoc, cursor: Cursor, change: (slot: Slot) => Slot): TabDoc {
+  /* The opening column is not a slot: there is nothing there to write a fret
+     on, and a note typed there is a keystroke that meant nothing. */
+  if (cursor.slot === OPENING) return doc
   return {
     ...doc,
     bars: doc.bars.map((bar, barIndex) =>
@@ -107,7 +116,9 @@ const put = (slot: Slot, string: number, fret: string | null): Slot => ({
 /** Left and right run along the slots and carry on into the next bar. */
 export function moveLeft(state: Editing): Editing {
   const index = positionIn(state.doc, state.cursor)
-  if (index > 0) {
+  /* Past the first slot is the bar's opening column, and past that is the bar
+     before — so crossing a bar line leftwards passes through it. */
+  if (index >= 0) {
     return { ...state, cursor: atPosition(state.doc, state.cursor.bar, index - 1, state.cursor.string) }
   }
   if (state.cursor.bar === 0) return state
@@ -121,6 +132,9 @@ export function moveLeft(state: Editing): Editing {
 export function moveRight(state: Editing): Editing {
   const index = positionIn(state.doc, state.cursor)
   const slots = flatten(state.doc, state.cursor.bar)
+  if (index === OPENING) {
+    return { ...state, cursor: atPosition(state.doc, state.cursor.bar, 0, state.cursor.string) }
+  }
   if (index < slots.length - 1) {
     return { ...state, cursor: atPosition(state.doc, state.cursor.bar, index + 1, state.cursor.string) }
   }
@@ -203,6 +217,7 @@ export const deleteNote = (state: Editing): Editing => ({
  * different one replaces it.
  */
 export function markWith(state: Editing, technique: Technique): Editing {
+  if (state.cursor.slot === OPENING) return markInto(state, technique)
   const held = slotAt(state.doc, state.cursor)?.after[state.cursor.string] ?? '-'
   const wanted = held === technique ? '-' : technique
   return {
@@ -211,6 +226,38 @@ export function markWith(state: Editing, technique: Technique): Editing {
       ...slot,
       after: slot.after.map((join, index) => (index === state.cursor.string ? wanted : join))
     }))
+  }
+}
+
+/**
+ * What comes into a bar's first note, written in the column it opens with.
+ *
+ * The same characters mean the same things there as anywhere else — a slide up
+ * into the note, a bend released down to it — and typing the one already there
+ * takes it off again.
+ */
+function markInto(state: Editing, technique: Technique): Editing {
+  const { bar: barIndex, string } = state.cursor
+  const bar = state.doc.bars[barIndex]
+  if (bar === undefined) return state
+
+  const held = bar.into?.[string] ?? '-'
+  const wanted = held === technique ? '-' : technique
+  const into = Array.from(
+    { length: state.doc.strings },
+    (_, index) => (index === string ? wanted : (bar.into?.[index] ?? '-'))
+  )
+  const empty = into.every((join) => join === '-')
+  const { into: _was, ...rest } = bar
+
+  return {
+    ...state,
+    doc: {
+      ...state.doc,
+      bars: state.doc.bars.map((held2, index) =>
+        index !== barIndex ? held2 : empty ? rest : { ...rest, into }
+      )
+    }
   }
 }
 
@@ -576,7 +623,17 @@ export function settle(state: Editing): Editing {
   const spaced = withRoomToCarryOn(state)
   const doc = normalise(spaced.doc, { bar: spaced.cursor.bar, beat: spaced.cursor.beat })
   const bar = Math.min(spaced.cursor.bar, doc.bars.length - 1)
-  const index = Math.min(positionIn(spaced.doc, spaced.cursor), flatten(doc, bar).length - 1)
+  /*
+   * The opening column survives settling. It is a place the cursor can be
+   * rather than an index that has fallen off the front of the bar, and it is
+   * asked of the cursor rather than read off the index, which is the same
+   * number for both.
+   */
+  const held = positionIn(spaced.doc, spaced.cursor)
+  const index =
+    spaced.cursor.slot === OPENING
+      ? OPENING
+      : Math.min(Math.max(0, held), flatten(doc, bar).length - 1)
   const string = Math.max(0, Math.min(spaced.cursor.string, doc.strings - 1))
-  return { doc, cursor: atPosition(doc, bar, Math.max(0, index), string) }
+  return { doc, cursor: atPosition(doc, bar, index, string) }
 }

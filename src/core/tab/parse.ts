@@ -51,8 +51,11 @@ const noteAt = (content: string, at: number): string | null =>
  * lands a column early. Read them side by side and the width is simply the
  * widest thing any string plays there, which is how it was drawn.
  */
-function readBar(contents: string[], from: number): ReadSlot[] | null {
-  if (contents.length === 0 || !contents.every((content) => content.startsWith('-'))) return null
+function readBar(contents: string[], from: number): { into: Technique[]; slots: ReadSlot[] } | null {
+  /* The column a bar opens with is a dash, or what comes into its first note. */
+  const opening = contents.map((content) => content[0] ?? '')
+  if (contents.length === 0 || !opening.every(isTechnique)) return null
+  const into = opening.map((character) => character as Technique)
 
   const width = Math.max(...contents.map((content) => content.length))
   const slots: ReadSlot[] = []
@@ -74,7 +77,7 @@ function readBar(contents: string[], from: number): ReadSlot[] | null {
     at += held + 1
   }
 
-  return slots
+  return { into, slots }
 }
 
 /** A line of the tablature itself, rather than of the writing around it. */
@@ -355,7 +358,7 @@ export function parse(text: string): TabDoc {
       )
       if (shape === null) continue
 
-      const slots: Slot[] = shape.map((read) => {
+      const slots: Slot[] = shape.slots.map((read) => {
         const slot = emptySlot(strings)
         read.texts.forEach((text, string) => {
           if (string >= strings || text === null || !isFret(text)) return
@@ -367,12 +370,17 @@ export function parse(text: string): TabDoc {
         return slot
       })
 
-      const slotColumns = shape.map((slot) => slot.at)
+      const slotColumns = shape.slots.map((slot) => slot.at)
       readHand(slots, slotColumns, block.hand)
       const beats = intoBeats(slots, slotColumns, beatColumns(block.markers))
       markPositions(beats, slotColumns, block.markers)
       columns.push(slotColumns)
       const bar: Bar = { beats }
+      const into = Array.from(
+        { length: strings },
+        (_, string) => shape.into[string] ?? ('-' as Technique)
+      )
+      if (into.some((join) => join !== '-')) bar.into = into
       if (repeatStart) bar.repeatStart = true
       if (repeatEnd) {
         const from = inBar[0]?.at ?? 0

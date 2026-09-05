@@ -1,5 +1,6 @@
 import type { Row } from './ink'
 import {
+  OPENING,
   beatCount,
   isMiddleString,
   SIXTEENTH_MARKS,
@@ -71,7 +72,12 @@ export function renderBarRow(bar: Bar, string: number, widths: number[], strings
   /* The dot gets a column of its own, so it never sits against a note: the
      bar's own opening dash still follows it, and its closing one still comes
      before the dot at the other end. */
-  let row = bar.repeatStart === true ? (middle ? ':-' : '--') : '-'
+  /* The column a bar opens with carries what comes into its first note, when
+     anything does: a slide up into it, or a bend released down to it. There is
+     nowhere else for it to go — the column that would hold it belongs to the
+     slot before, and the first note of a bar has none inside the bar. */
+  const into = bar.into?.[string] ?? '-'
+  let row = bar.repeatStart === true ? (middle ? `:${into}` : `-${into}`) : into
   slotsOf(bar).forEach((slot, index) => {
     row += contentOf(slot, string).padEnd(widths[index] ?? 1, '-') + (slot.after[string] ?? '-')
   })
@@ -408,6 +414,14 @@ function slotsAcross(
   const found: { bar: number; beat: number; slot: number; column: number }[] = []
   laid.system.bars.forEach((placed, index) => {
     const columns = slotColumns(placed.widths, contentFrom(placed.bar, placed.opening))
+    /* The opening column is somewhere the cursor can be, since what is written
+       there belongs to the note beside it rather than to the bar line. */
+    found.push({
+      bar: laid.firstBar + index,
+      beat: 0,
+      slot: OPENING,
+      column: placed.at + contentFrom(placed.bar, placed.opening) - 1
+    })
     let at = 0
     placed.bar.beats.forEach((beat, beatIndex) => {
       beat.slots.forEach((_, slotIndex) => {
