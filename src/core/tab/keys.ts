@@ -97,5 +97,34 @@ const KEYS: TabKey[] = [
 /** So the list can be held to accounting for every one of them. */
 export const TAB_KEY_COUNT = KEYS.length
 
+export interface TabKeyHint {
+  /** As printed, where one hint stands for a pair of opposite keys. */
+  keys: string
+  does: string
+  /** The KEYS entries it stands for, so a hint cannot outlive its key. */
+  covers: string[]
+}
+
+/**
+ * The line under the editor.
+ *
+ * Arrows and digits are found by trying them. These are the ones that are not:
+ * a key you would have to be told about, doing something you would otherwise
+ * think the editor could not do. Everything else stays behind the ? — a line
+ * long enough to list all forty is a line nobody reads.
+ */
+export const TAB_KEY_HINTS: TabKeyHint[] = [
+  { keys: 'S', does: 'Select', covers: ['S'] },
+  { keys: 'Shift + →', does: 'Divide beat', covers: ['Shift + →'] },
+  { keys: 'Ctrl + ← →', does: 'More/fewer beats', covers: ['Ctrl + ←', 'Ctrl + →'] },
+  { keys: 'Ctrl + ↑', does: 'Add chord', covers: ['Ctrl + ↑'] },
+  { keys: 'Ctrl + R', does: 'Repeat', covers: ['Ctrl + R'] },
+  { keys: 'Ctrl + T', does: 'Add text', covers: ['Ctrl + T'] },
+  { keys: 'T', does: 'Triplets', covers: ['T'] }
+]
+
+/** Whether the editor still answers to a key, for the hints to be held to. */
+export const tabKeyExists = (keys: string): boolean => KEYS.some((key) => key.keys === keys)
+
 export const tabKeysInGroup = (group: TabKeyGroup): { keys: string; does: string }[] =>
   KEYS.filter((key) => key.group === group).map(({ keys, does }) => ({ keys, does }))

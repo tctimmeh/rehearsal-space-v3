@@ -57,6 +57,7 @@ import {
   type History
 } from '@core/tab/history'
 import { inkOf, type Ink, type Row } from '@core/tab/ink'
+import { TAB_KEY_HINTS } from '@core/tab/keys'
 import {
   blocksOf,
   cursorAtPlace,
@@ -792,6 +793,14 @@ export function TabEditor() {
           )
         )}
       </div>
+
+      <p className="tablature__hints">
+        {TAB_KEY_HINTS.map(({ keys, does }) => (
+          <span key={keys} className="tablature__hint">
+            <kbd>{keys}</kbd> {does}
+          </span>
+        ))}
+      </p>
     </div>
   )
 }

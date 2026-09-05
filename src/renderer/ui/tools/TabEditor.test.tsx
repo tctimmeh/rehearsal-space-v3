@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { newSong, type Song } from '@core/song/song'
 import { newTab } from '@core/tab/document'
 import { AT_START, chordAt } from '@core/tab/edit'
-import { TAB_KEY_COUNT } from '@core/tab/keys'
+import { TAB_KEY_COUNT, TAB_KEY_HINTS } from '@core/tab/keys'
 import { useSong } from '@renderer/state/song'
 import { useTabs } from '@renderer/state/tabs'
 import { useTools } from '@renderer/state/tools'
@@ -1918,5 +1918,29 @@ describe('thirty-seconds', () => {
 
     const written = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
     expect(written.split('\n')[0]).toContain('1 e')
+  })
+})
+
+describe('the hints under the editor', () => {
+  it('shows each key beside what it does', () => {
+    render(<TabEditor />)
+
+    const hints = [...document.querySelectorAll('.tablature__hint')].map((one) => ({
+      key: one.querySelector('kbd')?.textContent,
+      does: one.textContent?.replace(one.querySelector('kbd')?.textContent ?? '', '').trim()
+    }))
+
+    expect(hints).toContainEqual({ key: 'S', does: 'Select' })
+    expect(hints).toContainEqual({ key: 'Ctrl + ↑', does: 'Add chord' })
+    expect(hints).toHaveLength(TAB_KEY_HINTS.length)
+  })
+
+  /* The line is a reminder, not a control: clicking it must not take the
+     keyboard away from the tablature under it. */
+  it('is not something to focus', () => {
+    render(<TabEditor />)
+
+    const line = document.querySelector('.tablature__hints') as HTMLElement
+    expect(line.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0)
   })
 })
