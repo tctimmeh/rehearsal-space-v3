@@ -7,9 +7,10 @@ import { useSong } from '@renderer/state/song'
  * What you can play in a key.
  *
  * The seven chords of the key are the answer to most questions, so they are
- * the whole top of the chart. Under them is the same seven counted from the
- * relative key — the same chords, which is the point, numbered as that key
- * numbers them — and then what songs reach for when seven is not enough.
+ * the top of the chart, one to a line and numbered. Under them is the same
+ * seven counted from the relative key — the same chords, which is the point,
+ * numbered as that key numbers them — and then what songs reach for when
+ * seven is not enough.
  *
  * It sits in the drawer beside the music rather than on the stage: it is
  * something to glance at while writing, not something to work in.
@@ -63,9 +64,9 @@ export function ChordChart() {
         </label>
       </div>
 
-      <div className="chart__degrees">
+      <div className="well chart__degrees">
         {chart.diatonic.map((entry) => (
-          <div key={entry.degree} className="well chart__degree">
+          <div key={entry.degree} className="chart__degree">
             <span className="chart__numeral">{prettyDegree(entry.degree)}</span>
             <span className="chart__triad">{prettyChord(entry.triad)}</span>
             <span className="chart__seventh">{prettyChord(entry.seventh)}</span>
