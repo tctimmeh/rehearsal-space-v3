@@ -42,8 +42,6 @@ export function PlayerView() {
   const song = useSong((state) => state.song)
 
   const stageTool = stageOnShow(open)
-  /* Shown because nothing else is, so there is no closing it. */
-  const chosen = openToolOfSize(open, 'stage') !== null
   const drawerTool = openToolOfSize(open, 'drawer')
 
   return (
@@ -56,12 +54,7 @@ export function PlayerView() {
             {song === null ? (
               <NoSongLoaded />
             ) : (
-              <Stage
-                title={TOOL_META[stageTool].label}
-                {...(chosen ? { onClose: () => closeTool(stageTool) } : {})}
-              >
-                {renderStage(stageTool)}
-              </Stage>
+              <Stage title={TOOL_META[stageTool].label}>{renderStage(stageTool)}</Stage>
             )}
             {drawerTool === null ? null : (
               <Drawer title={TOOL_META[drawerTool].label} onClose={() => closeTool(drawerTool)}>
