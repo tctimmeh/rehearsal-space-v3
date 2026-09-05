@@ -97,8 +97,7 @@ const SUBJECT_GLYPHS: Record<ChannelSubject, ReactElement> = {
       <path d="M12 20L15.6 5.2" />
       <rect x="13.5" y="9.3" width="3.6" height="2.3" rx=".4" transform="rotate(-76 15.3 10.4)" />
     </>
-  ),
-  lyrics: <path d="M3 4.5h18M3 9.5h13M3 14.5h16M3 19.5h9" />
+  )
 }
 
 export function SubjectIcon({ subject, size = 18 }: { subject: ChannelSubject; size?: number }) {

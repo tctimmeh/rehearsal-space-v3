@@ -14,6 +14,7 @@ import {
   ZOOM_SPEED_MIN,
   type AppConfig
 } from '../shared/config'
+import { ENGAGED_COLOR_DEFAULT, isEngagedColorId } from '../core/ui/accents'
 import {
   NEEDLE_CLARITY_MAX,
   NEEDLE_CLARITY_MIN,
@@ -53,6 +54,7 @@ export const defaultConfig = (): AppConfig => ({
   libraryPath: join(app.getPath('music'), 'Rehearsal Space'),
   lastSongId: null,
   uiScale: UI_SCALE_DEFAULT,
+  engagedColor: ENGAGED_COLOR_DEFAULT,
   panSpeed: PAN_SPEED_DEFAULT,
   zoomSpeed: ZOOM_SPEED_DEFAULT,
   inputDeviceId: '',
@@ -83,6 +85,9 @@ function parse(raw: unknown, defaults: AppConfig): AppConfig {
       typeof record['uiScale'] === 'number' && Number.isFinite(record['uiScale'])
         ? clamp(record['uiScale'], UI_SCALE_MIN, UI_SCALE_MAX)
         : defaults.uiScale,
+    engagedColor: isEngagedColorId(record['engagedColor'])
+      ? record['engagedColor']
+      : defaults.engagedColor,
     panSpeed: number(record['panSpeed'], defaults.panSpeed, PAN_SPEED_MIN, PAN_SPEED_MAX),
     zoomSpeed: number(record['zoomSpeed'], defaults.zoomSpeed, ZOOM_SPEED_MIN, ZOOM_SPEED_MAX),
     inputDeviceId:

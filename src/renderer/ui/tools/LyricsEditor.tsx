@@ -11,7 +11,7 @@ import {
   type History,
   type Recording
 } from '@core/lyrics/undo'
-import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
+import { TOOL_ACCENT } from '@core/ui/accents'
 import { lendCursor, useLyrics } from '@renderer/state/lyrics'
 import { useSong } from '@renderer/state/song'
 import { Button } from '../primitives'
@@ -246,10 +246,8 @@ export function LyricsEditor() {
       className="lyrics"
       style={
         {
-          /* Teal against the chords' gold: warm and cool separate at a glance,
-             where two warm colours read as the same thing. */
-          '--section-color': CHANNEL_SUBJECT_COLOR.lyrics,
-          '--chord-color': CHANNEL_SUBJECT_COLOR.acoustic
+          '--section-color': TOOL_ACCENT.lyricSection,
+          '--chord-color': TOOL_ACCENT.lyricChord
         } as React.CSSProperties
       }
     >

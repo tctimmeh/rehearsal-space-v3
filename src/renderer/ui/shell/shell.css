@@ -877,6 +877,26 @@
 .setting-row--tight {
   margin-top: 8px;
 }
+/* The six colours a latched control can be lit with. Each swatch is a latched
+   control itself, lit with the colour it is offering, so the row is a set of
+   samples of the thing being chosen rather than a set of labels for it. */
+.swatches {
+  display: flex;
+  gap: 5px;
+}
+.swatch {
+  width: 30px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+}
+.swatch__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
 /* Two knobs of the same kind, side by side and evenly spread. */
 .setting-row--knobs {
   gap: 22px;

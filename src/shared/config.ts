@@ -1,4 +1,5 @@
 import type { NudgeSeconds } from '../core/keys/hotkeys'
+import type { EngagedColorId } from '../core/ui/accents'
 import type { NeedleSettings } from '../core/music/steady'
 import type { MetronomeSample } from '../core/song/song'
 import type { ExternalTool } from './tools'
@@ -17,6 +18,11 @@ export interface AppConfig {
   lastSongId: string | null
   /** Renderer zoom. This is a tool read from a music stand, so it starts above 1. */
   uiScale: number
+  /**
+   * What a latched control is lit with. Which colour reads best is a matter
+   * of the screen and the room it is in, so it is the user's to say.
+   */
+  engagedColor: EngagedColorId
   /** Fraction of the visible window a wheel notch pans in the alignment tool. */
   panSpeed: number
   /** Fraction of a doubling a wheel notch zooms by. Every notch moves. */
@@ -80,6 +86,7 @@ export const ZOOM_SPEED_DEFAULT = 0.15
 export type Preferences = Pick<
   AppConfig,
   | 'uiScale'
+  | 'engagedColor'
   | 'panSpeed'
   | 'zoomSpeed'
   | 'inputDeviceId'

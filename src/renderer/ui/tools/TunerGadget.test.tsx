@@ -9,6 +9,7 @@ import { useTuner } from '@renderer/state/tuner'
 import { TunerGadget } from './TunerGadget'
 import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
+import { ENGAGED_COLOR_DEFAULT } from '@core/ui/accents'
 
 const listening = vi.hoisted(() => ({ starts: 0, stops: 0 }))
 
@@ -39,6 +40,7 @@ const configured = (inputDeviceId: string, inputChannel = 0) => ({
   libraryPath: '/songs',
   lastSongId: null,
   uiScale: 1.2,
+  engagedColor: ENGAGED_COLOR_DEFAULT,
   panSpeed: 0.1,
   zoomSpeed: 0.15,
   inputDeviceId,

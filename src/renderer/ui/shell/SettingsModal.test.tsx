@@ -17,11 +17,13 @@ import { SettingsModal } from './SettingsModal'
 import { installPointerCapture } from '@renderer/testing/pointer'
 import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
+import { ENGAGED_COLORS, ENGAGED_COLOR_DEFAULT } from '@core/ui/accents'
 
 const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   libraryPath: '/songs',
   lastSongId: null,
   uiScale: UI_SCALE_DEFAULT,
+  engagedColor: ENGAGED_COLOR_DEFAULT,
   panSpeed: PAN_SPEED_DEFAULT,
   zoomSpeed: ZOOM_SPEED_DEFAULT,
   inputDeviceId: '',
@@ -132,6 +134,53 @@ describe('the settings knobs', () => {
       for (const value of Object.values(patch)) {
         expect(String(value)).not.toMatch(/\.\d{4,}/)
       }
+    }
+  })
+})
+
+describe('how a latched control is lit', () => {
+  it('offers every colour under the same heading as the interface size', async () => {
+    render(<SettingsModal onDismiss={() => undefined} />)
+    const appearance = screen.getByRole('heading', { name: 'Appearance' })
+      .closest('section') as HTMLElement
+
+    expect(appearance.querySelector('[aria-label="Size"]')).not.toBeNull()
+    const offered = [...appearance.querySelectorAll('[role="radio"]')].map((one) =>
+      one.getAttribute('aria-label')
+    )
+    expect(offered).toEqual(ENGAGED_COLORS.map((one) => one.label))
+  })
+
+  it('keeps the choice, and says which one is held', async () => {
+    const user = userEvent.setup()
+    render(<SettingsModal onDismiss={() => undefined} />)
+
+    await user.click(screen.getByRole('radio', { name: 'Amber' }))
+
+    expect(kept).toContainEqual({ engagedColor: 'amber' })
+    expect(useConfig.getState().config?.engagedColor).toBe('amber')
+  })
+
+  it('marks the colour in use, and only that one', () => {
+    useConfig.setState({ config: config({ engagedColor: 'violet' }) })
+    render(<SettingsModal onDismiss={() => undefined} />)
+
+    const held = screen
+      .getAllByRole('radio')
+      .filter((one) => one.getAttribute('aria-checked') === 'true')
+      .map((one) => one.getAttribute('aria-label'))
+    expect(held).toEqual(['Violet'])
+  })
+
+  /* A row of six swatches all lit in the colour currently chosen would be a
+     row of samples of the wrong thing. */
+  it('lights each swatch with the colour it is offering', () => {
+    useConfig.setState({ config: config({ engagedColor: ENGAGED_COLOR_DEFAULT }) })
+    render(<SettingsModal onDismiss={() => undefined} />)
+
+    for (const { label, hex } of ENGAGED_COLORS) {
+      expect(screen.getByRole('radio', { name: label }).style.getPropertyValue('--engaged'))
+        .toBe(hex)
     }
   })
 })

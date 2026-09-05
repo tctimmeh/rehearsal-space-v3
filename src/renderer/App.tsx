@@ -16,6 +16,7 @@ import { LoadingSong } from './ui/shell/LoadingSong'
 import { LibraryView } from './ui/views/LibraryView'
 import { PlayerView } from './ui/views/PlayerView'
 import { followHotkeys } from './state/hotkeys'
+import { followEngagedColor } from './state/appearance'
 
 export function App() {
   const view = useView((state) => state.view)
@@ -38,6 +39,7 @@ export function App() {
   useEffect(() => followTuner(), [])
   useEffect(() => followSongForLyrics(), [])
   useEffect(() => followSongForTabs(), [])
+  useEffect(() => followEngagedColor(), [])
   useHotkeys()
   useSaveBeforeUnload()
 

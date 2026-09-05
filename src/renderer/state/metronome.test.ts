@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
+import { ENGAGED_COLOR_DEFAULT } from '@core/ui/accents'
 
 const clicker = vi.hoisted(() => ({
   started: [] as unknown[],
@@ -41,6 +42,7 @@ beforeEach(() => {
       libraryPath: '/songs',
       lastSongId: null,
       uiScale: 1.2,
+      engagedColor: ENGAGED_COLOR_DEFAULT,
       panSpeed: 0.1,
       zoomSpeed: 0.15,
       inputDeviceId: '',

@@ -1,6 +1,6 @@
 import { keyChart, tonicsFor, type ChordEntry, type Mode } from '@core/music/keyChart'
 import { prettyChord, prettyDegree } from '@core/music/spelling'
-import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
+import { TOOL_ACCENT } from '@core/ui/accents'
 import { useSong } from '@renderer/state/song'
 
 /**
@@ -30,7 +30,7 @@ export function ChordChart() {
   return (
     <div
       className="chart"
-      style={{ '--degree-color': CHANNEL_SUBJECT_COLOR.piano } as React.CSSProperties}
+      style={{ '--degree-color': TOOL_ACCENT.chordDegree } as React.CSSProperties}
     >
       <div className="chart__keys">
         <label className="chart__pick">

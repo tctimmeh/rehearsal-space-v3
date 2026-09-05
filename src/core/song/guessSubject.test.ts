@@ -49,7 +49,6 @@ describe('guessSubject', () => {
     /* A click track is audio like any other — but not the full mix. */
     expect(guessSubject('click_track.wav')).toBe('other')
     expect(guessSubject('count-in.wav')).toBe('other')
-    expect(guessSubject('lyrics.wav')).not.toBe('lyrics')
   })
 })
 

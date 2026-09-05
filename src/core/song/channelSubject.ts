@@ -13,18 +13,17 @@ export const CHANNEL_SUBJECTS = [
   'piano',
   'synth',
   'other',
-  'metronome',
-  'lyrics'
+  'metronome'
 ] as const
 
 export type ChannelSubject = (typeof CHANNEL_SUBJECTS)[number]
 
 /**
- * Metronome and lyrics are kinds of channel, not things anyone plays. They
- * carry an identity so their channels look like themselves in the mixer, but
- * they are never offered as an instrument for a piece of audio.
+ * The metronome is a kind of channel, not a thing anyone plays: the click has
+ * an identity so its bus looks like itself in the mixer, but it is never
+ * offered as an instrument for a piece of audio.
  */
-export const NON_INSTRUMENT_SUBJECTS = ['metronome', 'lyrics'] as const
+export const NON_INSTRUMENT_SUBJECTS = ['metronome'] as const
 
 export type InstrumentSubject = Exclude<
   ChannelSubject,
@@ -49,8 +48,7 @@ export const CHANNEL_SUBJECT_COLOR: Record<ChannelSubject, string> = {
   piano: '#a78bfa',
   synth: '#22d3ee',
   other: '#b08968',
-  metronome: '#8b95a5',
-  lyrics: '#2dd4bf'
+  metronome: '#8b95a5'
 }
 
 export const CHANNEL_SUBJECT_LABEL: Record<ChannelSubject, string> = {
@@ -63,6 +61,5 @@ export const CHANNEL_SUBJECT_LABEL: Record<ChannelSubject, string> = {
   piano: 'Piano',
   synth: 'Synth',
   other: 'Other / unknown',
-  metronome: 'Metronome',
-  lyrics: 'Lyrics'
+  metronome: 'Metronome'
 }

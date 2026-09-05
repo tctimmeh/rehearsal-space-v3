@@ -15,6 +15,7 @@ import {
   ZOOM_SPEED_MIN,
   ZOOM_SPEED_STEP
 } from '@shared/config'
+import { ENGAGED_COLORS, engagedTheme } from '@core/ui/accents'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { Button, Knob, Modal } from '../primitives'
@@ -64,7 +65,7 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
     >
       <section className="setting-section">
         <div className="section-head">
-          <h4>Interface size</h4>
+          <h4>Appearance</h4>
         </div>
         <div className="setting-row">
           <Knob
@@ -77,6 +78,39 @@ export function SettingsModal({ onDismiss }: { onDismiss: () => void }) {
             onChange={turn('uiScale')}
             format={percent}
           />
+        </div>
+        <div className="setting-row setting-row--tight">
+          <span className="setting-label">Button light</span>
+          <div className="swatches" role="radiogroup" aria-label="Button light">
+            {ENGAGED_COLORS.map(({ id, label, hex }) => {
+              const chosen = config.engagedColor === id
+              const lit = engagedTheme(hex)
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={chosen}
+                  aria-label={label}
+                  title={label}
+                  className="raised swatch"
+                  data-engaged={chosen}
+                  /* Each one lit with its own colour rather than the chosen
+                     one, so the row shows what it is offering. */
+                  style={
+                    {
+                      '--engaged': lit.color,
+                      '--engaged-rim': lit.rim,
+                      '--engaged-glow': lit.glow
+                    } as React.CSSProperties
+                  }
+                  onClick={() => void set({ engagedColor: id })}
+                >
+                  <span className="swatch__dot" style={{ background: hex }} />
+                </button>
+              )
+            })}
+          </div>
         </div>
       </section>
 

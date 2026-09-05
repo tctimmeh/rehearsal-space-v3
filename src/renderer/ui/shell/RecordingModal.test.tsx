@@ -9,6 +9,7 @@ import { installBridge } from '@renderer/testing/bridge'
 import { RecordingModal } from './RecordingModal'
 import { DEFAULT_NUDGE } from '@core/keys/hotkeys'
 import { DEFAULT_NEEDLE } from '@core/music/steady'
+import { ENGAGED_COLOR_DEFAULT } from '@core/ui/accents'
 
 const fake = vi.hoisted(() => {
   const listeners = new Set<(levels: readonly number[]) => void>()
@@ -66,6 +67,7 @@ const config = (patch: Partial<AppConfig> = {}): AppConfig => ({
   libraryPath: '/songs',
   lastSongId: null,
   uiScale: 1.2,
+  engagedColor: ENGAGED_COLOR_DEFAULT,
   panSpeed: 0.1,
   zoomSpeed: 0.15,
   inputDeviceId: '',
