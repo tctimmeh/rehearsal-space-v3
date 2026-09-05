@@ -1493,3 +1493,82 @@ describe('who gets the cursor', () => {
     expect(document.activeElement).not.toBe(sheet())
   })
 })
+
+/*
+ * A bend says the note is bent and a release that it comes back down. How far
+ * is deliberately not written: the column after a note is all the room there
+ * is, and everything tried for an amount cost more than it was worth.
+ */
+describe('bends', () => {
+  it('marks a note as bent', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+
+    press('b')
+
+    expect(strings()).toContain('-7b-')
+  })
+
+  it('marks it off again', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('b')
+
+    press('b')
+
+    expect(strings()).not.toContain('b')
+  })
+
+  it('releases a bend back down', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('b')
+    press('ArrowRight')
+
+    press('r')
+
+    expect(strings()).toContain('-7b-r')
+  })
+
+  /* Which string bends is never in doubt, which a row above the staff could
+     not have said. */
+  it('bends the string the cursor is on and no other', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('ArrowDown')
+    press('7')
+
+    press('b')
+
+    const rows = strings().split('\n')
+    expect(rows[1]).toContain('7b')
+    expect(rows[0]).not.toContain('b')
+  })
+
+  /* The whole reason for writing it in the column that is already there. */
+  it('does not make the bar any wider', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    const before = strings().split('\n')[0]?.length
+
+    press('b')
+
+    expect(strings().split('\n')[0]?.length).toBe(before)
+  })
+
+  it('writes it to the file', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    press('b')
+
+    await useTabs.getState().flush()
+
+    const written = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
+    expect(written).toContain('7b')
+  })
+})

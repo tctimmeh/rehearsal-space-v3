@@ -49,6 +49,8 @@ const KEYS: TabKey[] = [
   { keys: 'P', does: 'Damp it with the heel of the hand, or let it ring', group: 'Writing notes' },
   { keys: 'V', does: 'Half a beat more vibrato', group: 'Writing notes' },
   { keys: 'Shift + V', does: 'Half a beat less', group: 'Writing notes' },
+  { keys: 'B', does: 'Bend the note up', group: 'Writing notes' },
+  { keys: 'R', does: 'Release a bend back down', group: 'Writing notes' },
   { keys: '.', does: 'Staccato: cut the note short', group: 'Writing notes' },
   { keys: 'Ctrl + Z', does: 'Undo', group: 'Writing notes' },
   { keys: 'Ctrl + Y', does: 'Redo', group: 'Writing notes' },

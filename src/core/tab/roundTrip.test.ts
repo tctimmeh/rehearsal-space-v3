@@ -17,6 +17,7 @@ const sketch = {
   sixteenths: ['  1 e & 2   3   4', '|-4-5---------------|'],
   techniques: ['  1   2   3   4', '|-4/7-7\\4-4^5^4---|'],
   slideIntoNothing: ['  1   2   3   4', '|--/7-------------|'],
+  bends: ['  1   2   3   4', '|-7b---r--9b------|'],
   chords: ['  Am      E', '  1   2   3   4', '|-----------------|']
 } as const
 
@@ -236,7 +237,7 @@ describe('any document at all', () => {
       for (const slot of beat.slots) {
         for (let string = 0; string < strings; string += 1) {
           if (random() < 0.18) slot.frets[string] = String(Math.floor(random() * 25))
-          if (random() < 0.06) slot.after[string] = pick(['/', '\\', '^', '.'] as const)
+          if (random() < 0.06) slot.after[string] = pick(['/', '\\', '^', '.', 'b', 'r'] as const)
         }
       }
       if (random() < 0.12) beat.chord = pick(['Am', 'E', 'Dm7', 'C', 'G/B'])
@@ -254,5 +255,42 @@ describe('any document at all', () => {
       const once = render(doc)
       expect(render(parse(once))).toBe(once)
     }
+  })
+})
+
+/*
+ * A bend is a character in the column that follows the note, which every slot
+ * has already. The whole reason for writing it that way rather than as `7b9`
+ * is that it costs nothing, so that is worth holding to.
+ */
+describe('what a bend costs', () => {
+  /* Six strings, with the second one carrying whatever is passed in. */
+  const bar = (line: string): string =>
+    [
+      '  1   2   3   4',
+      '|-----------------|',
+      `|${line}|`,
+      '|-----------------|',
+      '|-----------------|',
+      '|-----------------|',
+      '|-----------------|'
+    ].join('\n') + '\n'
+
+  it('takes up no more room than the same bar without one', () => {
+    const plain = bar('-7-------9-------')
+    const bent = bar('-7b------9b------')
+
+    expect(render(parse(bent))).toBe(bent)
+    expect(render(parse(bent)).length).toBe(render(parse(plain)).length)
+  })
+
+  it('is read back as a bend and a release on the string it was written on', () => {
+    const doc = parse(bar('-7b---r----------'))
+    const beats = doc.bars[0]?.beats
+
+    expect(beats?.[0]?.slots[0]?.after[1]).toBe('b')
+    expect(beats?.[1]?.slots[0]?.after[1]).toBe('r')
+    /* And on no other string. */
+    expect(beats?.[0]?.slots[0]?.after[0]).toBe('-')
   })
 })

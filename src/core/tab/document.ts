@@ -25,10 +25,20 @@ export type Fret = string
  * the only room text tablature has: there is nowhere above or below a line of
  * dashes to put a dot. Only one of them fits, which is the honest limit of
  * writing music this way — a note is slid into or cut short, not both.
+ *
+ * A bend says that the note is bent and not how far, and a release that it
+ * comes back down. How far was tried three ways — fractions above the staff,
+ * spelled out in ASCII, and a letter apiece for a quarter, a half and a whole
+ * tone — and every one of them cost more than it was worth for something used
+ * this rarely: the first is too small to read, the second spills across
+ * columns and collides when two bends are close, and the third is four
+ * near-identical characters to remember. Text tablature gives up note
+ * durations and dynamics already; how far a bend goes is left to the ear and
+ * the recording, which is where it was going to be learned from anyway.
  */
-export type Technique = '-' | '/' | '\\' | '^' | '.'
+export type Technique = '-' | '/' | '\\' | '^' | '.' | 'b' | 'r'
 
-export const TECHNIQUES: Technique[] = ['-', '/', '\\', '^', '.']
+export const TECHNIQUES: Technique[] = ['-', '/', '\\', '^', '.', 'b', 'r']
 
 /**
  * Where in a beat a slot falls: the beat itself, its `e`, its `&`, or its `a`.
