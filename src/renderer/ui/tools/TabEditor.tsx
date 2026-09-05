@@ -8,6 +8,7 @@ import {
   moveRight,
   moveUp,
   chordAt,
+  beatByLine,
   markWith,
   nameSection,
   openSection,
@@ -429,6 +430,23 @@ export function TabEditor() {
         Math.min(totalBeats(doc) - 1, chosen.to + (event.key === 'ArrowRight' ? 1 : -1))
       )
       setSpan({ ...chosen, to })
+      return true
+    }
+
+    /* Up and down reach the system above or below, taking the selection with
+       them. They keep hold of it either way: pressing an arrow while picking
+       beats out is not a way of asking to stop. */
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      const end = beatAtIndex(doc, chosen.to)
+      if (end !== null) {
+        const moved = beatByLine(
+          doc,
+          { bar: end.bar, beat: end.beat, slot: 0, string: cursor.string },
+          event.key === 'ArrowUp' ? -1 : 1,
+          columns
+        )
+        if (moved !== null) setSpan({ ...chosen, to: beatIndexOf(doc, moved) })
+      }
       return true
     }
 

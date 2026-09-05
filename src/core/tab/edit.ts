@@ -172,6 +172,30 @@ function moveByLine(state: Editing, by: -1 | 1, wrapAt: number): Editing {
   return cursor === null ? state : { ...state, cursor }
 }
 
+/**
+ * The beat one system up or down, at the same column.
+ *
+ * Picking out beats has nothing to do with strings — a selection is every
+ * string at once — so up and down cross straight to the system above or below
+ * rather than stepping through the strings on the way there. Null when there
+ * is no system that way, which is not the same as not moving: whoever asked
+ * is still picking beats out.
+ */
+export function beatByLine(
+  doc: TabDoc,
+  cursor: Cursor,
+  by: -1 | 1,
+  wrapAt = WRAP_COLUMNS
+): Cursor | null {
+  const place = placeOf(doc, cursor, wrapAt)
+  if (place === null) return null
+
+  const next = laidOut(doc, wrapAt)[place.system + by]
+  if (next === undefined) return null
+
+  return cursorAtPlace(doc, next.top, place.column, wrapAt)
+}
+
 export const moveUp = (state: Editing, wrapAt = WRAP_COLUMNS): Editing =>
   moveByLine(state, -1, wrapAt)
 

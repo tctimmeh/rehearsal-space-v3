@@ -1764,3 +1764,74 @@ describe('triplets', () => {
     expect(written).toContain('-1-2-')
   })
 })
+
+/*
+ * Picking beats out is about beats, not strings, so up and down reach the
+ * system above or below rather than stepping through the strings — and they
+ * never put the selection down, since pressing an arrow while choosing is not
+ * a way of asking to stop.
+ */
+describe('up and down while picking out beats', () => {
+  /* Two systems: opening a section starts a new one. */
+  const twoSystems = async (user: ReturnType<typeof userEvent.setup>) => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+    for (let step = 0; step < 8; step += 1) press('ArrowRight')
+    press('t', { ctrlKey: true })
+    await user.type(screen.getByLabelText('Section words'), 'Chorus:')
+    fireEvent.keyDown(screen.getByLabelText('Section words'), { key: 'Escape' })
+  }
+
+  const picked = () => sheet().querySelectorAll('.tablature__picked').length
+
+  it('holds on to the selection', async () => {
+    const user = userEvent.setup()
+    await twoSystems(user)
+    press('s')
+    expect(picked()).toBeGreaterThan(0)
+
+    press('ArrowDown')
+
+    expect(picked()).toBeGreaterThan(0)
+  })
+
+  it('reaches the system below, taking the selection with it', async () => {
+    const user = userEvent.setup()
+    await twoSystems(user)
+    /* Back up into the first system, and pick from there. */
+    for (let step = 0; step < 12; step += 1) press('ArrowLeft')
+    press('s')
+    const before = picked()
+
+    press('ArrowDown')
+
+    expect(picked()).toBeGreaterThan(before)
+  })
+
+  /* Nothing below is not a reason to put the selection down. */
+  it('keeps it when there is no system that way', async () => {
+    const user = userEvent.setup()
+    await twoSystems(user)
+    press('s')
+    const before = picked()
+
+    press('ArrowDown')
+    press('ArrowDown')
+
+    expect(picked()).toBe(before)
+  })
+
+  it('comes back up again', async () => {
+    const user = userEvent.setup()
+    await twoSystems(user)
+    for (let step = 0; step < 12; step += 1) press('ArrowLeft')
+    press('s')
+    press('ArrowDown')
+    const reached = picked()
+
+    press('ArrowUp')
+
+    expect(picked()).toBeLessThan(reached)
+  })
+})
