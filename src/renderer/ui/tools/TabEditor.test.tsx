@@ -1853,3 +1853,70 @@ describe('up and down while picking out beats', () => {
     expect(picked()).toBeLessThan(reached)
   })
 })
+
+/*
+ * Shift and an arrow makes room beside the cursor. Where there is already a
+ * sixteenth it halves that instead, which is a thirty-second — and nothing is
+ * written over it, since what falls between two marks has no name.
+ */
+describe('thirty-seconds', () => {
+  const marks = () =>
+    [...sheet().querySelectorAll('.tablature__line')]
+      .map((line) => line.textContent ?? '')
+      .find((line) => /\d/.test(line) && !line.startsWith('|')) ?? ''
+
+  it('makes room for a sixteenth the first time', () => {
+    render(<TabEditor />)
+    sheet().focus()
+
+    press('ArrowRight', { shiftKey: true })
+
+    expect(marks()).toContain('1 e')
+  })
+
+  it('halves it again the second time', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('ArrowRight', { shiftKey: true })
+
+    press('ArrowRight', { shiftKey: true })
+
+    const doc = useTabs.getState().doc
+    expect(doc.bars[0]?.beats[0]?.slots.map((slot) => slot.at)).toEqual([0, 2, 3, 4])
+  })
+
+  it('writes nothing over it', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('ArrowRight', { shiftKey: true })
+    press('ArrowRight', { shiftKey: true })
+
+    /* Still the same three marks the beat always had. */
+    expect(marks().replace(/[^ea&]/g, '')).toBe('ea&'.replace('a', ''))
+  })
+
+  it('stands the cursor on the new place, ready to type into', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('ArrowRight', { shiftKey: true })
+    press('ArrowRight', { shiftKey: true })
+
+    press('7')
+
+    const doc = useTabs.getState().doc
+    expect(doc.bars[0]?.beats[0]?.slots[2]?.frets[0]).toBe('7')
+  })
+
+  it('writes it to the file', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('ArrowRight', { shiftKey: true })
+    press('ArrowRight', { shiftKey: true })
+    press('7')
+
+    await useTabs.getState().flush()
+
+    const written = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
+    expect(written.split('\n')[0]).toContain('1 e')
+  })
+})

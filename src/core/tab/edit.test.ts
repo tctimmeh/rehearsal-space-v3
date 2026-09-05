@@ -20,6 +20,7 @@ import {
   typeMute,
   type Editing
 } from './edit'
+import { divideBeats } from './clip'
 import { cursorAtPlace, placeOf, render } from './render'
 
 const start = (bars = 1): Editing => ({
@@ -343,10 +344,45 @@ describe('making room for a sixteenth', () => {
     expect(subdivide(start(), -1)).toEqual(start())
   })
 
-  it('does not open one twice', () => {
+  /*
+   * Pressing it again where there is already a sixteenth halves that instead.
+   * The beat is counted in eighths from then on, so the places that were 0, 1
+   * and 2 become 0, 2 and 4, and the new one falls at 3 — between the `e` and
+   * the `&`, with nothing written over it.
+   */
+  it('halves it again into a thirty-second', () => {
     const once = subdivide(start(), 1)
 
-    expect(positions(subdivide(once, 1))).toEqual([0, 1, 2])
+    const twice = subdivide(once, 1)
+
+    expect(positions(twice)).toEqual([0, 2, 3, 4])
+    expect(twice.doc.bars[0]?.beats[0]?.division).toBe(8)
+    expect(twice.cursor.slot).toBe(2)
+  })
+
+  it('opens the same gap from the right-hand side of it', () => {
+    let state = subdivide(start(), 1)
+    state = moveRight(state)
+
+    state = subdivide(state, -1)
+
+    expect(positions(state)).toEqual([0, 2, 3, 4])
+  })
+
+  /* Halving a thirty-second would be a sixty-fourth, which is finer than the
+     drawing can say. */
+  it('goes no finer than that', () => {
+    const twice = subdivide(subdivide(start(), 1), 1)
+
+    expect(positions(subdivide(twice, 1))).toEqual([0, 2, 3, 4])
+  })
+
+  /* A beat in threes is divided with `t`, and halving one is not what the
+     arrows are for. */
+  it('leaves a beat in threes alone', () => {
+    const threes = { ...start(), doc: divideBeats(start().doc, { from: 0, to: 0 }) }
+
+    expect(subdivide(threes, 1)).toEqual(threes)
   })
 })
 

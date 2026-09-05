@@ -220,19 +220,6 @@ function timesRound(markers: string | null, from: number, to: number): number | 
   return null
 }
 
-/**
- * Which of the four sixteenth positions a slot is standing on.
- *
- * Written above it when the beat holds more than two slots, and otherwise not
- * written at all — with two there is only one thing they can be, the beat and
- * its eighth.
- */
-function sixteenthAt(markers: string | null, column: number): Sixteenth {
-  const mark = markers?.[column]
-  if (mark === 'e') return 1
-  if (mark === 'a') return 3
-  return OFF_BEAT
-}
 
 /**
  * Groups a bar's slots into beats.
@@ -278,39 +265,80 @@ function readHand(slots: Slot[], columns: number[], hand: string | null): void {
 function markPositions(beats: Beat[], columns: number[], markers: string | null): void {
   let index = 0
   for (const beat of beats) {
-    const division = divisionOf(beat, columns.slice(index, index + beat.slots.length), markers)
-    if (division === undefined) {
-      beat.slots.forEach((slot, offset) => {
-        const column = columns[index + offset] ?? 0
-        /* With two slots there is nothing to disambiguate: they are the beat
-           and its eighth, and nothing is written above them to say so. */
-        slot.at = offset === 0 ? ON_BEAT : sixteenthAt(markers, column)
-      })
-    } else {
-      beat.division = division
+    const marks = beat.slots.map((_, offset) => markers?.[columns[index + offset] ?? 0] ?? ' ')
+    const threes = threesFrom(beat, marks)
+
+    if (threes !== undefined) {
+      beat.division = threes
       beat.slots.forEach((slot, offset) => {
         slot.at = offset
       })
+    } else {
+      const { division, positions } = halvesFrom(beat, marks)
+      if (division !== undefined) beat.division = division
+      beat.slots.forEach((slot, offset) => {
+        slot.at = positions[offset] ?? ON_BEAT
+      })
     }
+
     index += beat.slots.length
   }
 }
 
 /**
- * Whether a beat was written in threes, and how finely.
+ * Threes, where nothing else could have been drawn this way.
  *
- * Nothing is written above a beat in threes, so it is told from a beat in
- * halves by how many slots it holds: three or six, where halves hold two, or
- * three or four with the `e` and the `a` written over them. Every beat in
- * halves that holds three slots has one or the other of those, so a three with
- * neither can only be a triplet.
+ * Nothing at all is written over a beat in threes, and every beat in halves
+ * holding three slots has an `e` or an `a` over one of them. Sixes carry the
+ * one `&` where their second three begins, and nothing else.
  */
-function divisionOf(beat: Beat, columns: number[], markers: string | null): Division | undefined {
-  const marks = columns.map((column) => markers?.[column] ?? ' ')
+function threesFrom(beat: Beat, marks: string[]): Division | undefined {
   if (marks.some((mark) => mark === 'e' || mark === 'a')) return undefined
-  if (beat.slots.length === 3) return 3
-  if (beat.slots.length === 6) return 6
-  return undefined
+  const ampersands = marks.filter((mark) => mark === '&').length
+  if (ampersands === 0) return beat.slots.length === 3 ? 3 : undefined
+  return ampersands === 1 && beat.slots.length === 6 && marks[3] === '&' ? 6 : undefined
+}
+
+/**
+ * Where the slots of a beat in halves fall.
+ *
+ * The `e`, `&` and `a` pin the quarters of the beat. Anything unmarked between
+ * two of them is a thirty-second — there is nothing written over one, because
+ * there is nothing to call it — and one of those anywhere in the beat means
+ * every place in it is counted in eighths of a beat rather than quarters.
+ */
+function halvesFrom(
+  beat: Beat,
+  marks: string[]
+): { division: Division | undefined; positions: number[] } {
+  /* Two slots with nothing written over them can only be the beat and its
+     eighth: that is what a beat is, and nothing is drawn to say so. The first
+     slot is passed over — what stands there is the beat's own number. */
+  if (beat.slots.length === 2 && marks.slice(1).every((mark) => mark === ' ')) {
+    return { division: undefined, positions: [ON_BEAT, OFF_BEAT] }
+  }
+
+  const quarters: number[] = []
+  const between: number[] = []
+  let quarter = 0
+  let sub = 0
+
+  marks.forEach((mark, offset) => {
+    if (offset === 0) sub = 0
+    else if (mark === 'e') (quarter = 1), (sub = 0)
+    else if (mark === '&') (quarter = 2), (sub = 0)
+    else if (mark === 'a') (quarter = 3), (sub = 0)
+    else sub += 1
+    quarters.push(quarter)
+    between.push(sub)
+  })
+
+  const finer = between.some((offset) => offset > 0)
+  const step = finer ? 2 : 1
+  return {
+    division: finer ? 8 : undefined,
+    positions: quarters.map((held, offset) => held * step + (between[offset] ?? 0))
+  }
 }
 
 const evenBoundaries = (count: number): number[] =>

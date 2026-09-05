@@ -399,3 +399,73 @@ describe('triplets', () => {
     expect(bar?.beats[1]?.slots.map((slot) => slot.frets[1])).toEqual([null, '3', null])
   })
 })
+
+/*
+ * A thirty-second is a place between two of the four a beat already has. The
+ * `e`, `&` and `a` do not move and nothing is written over the new one: there
+ * is no name for what falls halfway between two marks, and none is needed.
+ */
+describe('thirty-seconds', () => {
+  const bar = (markers: string, line: string): string =>
+    [
+      markers,
+      '|---------------------|',
+      `|${line}|`,
+      '|---------------------|',
+      '|---------------------|',
+      '|---------------------|',
+      '|---------------------|'
+    ].join('\n') + '\n'
+
+  /* Beat one holds its beat, its `e`, a thirty-second, and its `&`. */
+  const sketch = bar('  1 e   & 2   3   4', '-1-2-3-4-------------')
+
+  it('comes back the same', () => {
+    expect(render(parse(sketch))).toBe(sketch)
+  })
+
+  it('is read as a beat counted in eighths', () => {
+    const beat = parse(sketch).bars[0]?.beats[0]
+
+    expect(beat?.division).toBe(8)
+    expect(beat?.slots.map((slot) => slot.at)).toEqual([0, 2, 3, 4])
+  })
+
+  /* The one between the `e` and the `&` has nothing over it, which is what
+     tells it from the `e` and the `&` themselves. */
+  it('writes no marker over it', () => {
+    const marks = render(parse(sketch)).split('\n')[0] ?? ''
+
+    expect(marks).toBe('  1 e   & 2   3   4')
+  })
+
+  it('leaves the other beats counted in quarters', () => {
+    expect(parse(sketch).bars[0]?.beats[1]?.division).toBeUndefined()
+    expect(parse(sketch).bars[0]?.beats[1]?.slots.map((slot) => slot.at)).toEqual([0, 2])
+  })
+})
+
+/*
+ * Where a thirty-second falls is counted from the marked place before it, so
+ * that place is kept even when nothing is played on it. Dropping it as an
+ * empty sixteenth would put the note back an eighth of a beat early.
+ */
+describe('a thirty-second with nothing on the sixteenth before it', () => {
+  const bar = (markers: string, line: string): string =>
+    [markers, `|${line}|`].join('\n') + '\n'
+
+  /* The note stands at the third place of the beat's eight, two columns past
+     the `e` it is counted from. */
+  const sketch = bar('  1 e   & 2   3   4', '-----1---------------')
+
+  it('comes back the same', () => {
+    expect(render(parse(sketch))).toBe(sketch)
+  })
+
+  it('is read where it was written, not an eighth early', () => {
+    const beat = parse(sketch).bars[0]?.beats[0]
+
+    expect(beat?.division).toBe(8)
+    expect(beat?.slots.find((slot) => slot.frets[0] === '1')?.at).toBe(3)
+  })
+})

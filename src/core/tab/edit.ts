@@ -321,46 +321,86 @@ function withBeat(doc: TabDoc, at: Cursor, change: (beat: Beat) => Beat): TabDoc
   }
 }
 
-const holds = (beat: Beat, at: Sixteenth): boolean => beat.slots.some((slot) => slot.at === at)
+const holds = (beat: Beat, at: number): boolean => beat.slots.some((slot) => slot.at === at)
 
-const withSixteenth = (beat: Beat, at: Sixteenth, strings: number): Beat => ({
+const gridOf = (beat: Beat): number => beat.division ?? 4
+
+const withSlotAt = (beat: Beat, at: number, strings: number): Beat => ({
   ...beat,
   slots: [...beat.slots, emptySlot(strings, at)].sort((one, other) => one.at - other.at)
 })
 
+/** The same beat counted in eighths rather than quarters: every place doubles. */
+const inEighths = (beat: Beat): Beat => ({
+  ...beat,
+  division: 8,
+  slots: beat.slots.map((slot) => ({ ...slot, at: slot.at * 2 }))
+})
+
 /**
- * Makes room for a sixteenth beside the cursor, and stands on it.
+ * Makes room between two places in a beat, and stands the cursor on it.
+ *
+ * Halfway is a place the beat already has whenever there is one to spare — the
+ * `e` between the beat and its `&`, the `a` after it. Where there is not, the
+ * beat is counted in eighths from then on and the room appears between two
+ * places that used to be next to each other. That is a thirty-second, and
+ * nothing is written over it: the `e`, `&` and `a` have not moved, and what
+ * falls between two of them has no name to write.
+ */
+function makeRoom(state: Editing, at: Cursor, from: number, to: number): Editing {
+  const beat = state.doc.bars[at.bar]?.beats[at.beat]
+  if (beat === undefined) return state
+
+  const gap = to - from
+  const finer = gap < 2
+  /* Thirty-seconds are as fine as this goes. Halving them again would be
+     sixty-fourths, which is more than the drawing can say. */
+  if (finer && gridOf(beat) !== 4) return state
+
+  const wanted = finer ? from * 2 + 1 : from + gap / 2
+  const doc = holds(beat, wanted)
+    ? state.doc
+    : withBeat(state.doc, at, (found) =>
+        withSlotAt(finer ? inEighths(found) : found, wanted, state.doc.strings)
+      )
+
+  const slots = doc.bars[at.bar]?.beats[at.beat]?.slots ?? []
+  const slot = slots.findIndex((one) => one.at === wanted)
+  return { doc, cursor: { ...at, slot: Math.max(0, slot) } }
+}
+
+/**
+ * Makes room beside the cursor, and stands on it.
  *
  * A beat is the beat and its eighth; the two sixteenths between them are added
- * one at a time, which is what the arrow means. To the right of the beat is
- * its `e`, to the right of the eighth is its `a`, and to the left of a beat is
- * the `a` of the beat before it — so the same gap can be opened from either
- * side of it, whichever the cursor happens to be standing on.
+ * one at a time, which is what the arrow means. Pressing it again where there
+ * is already a sixteenth divides that in half instead — the beat is counted in
+ * eighths and the new place falls between two that were next to each other.
+ * To the left of a beat is the end of the one before it, so the same gap can
+ * be opened from either side of it, whichever the cursor happens to be on.
  */
 export function subdivide(state: Editing, towards: -1 | 1): Editing {
   const { doc, cursor } = state
   const beat = doc.bars[cursor.bar]?.beats[cursor.beat]
   const here = beat?.slots[cursor.slot]
   if (beat === undefined || here === undefined) return state
+  /* A beat in threes is divided with `t`; halving one is not what it is for. */
+  if (beat.division === 3 || beat.division === 6) return state
 
-  /* To the left of a beat is the end of the one before it. */
-  if (towards === -1 && here.at === ON_BEAT) {
-    const before = beforeBeat(state)
-    return before === null ? state : subdivideAt(state, before, 3)
+  if (towards === 1) {
+    return makeRoom(state, cursor, here.at, beat.slots[cursor.slot + 1]?.at ?? gridOf(beat))
   }
 
-  const wanted: Sixteenth | null =
-    towards === 1
-      ? here.at === ON_BEAT
-        ? 1
-        : here.at === OFF_BEAT
-          ? 3
-          : null
-      : here.at === OFF_BEAT
-        ? 1
-        : null
+  if (here.at !== ON_BEAT) {
+    return makeRoom(state, cursor, beat.slots[cursor.slot - 1]?.at ?? ON_BEAT, here.at)
+  }
 
-  return wanted === null ? state : subdivideAt(state, cursor, wanted)
+  /* To the left of a beat is the end of the one before it. */
+  const before = beforeBeat(state)
+  const earlier = before === null ? undefined : doc.bars[before.bar]?.beats[before.beat]
+  if (before === null || earlier === undefined) return state
+  if (earlier.division === 3 || earlier.division === 6) return state
+  return makeRoom(state, before, earlier.slots[earlier.slots.length - 1]?.at ?? ON_BEAT, gridOf(earlier))
 }
 
 /** The last beat before the cursor's, which may be in the bar before it. */
@@ -371,19 +411,6 @@ function beforeBeat(state: Editing): Cursor | null {
   const bar = doc.bars[cursor.bar - 1]
   if (bar === undefined) return null
   return { ...cursor, bar: cursor.bar - 1, beat: bar.beats.length - 1, slot: 0 }
-}
-
-function subdivideAt(state: Editing, at: Cursor, wanted: Sixteenth): Editing {
-  const beat = state.doc.bars[at.bar]?.beats[at.beat]
-  if (beat === undefined) return state
-
-  const doc = holds(beat, wanted)
-    ? state.doc
-    : withBeat(state.doc, at, (found) => withSixteenth(found, wanted, state.doc.strings))
-
-  const slots = doc.bars[at.bar]?.beats[at.beat]?.slots ?? []
-  const slot = slots.findIndex((one) => one.at === wanted)
-  return { doc, cursor: { ...at, slot: Math.max(0, slot) } }
 }
 
 /**

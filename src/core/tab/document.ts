@@ -67,15 +67,20 @@ export const OFF_BEAT: Sixteenth = 2
 export const SIXTEENTH_MARKS: Record<Sixteenth, string> = { 0: '', 1: 'e', 2: '&', 3: 'a' }
 
 /**
- * A beat divided into threes instead of halves.
+ * How many parts a beat is cut into, when it is not the usual four.
  *
- * Three is three notes in the beat. Six is the beat split at its `&` as it
- * always could be, with each half in threes — which is what a sixteenth
- * triplet is, and why it keeps the `&` and loses the `e` and the `a`.
+ * Three is three notes in the beat, and six is the beat split at its `&` as it
+ * always could be with each half in threes — which is what a sixteenth triplet
+ * is, and why it keeps the `&` and loses the `e` and the `a`.
+ *
+ * Eight is thirty-seconds: the same four places with room between them. The
+ * `e`, `&` and `a` stay exactly where they were, on the even numbers, and
+ * nothing is written over what falls in the gaps — there is no name for it to
+ * be written with, and a note halfway between two marks needs none.
  */
-export type Division = 3 | 6
+export type Division = 3 | 6 | 8
 
-export const DIVISIONS: Division[] = [3, 6]
+export const DIVISIONS: Division[] = [3, 6, 8]
 
 /**
  * One moment: what every string is doing, and how each joins to the next.
@@ -138,8 +143,14 @@ export interface Beat {
  */
 export const markOf = (beat: Beat, at: number): string => {
   if (beat.division === undefined) return SIXTEENTH_MARKS[at as Sixteenth] ?? ''
+  if (beat.division === 8) {
+    return at % 2 === 0 ? (SIXTEENTH_MARKS[(at / 2) as Sixteenth] ?? '') : ''
+  }
   return beat.division === 6 && at === 3 ? '&' : ''
 }
+
+/** Where the `&` falls: halfway, whatever the beat is cut into. */
+export const eighthOf = (beat: Beat): number => (beat.division ?? 4) / 2
 
 /** The slots a beat in threes or sixes is made of, empty and evenly spaced. */
 export const dividedSlots = (division: Division, strings: number): Slot[] =>
@@ -352,9 +363,33 @@ function collapseBeat(beat: Beat): Beat {
   /* A beat in threes is the shape it was asked to be, all three or six slots
      of it. Dropping the empty ones would close the gaps under whoever is about
      to fill them in. */
-  if (beat.division !== undefined) return beat
-  const kept = beat.slots.filter(
-    (slot) => slot.at === ON_BEAT || slot.at === OFF_BEAT || !slotIsEmpty(slot)
+  if (beat.division === 3 || beat.division === 6) return beat
+
+  /*
+   * Nothing is written over a thirty-second, so where it falls is counted from
+   * the marked place before it: the `e` before the one at three eighths, the
+   * `a` before the one at seven. That place has to stay even when nothing is
+   * played on it, or what is read back is a note at an eighth of the beat
+   * rather than at three of them.
+   */
+  const anchors = new Set(
+    beat.slots.filter((slot) => slot.at % 2 === 1 && !slotIsEmpty(slot)).map((slot) => slot.at - 1)
   )
+  const kept = beat.slots.filter(
+    (slot) =>
+      slot.at === ON_BEAT ||
+      slot.at === eighthOf(beat) ||
+      !slotIsEmpty(slot) ||
+      (beat.division === 8 && anchors.has(slot.at))
+  )
+
+  /* Once the last thirty-second has gone the beat goes back to the four places
+     it had before, so that what is written down is the plainest thing that
+     says the same. */
+  if (beat.division === 8 && kept.every((slot) => slot.at % 2 === 0)) {
+    const { division: _finer, ...rest } = beat
+    return { ...rest, slots: kept.map((slot) => ({ ...slot, at: slot.at / 2 })) }
+  }
+
   return kept.length === beat.slots.length ? beat : { ...beat, slots: kept }
 }
