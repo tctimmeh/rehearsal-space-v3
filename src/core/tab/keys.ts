@@ -55,6 +55,7 @@ const KEYS: TabKey[] = [
   { keys: 'Ctrl + Z', does: 'Undo', group: 'Writing notes' },
   { keys: 'Ctrl + Y', does: 'Redo', group: 'Writing notes' },
 
+  { keys: 'T', does: 'Put the beat in threes, then in sixes, then back', group: 'Rhythm' },
   { keys: 'Shift + →', does: 'Divide the beat, making room for a sixteenth', group: 'Rhythm' },
   {
     keys: 'Shift + ←',

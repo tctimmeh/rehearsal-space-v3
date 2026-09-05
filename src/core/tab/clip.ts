@@ -1,4 +1,16 @@
-import { emptyBar, emptySlot, type Bar, type Beat, type Cursor, type TabDoc } from './document'
+import {
+  emptyBar,
+  emptySlot,
+  OFF_BEAT,
+  ON_BEAT,
+  slotIsEmpty,
+  type Bar,
+  type Beat,
+  type Cursor,
+  type Division,
+  type Slot,
+  type TabDoc
+} from './document'
 
 /**
  * Taking a stretch of tablature away, and putting one back.
@@ -54,8 +66,9 @@ export function copyBeats(doc: TabDoc, span: Span): Beat[] {
 
 const cloneBeat = (beat: Beat): Beat => ({
   chord: beat.chord,
+  ...(beat.division === undefined ? {} : { division: beat.division }),
   slots: beat.slots.map((slot) => ({
-    at: slot.at,
+    ...slot,
     frets: [...slot.frets],
     after: [...slot.after]
   }))
@@ -115,3 +128,70 @@ export const asDocument = (beats: Beat[], strings: number): TabDoc => ({
   strings,
   bars: [{ beats: beats.map(cloneBeat) }]
 })
+
+/** Which way round the cycle a beat goes: halves, then threes, then sixes. */
+const nextDivision = (beat: Beat | undefined): Division | undefined =>
+  beat?.division === undefined ? 3 : beat.division === 3 ? 6 : undefined
+
+const positionsFor = (division: Division | undefined): number[] =>
+  division === undefined ? [ON_BEAT, OFF_BEAT] : Array.from({ length: division }, (_, at) => at)
+
+/** Where a slot falls in its beat, as a fraction of the beat. */
+const fractionOf = (beat: Beat, slot: Slot): number => slot.at / (beat.division ?? 4)
+
+/**
+ * Puts one beat on a different grid, keeping what will fit.
+ *
+ * A note goes to whichever of the new slots falls nearest to where it was
+ * played, which is the only answer that is right for a beat that is being
+ * evenly redivided. Where two land on the same slot the earlier one keeps it:
+ * three notes do not go into two places, and something has to give.
+ */
+function redivide(beat: Beat, division: Division | undefined, strings: number): Beat {
+  const positions = positionsFor(division)
+  const grid = division ?? 4
+  const slots = positions.map((at) => emptySlot(strings, at))
+
+  for (const held of beat.slots) {
+    if (slotIsEmpty(held)) continue
+    const played = fractionOf(beat, held)
+    const best = positions.reduce(
+      (near, at, index) =>
+        Math.abs(at / grid - played) < Math.abs((positions[near] ?? 0) / grid - played) ? index : near,
+      0
+    )
+    if (slots[best] === undefined || !slotIsEmpty(slots[best] as Slot)) continue
+    slots[best] = { ...held, at: positions[best] ?? 0 }
+  }
+
+  return division === undefined
+    ? { chord: beat.chord, slots }
+    : { chord: beat.chord, slots, division }
+}
+
+/**
+ * Takes every beat in a span one step round the cycle: halves, threes, sixes.
+ *
+ * Which step is decided once, from the first beat, so that a selection moves
+ * together instead of every beat in it going its own way.
+ */
+export function divideBeats(doc: TabDoc, span: Span): TabDoc {
+  const { from, to } = ordered(span)
+  const first = beatAtIndex(doc, from)
+  const wanted = nextDivision(
+    first === null ? undefined : doc.bars[first.bar]?.beats[first.beat]
+  )
+
+  let index = 0
+  return {
+    ...doc,
+    bars: doc.bars.map((bar) => ({
+      ...bar,
+      beats: bar.beats.map((beat) => {
+        const here = index
+        index += 1
+        return here < from || here > to ? beat : redivide(beat, wanted, doc.strings)
+      })
+    }))
+  }
+}

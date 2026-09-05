@@ -1662,3 +1662,105 @@ describe('a technique before the first beat', () => {
     expect(strings().split('\n')[0]?.length).toBe(before)
   })
 })
+
+/*
+ * A beat in threes is three notes in the time of two. Six is the beat split at
+ * its `&` with each half in threes, which is what a sixteenth triplet is, and
+ * three notes across two beats is both beats in threes.
+ */
+describe('triplets', () => {
+  /* The beat numbers and whatever is written between them. */
+  const marks = () =>
+    [...sheet().querySelectorAll('.tablature__line')]
+      .map((line) => line.textContent ?? '')
+      .find((line) => /\d/.test(line) && !line.startsWith('|')) ?? ''
+
+  it('puts the beat in threes', () => {
+    render(<TabEditor />)
+    sheet().focus()
+
+    press('t')
+    press('1')
+    press('ArrowRight')
+    press('2')
+    press('ArrowRight')
+    press('3')
+
+    expect(strings()).toContain('-1-2-3-')
+  })
+
+  /* Nothing is written over a beat in threes: three notes evenly spaced
+     between two beat numbers can be nothing else. */
+  it('writes nothing above it', () => {
+    render(<TabEditor />)
+    sheet().focus()
+
+    press('t')
+
+    expect(marks()).not.toContain('e')
+    expect(marks()).not.toContain('&')
+  })
+
+  it('goes on to sixes, which keep the ampersand', () => {
+    render(<TabEditor />)
+    sheet().focus()
+
+    press('t')
+    press('t')
+
+    expect(marks()).toContain('&')
+    expect(marks()).not.toContain('e')
+  })
+
+  it('comes back to halves', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    const before = strings().split('\n')[0]
+
+    press('t')
+    press('t')
+    press('t')
+
+    expect(strings().split('\n')[0]).toBe(before)
+  })
+
+  it('keeps a note that was already there', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('7')
+
+    press('t')
+
+    expect(strings()).toContain('-7-')
+  })
+
+  /* Three notes across two beats: the quarter-note triplet, made by picking
+     out two beats and putting both of them in threes. */
+  it('puts every beat picked out into threes', () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('s')
+    press('ArrowRight')
+
+    press('t')
+
+    const doc = useTabs.getState().doc
+    expect(doc.bars[0]?.beats[0]?.division).toBe(3)
+    expect(doc.bars[0]?.beats[1]?.division).toBe(3)
+    expect(doc.bars[0]?.beats[2]?.division).toBeUndefined()
+  })
+
+  it('writes it to the file', async () => {
+    render(<TabEditor />)
+    sheet().focus()
+    press('t')
+    press('1')
+    press('ArrowRight')
+    press('2')
+
+    await useTabs.getState().flush()
+
+    const written = vi.mocked(window.rehearsal.library.writeTab).mock.calls.at(-1)?.[2] ?? ''
+    expect(written).toContain('-1-2-')
+  })
+})

@@ -3,7 +3,7 @@ import {
   OPENING,
   beatCount,
   isMiddleString,
-  SIXTEENTH_MARKS,
+  markOf,
   vibratoWidth,
   type Bar,
   type Beat,
@@ -190,9 +190,12 @@ function markerLine(system: System): string {
     let slot = 0
     bar.beats.forEach((beat, index) => {
       place(line, at + (columns[slot] ?? 0), String(index + 1))
-      if (beat.slots.length > 2) {
+      /* A beat in halves says nothing about its `&` — that is what an eighth
+         is — and only shows it once it has been divided further. A beat in
+         sixes always shows it: it is where its second three begins. */
+      if (beat.division !== undefined || beat.slots.length > 2) {
         beat.slots.forEach((held, offset) => {
-          const mark = SIXTEENTH_MARKS[held.at]
+          const mark = markOf(beat, held.at)
           if (mark !== '') place(line, at + (columns[slot + offset] ?? 0), mark)
         })
       }

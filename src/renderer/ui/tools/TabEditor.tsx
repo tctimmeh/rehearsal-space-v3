@@ -28,6 +28,7 @@ import {
   setStrings,
   STRINGS_MAX,
   STRINGS_MIN,
+  OPENING,
   TECHNIQUES,
   type Beat,
   type Cursor,
@@ -38,6 +39,7 @@ import {
   asDocument,
   beatAtIndex,
   beatIndexOf,
+  divideBeats,
   clearBeats,
   copyBeats,
   pasteBeats,
@@ -397,6 +399,21 @@ export function TabEditor() {
     if (place !== null) setCursor({ ...cursor, bar: place.bar, beat: place.beat, slot: 0 })
   }
 
+  /**
+   * Takes beats one step round the cycle of halves, threes and sixes.
+   *
+   * The cursor comes with them: a beat in sixes has slots a beat in halves has
+   * no room for, and cycling back would leave the cursor standing past the end
+   * of the beat it is in.
+   */
+  const divide = (chosen: Span): void => {
+    const divided = divideBeats(doc, chosen)
+    const beat = divided.bars[cursor.bar]?.beats[cursor.beat]
+    const last = (beat?.slots.length ?? 1) - 1
+    const slot = cursor.slot === OPENING ? OPENING : Math.max(0, Math.min(cursor.slot, last))
+    apply({ doc: divided, cursor: { ...cursor, slot } }, false)
+  }
+
   const selectKeys = (event: React.KeyboardEvent, chosen: Span): boolean => {
     const state: Editing = { doc, cursor }
     const key = event.key.toLowerCase()
@@ -433,6 +450,13 @@ export function TabEditor() {
     if (event.key === 'Delete' || event.key === 'Backspace') {
       apply({ ...state, doc: clearBeats(doc, chosen) }, false)
       leaveSelection(Math.min(chosen.from, chosen.to))
+      return true
+    }
+
+    /* The selection stays put, so pressing it again carries the whole of it on
+       round the cycle. */
+    if (!held && key === 't') {
+      divide(chosen)
       return true
     }
 
@@ -573,6 +597,13 @@ export function TabEditor() {
 
     if (event.key === 'p' || event.key === 'P') {
       apply(palmMute(state), false)
+      event.preventDefault()
+      return
+    }
+
+    if (event.key === 't' || event.key === 'T') {
+      const at = beatIndexOf(doc, cursor)
+      divide({ from: at, to: at })
       event.preventDefault()
       return
     }

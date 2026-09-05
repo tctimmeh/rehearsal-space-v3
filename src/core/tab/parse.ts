@@ -7,6 +7,7 @@ import {
   type Beat,
   type Bar,
   type Fret,
+  type Division,
   type Sixteenth,
   type Slot,
   type TabDoc,
@@ -277,14 +278,39 @@ function readHand(slots: Slot[], columns: number[], hand: string | null): void {
 function markPositions(beats: Beat[], columns: number[], markers: string | null): void {
   let index = 0
   for (const beat of beats) {
-    beat.slots.forEach((slot, offset) => {
-      const column = columns[index + offset] ?? 0
-      /* With two slots there is nothing to disambiguate: they are the beat and
-         its eighth, and nothing is written above them to say so. */
-      slot.at = offset === 0 ? ON_BEAT : sixteenthAt(markers, column)
-    })
+    const division = divisionOf(beat, columns.slice(index, index + beat.slots.length), markers)
+    if (division === undefined) {
+      beat.slots.forEach((slot, offset) => {
+        const column = columns[index + offset] ?? 0
+        /* With two slots there is nothing to disambiguate: they are the beat
+           and its eighth, and nothing is written above them to say so. */
+        slot.at = offset === 0 ? ON_BEAT : sixteenthAt(markers, column)
+      })
+    } else {
+      beat.division = division
+      beat.slots.forEach((slot, offset) => {
+        slot.at = offset
+      })
+    }
     index += beat.slots.length
   }
+}
+
+/**
+ * Whether a beat was written in threes, and how finely.
+ *
+ * Nothing is written above a beat in threes, so it is told from a beat in
+ * halves by how many slots it holds: three or six, where halves hold two, or
+ * three or four with the `e` and the `a` written over them. Every beat in
+ * halves that holds three slots has one or the other of those, so a three with
+ * neither can only be a triplet.
+ */
+function divisionOf(beat: Beat, columns: number[], markers: string | null): Division | undefined {
+  const marks = columns.map((column) => markers?.[column] ?? ' ')
+  if (marks.some((mark) => mark === 'e' || mark === 'a')) return undefined
+  if (beat.slots.length === 3) return 3
+  if (beat.slots.length === 6) return 6
+  return undefined
 }
 
 const evenBoundaries = (count: number): number[] =>

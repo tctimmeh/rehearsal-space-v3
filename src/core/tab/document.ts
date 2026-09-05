@@ -67,6 +67,17 @@ export const OFF_BEAT: Sixteenth = 2
 export const SIXTEENTH_MARKS: Record<Sixteenth, string> = { 0: '', 1: 'e', 2: '&', 3: 'a' }
 
 /**
+ * A beat divided into threes instead of halves.
+ *
+ * Three is three notes in the beat. Six is the beat split at its `&` as it
+ * always could be, with each half in threes — which is what a sixteenth
+ * triplet is, and why it keeps the `&` and loses the `e` and the `a`.
+ */
+export type Division = 3 | 6
+
+export const DIVISIONS: Division[] = [3, 6]
+
+/**
  * One moment: what every string is doing, and how each joins to the next.
  *
  * A technique belongs to a string rather than to the moment, because a slide
@@ -75,7 +86,8 @@ export const SIXTEENTH_MARKS: Record<Sixteenth, string> = { 0: '', 1: 'e', 2: '&
  * which is somewhere on one string.
  */
 export interface Slot {
-  at: Sixteenth
+  /** Which of the beat's divisions this falls on, counted from the beat. */
+  at: number
   /** One entry per string, top row first. Null is a string not played. */
   frets: (Fret | null)[]
   after: Technique[]
@@ -106,7 +118,32 @@ export interface Beat {
   slots: Slot[]
   /** Written above the beat, so it stays put when the bar changes width. */
   chord: string | null
+  /**
+   * In threes rather than halves, when it is.
+   *
+   * Absent is the ordinary beat the rest of this file describes: two slots, or
+   * three or four with the sixteenths marked. A beat in threes holds exactly
+   * three slots and a beat in sixes exactly six, however empty — the division
+   * is something somebody asked for, not something the notes imply, so it does
+   * not come and go as they are typed and deleted.
+   */
+  division?: Division
 }
+
+/**
+ * What is written over a slot: the `e`, `&` and `a` of a beat in halves, and
+ * for a beat in sixes the `&` alone, which is where its second three begins.
+ * A beat in threes is marked by nothing at all — three notes evenly spaced
+ * between two beat numbers can be nothing else.
+ */
+export const markOf = (beat: Beat, at: number): string => {
+  if (beat.division === undefined) return SIXTEENTH_MARKS[at as Sixteenth] ?? ''
+  return beat.division === 6 && at === 3 ? '&' : ''
+}
+
+/** The slots a beat in threes or sixes is made of, empty and evenly spaced. */
+export const dividedSlots = (division: Division, strings: number): Slot[] =>
+  Array.from({ length: division }, (_, at) => emptySlot(strings, at))
 
 export interface Bar {
   /** What comes into the first note, per string. Absent when nothing does. */
@@ -163,7 +200,7 @@ export const isFret = (text: string): boolean => {
   return Number(text) <= HIGHEST_FRET
 }
 
-export const emptySlot = (strings: number, at: Sixteenth = ON_BEAT): Slot => ({
+export const emptySlot = (strings: number, at: number = ON_BEAT): Slot => ({
   at,
   frets: Array.from({ length: strings }, () => null),
   after: Array.from({ length: strings }, () => '-' as Technique)
@@ -312,6 +349,10 @@ const collapseBar = (bar: Bar, keep: number | null): Bar => {
  * about to type into it. Which beat to leave alone is the caller's to say.
  */
 function collapseBeat(beat: Beat): Beat {
+  /* A beat in threes is the shape it was asked to be, all three or six slots
+     of it. Dropping the empty ones would close the gaps under whoever is about
+     to fill them in. */
+  if (beat.division !== undefined) return beat
   const kept = beat.slots.filter(
     (slot) => slot.at === ON_BEAT || slot.at === OFF_BEAT || !slotIsEmpty(slot)
   )

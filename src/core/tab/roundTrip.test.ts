@@ -343,3 +343,59 @@ describe('a technique before the first beat', () => {
     expect(parse(bar('-5---------------')).bars[0]?.into).toBeUndefined()
   })
 })
+
+/*
+ * A beat in threes is marked by nothing: three notes evenly spaced between two
+ * beat numbers can be nothing else. Six is the beat split at its `&` as it
+ * always could be, with each half in threes — which is what a sixteenth
+ * triplet is, and why the `e` and the `a` are not there.
+ */
+describe('triplets', () => {
+  const sketch = [
+    '  1     2   3     &     4     1     2     3   4',
+    '|---------------------------|---------------------|',
+    '|-1-2-3-----1-3-5-1-3-5-----|-1---2---3-----------|',
+    '|---------------------------|---------------------|',
+    '|---------------------------|---------------------|',
+    '|---------------------------|---------------------|',
+    '|---------------------------|---------------------|'
+  ].join('\n') + '\n'
+
+  it('comes back the same as the sketch draws it', () => {
+    expect(render(parse(sketch))).toBe(sketch)
+  })
+
+  it('reads three notes in a beat as a beat in threes', () => {
+    const beat = parse(sketch).bars[0]?.beats[0]
+
+    expect(beat?.division).toBe(3)
+    expect(beat?.slots).toHaveLength(3)
+    expect(beat?.slots.map((slot) => slot.frets[1])).toEqual(['1', '2', '3'])
+  })
+
+  /* The `&` stays because it is where the second three begins. */
+  it('reads six as the beat split at its ampersand, each half in threes', () => {
+    const beat = parse(sketch).bars[0]?.beats[2]
+
+    expect(beat?.division).toBe(6)
+    expect(beat?.slots).toHaveLength(6)
+  })
+
+  it('leaves a beat in halves alone', () => {
+    const beat = parse(sketch).bars[0]?.beats[1]
+
+    expect(beat?.division).toBeUndefined()
+    expect(beat?.slots).toHaveLength(2)
+  })
+
+  /* Three notes across two beats is both of them in threes, which is all a
+     quarter-note triplet is. */
+  it('reads a quarter-note triplet as two beats in threes', () => {
+    const bar = parse(sketch).bars[1]
+
+    expect(bar?.beats[0]?.division).toBe(3)
+    expect(bar?.beats[1]?.division).toBe(3)
+    expect(bar?.beats[0]?.slots.map((slot) => slot.frets[1])).toEqual(['1', null, '2'])
+    expect(bar?.beats[1]?.slots.map((slot) => slot.frets[1])).toEqual([null, '3', null])
+  })
+})
