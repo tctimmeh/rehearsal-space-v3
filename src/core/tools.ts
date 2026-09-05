@@ -42,14 +42,14 @@ export const TOOL_META: Record<ToolId, ToolMeta> = {
   tuner: { id: 'tuner', label: 'Tuner', shortLabel: 'Tuner', size: 'gadget', scope: 'app' },
   lyrics: {
     id: 'lyrics',
-    label: 'Lyrics editor',
+    label: 'Lyrics',
     shortLabel: 'Lyrics',
     size: 'stage',
     scope: 'song'
   },
   chords: {
     id: 'chords',
-    label: 'Chord chart',
+    label: 'Chords',
     shortLabel: 'Chords',
     /* Beside the music rather than in place of it: it is something to glance
        at while writing, not something to work in. */
