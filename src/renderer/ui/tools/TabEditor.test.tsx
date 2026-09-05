@@ -1822,6 +1822,24 @@ describe('up and down while picking out beats', () => {
     expect(picked()).toBe(before)
   })
 
+  /*
+   * The end of the selection is what is being steered, so it is what has to
+   * stay on screen — the cursor has not moved and would keep the sheet where
+   * it was, with the beats being chosen off the bottom of it.
+   */
+  it('brings what is being chosen into view', async () => {
+    const user = userEvent.setup()
+    await twoSystems(user)
+    for (let step = 0; step < 12; step += 1) press('ArrowLeft')
+    press('s')
+    const scrolled = vi.fn()
+    Element.prototype.scrollIntoView = scrolled
+
+    press('ArrowDown')
+
+    expect(scrolled).toHaveBeenCalled()
+  })
+
   it('comes back up again', async () => {
     const user = userEvent.setup()
     await twoSystems(user)

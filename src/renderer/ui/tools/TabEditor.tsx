@@ -223,7 +223,7 @@ export function TabEditor() {
    */
   useEffect(() => {
     showing.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
-  }, [cursor, columns])
+  }, [cursor, columns, span])
 
   /*
    * Drawn a paragraph at a time — a system, or the words above one — so that
@@ -232,6 +232,18 @@ export function TabEditor() {
    */
   const blocks = useMemo(() => withRoomToWrite(doc, columns, writing), [doc, columns, writing])
   const place = placeOf(doc, cursor, columns)
+  /*
+   * What has to be kept on screen, which is not always where the cursor is.
+   * While beats are being picked out it is the end of the selection that is
+   * moving: that is what is being steered, and what runs off the bottom.
+   */
+  const inView = useMemo(() => {
+    if (span === null) return place
+    const end = beatAtIndex(doc, span.to)
+    return end === null
+      ? place
+      : placeOf(doc, { bar: end.bar, beat: end.beat, slot: 0, string: cursor.string }, columns)
+  }, [span, place, doc, columns, cursor.string])
   /* Where the chord for this beat is drawn: over the beat's first slot, on the
      row above the beat numbers. The field is put exactly there. */
   const overBeat = naming ? placeOf(doc, { ...cursor, slot: 0 }, columns) : null
@@ -735,7 +747,7 @@ export function TabEditor() {
                   : 'tablature__system'
               }
               key={`system-${block.from}`}
-              ref={ordinals[index] === place?.system ? showing : undefined}
+              ref={ordinals[index] === inView?.system ? showing : undefined}
             >
               {overEnd !== null && counting !== null && ordinals[index] === overEnd.system ? (
                 <RepeatCount
