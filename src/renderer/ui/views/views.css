@@ -240,9 +240,9 @@
 }
 .model-choice[data-engaged='true'] {
   background: var(--well);
-  border-color: var(--hairline);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.75);
-  color: var(--text);
+  border-color: var(--engaged-rim);
+  box-shadow: var(--engaged-glow);
+  color: var(--engaged);
 }
 
 
@@ -324,10 +324,10 @@
   padding: 3px 8px;
 }
 .tag--filter[data-engaged='true'] {
-  color: var(--text);
+  color: var(--engaged);
   background: var(--well);
-  border-color: var(--hairline);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.75);
+  border-color: var(--engaged-rim);
+  box-shadow: var(--engaged-glow);
 }
 .tag--add {
   padding: 2px 8px;
