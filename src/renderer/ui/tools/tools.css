@@ -959,11 +959,16 @@
    too narrow for one line and a hint scrolled out of sight is no hint at all.
    The sheet above gives up the room, so nothing moves off the bottom. */
 .tablature__hints {
-  margin: 0;
+  /* Pulled in on both sides: it is an aside under the music, and the tool's
+     own spacing and the stage's padding together left it sitting like a
+     second thing to read. Negative because both of those belong to something
+     else — the gap between the tool's rows above, the stage body below. */
+  margin: -4px 0 -8px;
   flex: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 14px;
+  justify-content: flex-end;
+  gap: 4px 14px;
   font-size: 11px;
   color: var(--text-faint);
 }
