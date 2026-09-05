@@ -25,7 +25,7 @@ export const TOOL_ICONS: Record<ToolId, ComponentType<{ size?: number }>> = {
 
 /**
  * Rail order: the always-on gadgets, then what goes on the stage, then what
- * goes in the drawer, each group behind a gap.
+ * goes in the drawer, each group behind a rule.
  *
  * The groups are where a tool will appear, so a button's neighbours say where
  * pressing it puts something — and the two that share the drawer, which can
@@ -34,14 +34,14 @@ export const TOOL_ICONS: Record<ToolId, ComponentType<{ size?: number }>> = {
  * The waveform leads the stage tools because it is where the stage starts and
  * where it returns when nothing else is chosen.
  */
-export const RAIL_ORDER: (ToolId | 'gap')[] = [
+export const RAIL_ORDER: (ToolId | 'rule')[] = [
   'metronome',
   'tuner',
-  'gap',
+  'rule',
   'waveform',
   'tab',
   'lyrics',
-  'gap',
+  'rule',
   'chords',
   'rhymes'
 ]

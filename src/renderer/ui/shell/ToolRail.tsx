@@ -16,7 +16,7 @@ export function ToolRail() {
   return (
     <nav className="rail" aria-label="Tools">
       {RAIL_ORDER.map((entry, index) => {
-        if (entry === 'gap') return <span key={`gap-${index}`} className="rail__gap" />
+        if (entry === 'rule') return <span key={`rule-${index}`} className="rail__rule" />
         const { label } = TOOL_META[entry]
         const Glyph = TOOL_ICONS[entry]
         const engaged = open[entry] || entry === onStage

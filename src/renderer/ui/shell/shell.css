@@ -247,9 +247,15 @@
 .rail__btn:hover {
   color: var(--text);
 }
-.rail__gap {
-  height: 5px;
+/* A black cut across the rail with a highlight under it, so the three kinds of
+   tool read as three groups. Full width, because a rule that stops short of
+   the edges reads as an underline belonging to the button above it. */
+.rail__rule {
+  height: 1px;
   flex: none;
+  margin: 2px -6px;
+  background: var(--hairline);
+  box-shadow: 0 1px 0 var(--edge-hi);
 }
 .column {
   flex: 1;
