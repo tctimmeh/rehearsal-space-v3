@@ -7,7 +7,8 @@ import { newSong } from '@core/song/song'
 import { insertIntoLyrics, useLyrics } from '@renderer/state/lyrics'
 import { useSong } from '@renderer/state/song'
 import { installBridge } from '@renderer/testing/bridge'
-import { LyricsEditor } from './LyricsEditor'
+import { classifyLine } from '@core/lyrics/chords'
+import { LYRICS_PLACEHOLDER, LyricsEditor } from './LyricsEditor'
 
 const chart = ['[Verse 1]', 'C       Am', 'Counted every mile', '', 'F       G'].join('\n')
 
@@ -360,5 +361,45 @@ describe('undo', () => {
     await user.keyboard('{Control>}z{/Control}')
 
     expect(useLyrics.getState().text).toBe(opened)
+  })
+})
+
+/**
+ * The empty editor teaches the syntax by being written in it. Teaching text
+ * that the editor would not itself understand is worse than none.
+ */
+describe('what an empty editor says', () => {
+  const lines = LYRICS_PLACEHOLDER.split('\n')
+
+  it('is every kind of line the editor knows, in order', () => {
+    expect(lines.map(classifyLine)).toEqual([
+      'section',
+      'chords',
+      'lyric',
+      'blank',
+      'unfinished'
+    ])
+  })
+
+  /* Each line says what it is in the same breath as being it, which only
+     works because a remark is allowed on any kind of line. */
+  it('says what each line is, in a remark on that line', () => {
+    expect(lines[0]).toContain('( Separate lyrics into sections )')
+    expect(lines[1]).toContain('( Add chords above lyric lines )')
+    expect(lines[2]).toContain('( Write comments like this )')
+  })
+
+  /* The field is monospaced, so the remarks make a column. */
+  it('lines the remarks up with one another', () => {
+    const starts = lines.slice(0, 3).map((line) => line.indexOf('('))
+
+    expect(new Set(starts).size).toBe(1)
+  })
+
+  it('is what an editor with nothing in it offers', () => {
+    useLyrics.setState({ songId: 'a-song', text: '', revision: 1 })
+    render(<LyricsEditor />)
+
+    expect(screen.getByLabelText('Lyrics').getAttribute('placeholder')).toBe(LYRICS_PLACEHOLDER)
   })
 })

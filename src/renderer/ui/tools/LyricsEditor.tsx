@@ -17,6 +17,27 @@ import { useSong } from '@renderer/state/song'
 import { Button } from '../primitives'
 
 /**
+ * What an empty editor says.
+ *
+ * There is nothing on screen to say what may be typed here — the words are
+ * just words, and everything the editor understands is punctuation around
+ * them. So the empty state is the syntax itself, each line both an example of
+ * one thing and a remark saying what that thing is: brackets name a section,
+ * a line of chords sits over the words it belongs to, anything in round
+ * brackets is a note to yourself, and a dash means this is not settled yet.
+ *
+ * The columns line up because the field is monospaced, and a test holds every
+ * line to being the kind of line it claims to be.
+ */
+export const LYRICS_PLACEHOLDER = [
+  '[ Verse 1 ]                 ( Separate lyrics into sections )',
+  'C         Am                ( Add chords above lyric lines )',
+  'Write the lyrics here       ( Write comments like this )',
+  '',
+  '-Temporary lyrics start with a dash'
+].join('\n')
+
+/**
  * A line, with anything in brackets marked as a remark.
  *
  * Remarks are notes to yourself — a fingering, a reminder that a line is
@@ -285,7 +306,7 @@ export function LyricsEditor() {
             defaultValue={text}
             spellCheck={false}
             aria-label="Lyrics"
-            placeholder={'[Verse 1]\nC       Am\nWrite the words here'}
+            placeholder={LYRICS_PLACEHOLDER}
             onChange={(event) => {
               remember(event.currentTarget)
               edit(event.target.value)
