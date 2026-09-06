@@ -164,6 +164,23 @@
   display: flex;
   justify-content: flex-end;
 }
+/* The artist narrows the list to them, so it is a target as well — a quieter
+   one, and as wide as the name and no wider, for the same reason the title is:
+   the empty space beside a short name belongs to nobody. The line it sits on
+   is the block; this is only as big as the words. */
+.song-row__by {
+  cursor: pointer;
+  display: inline-block;
+  max-width: 100%;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.song-row__by:hover {
+  color: var(--text-dim);
+}
 .song-row__open {
   /* As wide as the name and no wider. Filling the column made the empty space
      beside a short title open the song, which is a click nobody aimed.

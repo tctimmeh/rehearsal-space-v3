@@ -9,7 +9,7 @@ import { installBridge } from '@renderer/testing/bridge'
 import { useView } from '@renderer/state/view'
 import { LibraryView } from './LibraryView'
 
-const filterBar = () => screen.getByRole('group', { name: 'Filter by tag' })
+const filterBar = () => screen.getByRole('group', { name: 'Filter' })
 
 const summary = (
   id: string,
@@ -322,5 +322,118 @@ describe('what each song holds', () => {
     expect(held('No audio')).toHaveLength(1)
     expect(held('Has lyrics')).toHaveLength(1)
     expect(held('No tablature')).toHaveLength(1)
+  })
+})
+
+describe('filtering by artist', () => {
+  const threeSongs = () =>
+    useSong.setState({
+      songs: [
+        summary('coast-road', 'Coast Road', 'The Lowlifes', { tags: ['gig'] }),
+        summary('near-miss', 'Near Miss', 'the lowlifes'),
+        summary('undertow', 'Undertow', 'Marla Vance', { tags: ['gig', 'live'] }),
+        summary('b-side', 'B Side', '')
+      ]
+    })
+
+  const titles = () =>
+    [...document.querySelectorAll('.song-row__title')].map((one) => one.textContent)
+
+  it('shows only that artist when their name is clicked in a row', async () => {
+    const user = userEvent.setup()
+    threeSongs()
+    render(<LibraryView />)
+
+    await user.click(screen.getByRole('button', { name: 'The Lowlifes' }))
+
+    expect(titles()).toEqual(['Coast Road', 'Near Miss'])
+  })
+
+  /* The same band typed into two songs on two days is the same band. */
+  it('gathers the spellings that differ only in shouting', async () => {
+    const user = userEvent.setup()
+    threeSongs()
+    render(<LibraryView />)
+
+    await user.click(screen.getByRole('button', { name: 'the lowlifes' }))
+
+    expect(titles()).toEqual(['Coast Road', 'Near Miss'])
+  })
+
+  it('goes back to everything when the same artist is clicked again', async () => {
+    const user = userEvent.setup()
+    threeSongs()
+    render(<LibraryView />)
+
+    await user.click(screen.getByRole('button', { name: 'Marla Vance' }))
+    expect(titles()).toEqual(['Undertow'])
+
+    await user.click(within(filterBar()).getByRole('button', { name: 'Marla Vance' }))
+
+    expect(titles()).toHaveLength(4)
+  })
+
+  it('narrows by an artist and a tag together', async () => {
+    const user = userEvent.setup()
+    threeSongs()
+    render(<LibraryView />)
+
+    await user.click(within(filterBar()).getByRole('button', { name: 'gig' }))
+    await user.click(screen.getByRole('button', { name: 'Marla Vance' }))
+
+    expect(titles()).toEqual(['Undertow'])
+    expect(screen.getByRole('button', { name: 'Show all' })).toBeDefined()
+  })
+
+  it('says which artist found nothing, and lets go of both at once', async () => {
+    const user = userEvent.setup()
+    threeSongs()
+    render(<LibraryView />)
+
+    await user.click(screen.getByRole('button', { name: 'The Lowlifes' }))
+    /* A tag only the other artist has, so the two together find nothing. */
+    await user.click(within(filterBar()).getByRole('button', { name: 'live' }))
+
+    expect(titles()).toEqual([])
+    expect(screen.getByText('No song by The Lowlifes has all of those tags.')).toBeDefined()
+
+    await user.click(screen.getByRole('button', { name: 'Show all' }))
+    expect(titles()).toHaveLength(4)
+  })
+
+  /* There is nothing to narrow to, and a row of them all saying the same
+     would be four buttons that do nothing. */
+  it('leaves a song with no artist as words rather than a button', () => {
+    threeSongs()
+    render(<LibraryView />)
+
+    expect(screen.queryByRole('button', { name: 'No artist' })).toBeNull()
+    expect(screen.getByText('No artist').tagName).toBe('SPAN')
+  })
+
+  it('shows the artist being asked for where the tags are', async () => {
+    const user = userEvent.setup()
+    threeSongs()
+    render(<LibraryView />)
+
+    await user.click(screen.getByRole('button', { name: 'Marla Vance' }))
+
+    const held = within(filterBar()).getByRole('button', { name: 'Marla Vance' })
+    expect(held.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  /* A library with no tags in it at all still has to show what it is filtered
+     to, or there is no way back. */
+  it('shows the bar for an artist even where no song has a tag', async () => {
+    const user = userEvent.setup()
+    useSong.setState({
+      songs: [summary('a', 'A', 'Marla Vance'), summary('b', 'B', 'The Lowlifes')]
+    })
+    render(<LibraryView />)
+    expect(screen.queryByRole('group', { name: 'Filter' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Marla Vance' }))
+
+    expect(within(filterBar()).getByRole('button', { name: 'Show all' })).toBeDefined()
   })
 })

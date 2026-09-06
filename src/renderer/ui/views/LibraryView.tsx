@@ -1,7 +1,15 @@
 import { useMemo, useState } from 'react'
 
 import type { SongSummary } from '@core/song/song'
-import { addTag, knownTags, matchesTags, removeTag } from '@core/song/tags'
+import {
+  isFiltered,
+  matchesFilter,
+  nothingMatches,
+  SHOWING_EVERYTHING,
+  toggleArtist,
+  toggleTag
+} from '@core/song/libraryFilter'
+import { addTag, knownTags, removeTag } from '@core/song/tags'
 import { useNewSong } from '@renderer/state/newSong'
 import { useSong } from '@renderer/state/song'
 import { useView } from '@renderer/state/view'
@@ -20,23 +28,21 @@ export function LibraryView() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   /* Which song is having a tag typed into it, and what is being filtered by. */
   const [taggingId, setTaggingId] = useState<string | null>(null)
-  const [filter, setFilter] = useState<string[]>([])
+  const [filter, setFilter] = useState(SHOWING_EVERYTHING)
 
   const known = useMemo(() => knownTags(songs), [songs])
 
   const shown = useMemo(() => {
     const byTitle = (a: SongSummary, b: SongSummary) => a.title.localeCompare(b.title)
     return [...songs]
-      .filter((entry) => matchesTags(entry.tags, filter))
+      .filter((entry) => matchesFilter(entry, filter))
       .sort((a, b) =>
         sort === 'title' ? byTitle(a, b) : a.artist.localeCompare(b.artist) || byTitle(a, b)
       )
   }, [songs, sort, filter])
 
-  const toggleFilter = (tag: string) =>
-    setFilter((chosen) =>
-      chosen.includes(tag) ? chosen.filter((held) => held !== tag) : [...chosen, tag]
-    )
+  const askForTag = (tag: string) => setFilter((chosen) => toggleTag(chosen, tag))
+  const askForArtist = (artist: string) => setFilter((chosen) => toggleArtist(chosen, artist))
 
   const deleting = songs.find((entry) => entry.id === deletingId) ?? null
 
@@ -49,22 +55,43 @@ export function LibraryView() {
   return (
     <div className="library">
       <div className="library__bar">
-        {known.length === 0 ? null : (
-          <div className="library__filter" role="group" aria-label="Filter by tag">
+        {known.length === 0 && !isFiltered(filter) ? null : (
+          <div className="library__filter" role="group" aria-label="Filter">
             {known.map((tag) => (
               <button
                 key={tag}
                 type="button"
                 className="raised tag tag--filter"
-                data-engaged={filter.includes(tag)}
-                aria-pressed={filter.includes(tag)}
-                onClick={() => toggleFilter(tag)}
+                data-engaged={filter.tags.some((held) => held === tag)}
+                aria-pressed={filter.tags.some((held) => held === tag)}
+                onClick={() => askForTag(tag)}
               >
                 {tag}
               </button>
             ))}
-            {filter.length === 0 ? null : (
-              <button type="button" className="library__filter-clear" onClick={() => setFilter([])}>
+
+            {/* Only ever the one, and only while it is being asked for: an
+                artist is not a list to choose from, it is a row that was
+                clicked, so this is where it went rather than an option. */}
+            {filter.artist === null ? null : (
+              <button
+                type="button"
+                className="raised tag tag--filter"
+                data-engaged={true}
+                aria-pressed={true}
+                title={`Stop showing only ${filter.artist}`}
+                onClick={() => askForArtist(filter.artist ?? '')}
+              >
+                {filter.artist}
+              </button>
+            )}
+
+            {!isFiltered(filter) ? null : (
+              <button
+                type="button"
+                className="library__filter-clear"
+                onClick={() => setFilter(SHOWING_EVERYTHING)}
+              >
                 Show all
               </button>
             )}
@@ -95,13 +122,13 @@ export function LibraryView() {
           <p className="library__empty">
             {songs.length === 0
               ? 'The library is empty. Make a song and start filling it in.'
-              : 'No song has all of those tags.'}
+              : nothingMatches(filter)}
           </p>
         ) : (
           shown.map((summary) => (
             <div key={summary.id} className="song-row" data-loaded={summary.id === song?.id}>
-              {/* The name opens the song and nothing else does: the rest of
-                  the row is somewhere to rest a pointer, not a target. */}
+              {/* The name opens the song and the artist narrows the list to
+                  them; the rest of the row is somewhere to rest a pointer. */}
               <span className="col-name">
                 <button
                   type="button"
@@ -110,7 +137,20 @@ export function LibraryView() {
                 >
                   {summary.title}
                 </button>
-                <span className="song-row__artist">{summary.artist || 'No artist'}</span>
+                <span className="song-row__artist">
+                  {summary.artist === '' ? (
+                    'No artist'
+                  ) : (
+                    <button
+                      type="button"
+                      className="song-row__by"
+                      title={`Show only songs by ${summary.artist}`}
+                      onClick={() => askForArtist(summary.artist)}
+                    >
+                      {summary.artist}
+                    </button>
+                  )}
+                </span>
               </span>
 
               <Holds summary={summary} />
@@ -122,7 +162,7 @@ export function LibraryView() {
                       type="button"
                       className="tag__name"
                       title={`Show only songs tagged "${tag}"`}
-                      onClick={() => toggleFilter(tag)}
+                      onClick={() => askForTag(tag)}
                     >
                       {tag}
                     </button>
