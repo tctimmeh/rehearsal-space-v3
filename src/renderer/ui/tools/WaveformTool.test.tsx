@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { songBounds } from '@core/song/bounds'
 import { newSong, type Song } from '@core/song/song'
 import { useAlign } from '@renderer/state/align'
 import { useWaveformView } from '@renderer/state/waveformView'
@@ -466,5 +467,130 @@ describe('the channel a take is lined up against', () => {
     rerender(<WaveformTool />)
 
     expect(traces(container)).toHaveLength(2)
+  })
+})
+
+/**
+ * A count-in begins before 00:00, so lining one up is done from behind the
+ * beginning of the song — and the click's own start *is* the song's start
+ * while it is there, which is what made this hard: the view was clamped to
+ * bounds the drag itself was moving.
+ */
+describe('lining up a click that starts before the song', () => {
+  const SPAN = 4
+  const centreNow = () => useWaveformView.getState().windows['a-song']?.centre
+  const startHandle = () => screen.getByRole('slider', { name: /^Start/ })
+  /* 1000px across 4 seconds, from the left edge of the window. */
+  const xOf = (time: number) => ((time - ((centreNow() as number) - SPAN / 2)) / SPAN) * 1000
+
+  const dragStartTo = (x: number) => {
+    const handle = startHandle()
+    fireEvent.pointerDown(handle, { button: 0, clientX: xOf(-2.4), pointerId: 1 })
+    fireEvent.pointerMove(handle, { clientX: x, pointerId: 1 })
+  }
+
+  beforeEach(() => {
+    installPointerCapture()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      right: 1000,
+      width: 1000,
+      top: 0,
+      bottom: 200,
+      height: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    } as DOMRect)
+
+    /* The song's bounds follow its channels, as they do in the app: without
+       that link none of this can happen at all. */
+    useSong.setState({
+      song: withClicks(click('click', 'Count-in', 0)),
+      update: async (patch) => {
+        useSong.setState((state) => ({ song: { ...(state.song as Song), ...patch } }))
+        const [start, end] = songBounds(useSong.getState().song as Song)
+        useTransport.setState({ start, end })
+      }
+    })
+    const [start, end] = songBounds(useSong.getState().song as Song)
+    useTransport.setState({ start, end, position: 0 })
+    /* Parked at the far left, looking at the count-in. */
+    useWaveformView.setState({ windows: { 'a-song': { span: SPAN, centre: -1.4 } } })
+  })
+
+  it('can be looked at from half a window before the song begins', async () => {
+    render(<WaveformTool />)
+    pickClickJob()
+
+    fireEvent.wheel(document.querySelector('.align__strip') as HTMLElement, {
+      deltaY: -10000,
+      shiftKey: true
+    })
+
+    /* The click starts at -2.4, and there is half a window of air behind it. */
+    await waitFor(() => expect((centreNow() as number) - SPAN / 2).toBeCloseTo(-2.4 - SPAN / 2, 6))
+  })
+
+  /* The whole complaint: the start marker coming in towards the music shortens
+     the song from the left, and the view was shoved along after it — so the
+     marker slid out from under the pointer that was placing it. */
+  it('leaves the start under the pointer that is dragging it', async () => {
+    render(<WaveformTool />)
+    pickClickJob()
+
+    dragStartTo(725)
+
+    await waitFor(() => expect(startHandle().style.left).toBe('72.5%'))
+  })
+
+  it('stays put however far right the start is dragged', async () => {
+    render(<WaveformTool />)
+    pickClickJob()
+    const before = centreNow()
+
+    dragStartTo(400)
+    dragStartTo(600)
+    dragStartTo(830)
+
+    expect(centreNow()).toBe(before)
+  })
+
+  /* Taking hold of a marker near an edge, or nudging one inward from there,
+     must leave the view alone: only leaving the window moves it. */
+  it('does not move for a start dragged up against the left edge', async () => {
+    render(<WaveformTool />)
+    pickClickJob()
+    const before = centreNow()
+
+    dragStartTo(5)
+
+    expect(centreNow()).toBe(before)
+  })
+
+  /* The other half: a marker pushed off the left edge has to be followed, or
+     it can only be put back by letting go and panning after it. Past the strip
+     is where the pointer really goes — capture keeps the events coming. */
+  it('follows the start out past the left edge', async () => {
+    render(<WaveformTool />)
+    pickClickJob()
+    const before = centreNow() as number
+
+    dragStartTo(-200)
+
+    await waitFor(() => expect(centreNow() as number).toBeLessThan(before))
+  })
+
+  it('brings the start back just inside the edge rather than centring on it', async () => {
+    render(<WaveformTool />)
+    pickClickJob()
+
+    dragStartTo(-200)
+
+    await waitFor(() => {
+      const at = (useSong.getState().song?.channels[1] as { startTime: number }).startTime
+      const from = (centreNow() as number) - SPAN / 2
+      expect(at - from).toBeCloseTo(SPAN * 0.02, 6)
+    })
   })
 })

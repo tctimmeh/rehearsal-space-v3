@@ -58,10 +58,9 @@ export function LoopMarks({
 
   /* Dragging one end past the other would leave a region that runs backwards,
      which nothing downstream would know what to do with. */
-  const dragStart = (clientX: number) =>
-    onChange({ ...loop, start: Math.min(view.timeAt(clientX), loop.end - MIN_LENGTH) })
-  const dragEnd = (clientX: number) =>
-    onChange({ ...loop, end: Math.max(view.timeAt(clientX), loop.start + MIN_LENGTH) })
+  const dragStart = (at: number) =>
+    onChange({ ...loop, start: Math.min(at, loop.end - MIN_LENGTH) })
+  const dragEnd = (at: number) => onChange({ ...loop, end: Math.max(at, loop.start + MIN_LENGTH) })
 
   return (
     <>
@@ -75,7 +74,7 @@ export function LoopMarks({
           className="align__handle align__handle--loop-start"
           label={`Loop from ${view.clock(loop.start)}`}
           time={loop.start}
-          left={view.xOf(loop.start)}
+          view={view}
           onDrag={dragStart}
         />
       ) : (
@@ -86,7 +85,7 @@ export function LoopMarks({
           className="align__handle align__handle--loop-end"
           label={`Loop to ${view.clock(loop.end)}`}
           time={loop.end}
-          left={view.xOf(loop.end)}
+          view={view}
           onDrag={dragEnd}
         />
       ) : (

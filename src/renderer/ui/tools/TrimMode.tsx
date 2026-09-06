@@ -69,10 +69,9 @@ export function TrimMarks({
   const fileFrom = channel.startTime - kept.from
   const ends = channel.startTime + channel.duration
 
-  const trimFrom = (clientX: number) =>
-    onChange(keepPart(channel, view.timeAt(clientX) - fileFrom, kept.to))
-  const trimTo = (clientX: number) =>
-    onChange(keepPart(channel, kept.from, Math.max(view.timeAt(clientX) - fileFrom, kept.from + LEAST_KEPT)))
+  const trimFrom = (at: number) => onChange(keepPart(channel, at - fileFrom, kept.to))
+  const trimTo = (at: number) =>
+    onChange(keepPart(channel, kept.from, Math.max(at - fileFrom, kept.from + LEAST_KEPT)))
 
   return (
     <>
@@ -123,7 +122,7 @@ export function TrimMarks({
           className="align__handle align__handle--trim-start"
           label={`Trim from ${view.clock(channel.startTime)}`}
           time={channel.startTime}
-          left={view.xOf(channel.startTime)}
+          view={view}
           onDrag={trimFrom}
         />
       ) : (
@@ -134,7 +133,7 @@ export function TrimMarks({
           className="align__handle align__handle--trim-end"
           label={`Trim to ${view.clock(ends)}`}
           time={ends}
-          left={view.xOf(ends)}
+          view={view}
           onDrag={trimTo}
         />
       ) : (

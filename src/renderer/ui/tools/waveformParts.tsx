@@ -13,6 +13,11 @@ export interface View {
   xOf: (time: number) => string
   /** Whole seconds are useless once the window is short. */
   clock: (time: number) => string
+  /** A handle has been taken hold of: stop the view drifting under it. */
+  hold: () => void
+  /** It has been dragged to here: give ground only once it reaches the edge. */
+  follow: (time: number) => void
+  letGo: () => void
 }
 
 export const inView = (time: number, view: View): boolean =>
@@ -36,23 +41,39 @@ export function Offscreen({ side, kind }: { side: 'left' | 'right'; kind: string
   )
 }
 
+/**
+ * Something on the strip that is dragged to a moment in the song.
+ *
+ * It is given the view rather than a position and a pointer coordinate: every
+ * handle wants the same three things done with those — drawn where the moment
+ * is, told what time a pointer is over, and the view kept from wandering while
+ * it is held — and a handle that forgets one of them is a handle that fights
+ * the pointer.
+ */
 export function Handle({
   className,
   label,
   time,
-  left,
+  view,
   onDrag
 }: {
   className: string
   label: string
   time: number
-  left: string
-  onDrag: (clientX: number) => void
+  view: View
+  /** Where it has been dragged to, in song time. */
+  onDrag: (time: number) => void
 }) {
+  const dragTo = (clientX: number) => {
+    const at = view.timeAt(clientX)
+    view.follow(at)
+    onDrag(at)
+  }
+
   return (
     <span
       className={className}
-      style={{ left }}
+      style={{ left: view.xOf(time) }}
       role="slider"
       aria-label={label}
       aria-valuenow={time}
@@ -60,13 +81,15 @@ export function Handle({
       onPointerDown={(event) => {
         event.stopPropagation()
         event.currentTarget.setPointerCapture(event.pointerId)
-        onDrag(event.clientX)
+        view.hold()
+        dragTo(event.clientX)
       }}
       onPointerMove={(event) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) onDrag(event.clientX)
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) dragTo(event.clientX)
       }}
       onPointerUp={(event) => {
         event.currentTarget.releasePointerCapture(event.pointerId)
+        view.letGo()
       }}
     >
       <span className="align__flag">{label}</span>

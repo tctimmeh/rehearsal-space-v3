@@ -119,8 +119,8 @@ export function ClickTrackMarks({
           className="align__handle align__handle--start"
           label={`Start ${view.clock(timing.startTime)}`}
           time={timing.startTime}
-          left={view.xOf(timing.startTime)}
-          onDrag={(clientX) => change({ startTime: view.timeAt(clientX) })}
+          view={view}
+          onDrag={(startTime) => change({ startTime })}
         />
       ) : (
         <Offscreen side={timing.startTime < view.from ? 'left' : 'right'} kind="start" />
@@ -130,8 +130,8 @@ export function ClickTrackMarks({
           className="align__handle align__handle--end"
           label={`End ${view.clock(timing.endTime)}`}
           time={timing.endTime}
-          left={view.xOf(timing.endTime)}
-          onDrag={(clientX) => change({ endTime: view.timeAt(clientX) })}
+          view={view}
+          onDrag={(endTime) => change({ endTime })}
         />
       ) : (
         <Offscreen side={timing.endTime < view.from ? 'left' : 'right'} kind="end" />

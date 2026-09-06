@@ -27,13 +27,18 @@ const take = (patch: Partial<AudioChannel> = {}): AudioChannel => ({
   ...patch
 })
 
-/* A window on the whole minute, one second to every ten pixels. */
+/* A window on the whole minute, one second to every ten pixels. It never
+   moves: what the view does about a handle reaching its edge is the waveform
+   tool's business, and tested there. */
 const view: View = {
   from: 0,
   to: 60,
   timeAt: (clientX) => clientX / 10,
   xOf: (time) => `${(time / 60) * 100}%`,
-  clock: (time) => `${time.toFixed(2)}s`
+  clock: (time) => `${time.toFixed(2)}s`,
+  hold: () => undefined,
+  follow: () => undefined,
+  letGo: () => undefined
 }
 
 const renderMarks = (channel: AudioChannel, onChange: () => void): HTMLElement => {

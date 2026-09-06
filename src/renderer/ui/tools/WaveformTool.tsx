@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { solveMetronome, type MetronomeTiming } from '@core/metronome/solve'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
-import { clampViewCentre } from '@core/song/viewWindow'
+import { centreToShow, clampViewCentre } from '@core/song/viewWindow'
 import type { AudioChannel, LoopRegion, MetronomeChannel, Song } from '@core/song/song'
 import { formatClock, formatClockPrecise } from '@core/time'
 import { useAlign } from '@renderer/state/align'
@@ -137,9 +137,37 @@ export function WaveformTool() {
      never past the song — there is nothing out there to look at. Clamped on
      the way out as well as in, so zooming out cannot strand the view. */
   /* No wider than the song plus a little air: there is nothing beyond it. */
-  const maxSpan = Math.max(DEFAULT_SPAN, songEnd - songStart + 2)
+  /*
+   * The song's own bounds move while a handle is dragged: the click's start
+   * *is* the start of the song when it comes before the music. Everything
+   * about the view is worked out from those bounds — how far it may scroll,
+   * how far out it may zoom, and where it sits when the whole song is on
+   * screen — so a drag was moving the music it was being aimed at, and
+   * changing the zoom while it did.
+   *
+   * While something is held the view reckons on where things stood when it
+   * was taken hold of, widened only by wherever the handle has since gone.
+   */
+  const [grip, setGrip] = useState<{ bounds: [number, number]; at: number } | null>(null)
+  const [boundsFrom, boundsTo]: [number, number] =
+    grip === null
+      ? [songStart, songEnd]
+      : [Math.min(grip.bounds[0], grip.at), Math.max(grip.bounds[1], grip.at)]
+  const bounds: [number, number] = [boundsFrom, boundsTo]
+
+  const maxSpan = Math.max(DEFAULT_SPAN, boundsTo - boundsFrom + 2)
   const visible = Math.min(maxSpan, Math.max(MIN_SPAN, span ?? maxSpan))
-  const middle = clampViewCentre(centre ?? timing?.endTime ?? 0, visible, [songStart, songEnd])
+  /*
+   * Half a window of air past each end of the song.
+   *
+   * A count-in begins before 00:00 and its first click is what is being
+   * aimed; with the view stopping a second short of the song there was
+   * nowhere to stand to look at it, and the handle had to be judged against
+   * the very edge of the strip.
+   */
+  const air = visible / 2
+
+  const middle = clampViewCentre(centre ?? timing?.endTime ?? 0, visible, bounds, air)
   const from = middle - visible / 2
   const to = middle + visible / 2
 
@@ -153,7 +181,7 @@ export function WaveformTool() {
    */
   const zoomBy = (factor: number, at: number) => {
     const next = Math.min(maxSpan, Math.max(MIN_SPAN, visible * factor))
-    setCentre(clampViewCentre(at + (middle - at) * (next / visible), next, [songStart, songEnd]))
+    setCentre(clampViewCentre(at + (middle - at) * (next / visible), next, bounds, next / 2))
     setSpan(next)
   }
 
@@ -164,7 +192,25 @@ export function WaveformTool() {
     return from + ((clientX - box.left) / box.width) * (to - from)
   }
   const xOf = (time: number): string => `${((time - from) / (to - from)) * 100}%`
-  const view: View = { from, to, timeAt, xOf, clock }
+
+  const view: View = {
+    from,
+    to,
+    timeAt,
+    xOf,
+    clock,
+    /* Pinned where it stands: until now the centre could still be the click's
+       own end, which a drag moves. */
+    hold: () => {
+      setGrip({ bounds: [songStart, songEnd], at: middle })
+      setCentre(middle)
+    },
+    follow: (at) => {
+      setGrip((held) => (held === null ? held : { ...held, at }))
+      setCentre(centreToShow(at, middle, visible))
+    },
+    letGo: () => setGrip(null)
+  }
 
   if (song === null) return <p className="tool-placeholder">No song loaded.</p>
   if (audio.length === 0) {
@@ -285,7 +331,7 @@ export function WaveformTool() {
           const box = strip.current?.getBoundingClientRect()
           if (held === null || box === undefined || box.width === 0) return
           const moved = ((event.clientX - held.x) / box.width) * visible
-          setCentre(clampViewCentre(held.centre - moved, visible, [songStart, songEnd]))
+          setCentre(clampViewCentre(held.centre - moved, visible, bounds, air))
         }}
         onPointerUp={(event) => {
           const drawnFrom = drawingFrom.current
@@ -345,7 +391,7 @@ export function WaveformTool() {
 
           if (event.shiftKey) {
             setCentre(
-              clampViewCentre(middle + notches * visible * panSpeed, visible, [songStart, songEnd])
+              clampViewCentre(middle + notches * visible * panSpeed, visible, bounds, air)
             )
             return
           }
