@@ -197,6 +197,16 @@
   white-space: nowrap;
   vertical-align: bottom;
 }
+/* The artist brightens under the pointer; the title is already as bright as
+   the app goes, so it says the same thing by underlining instead. Held off the
+   letters, and in the grey the artist starts from, so it reads as an offer
+   rather than as a link in a page of them. */
+.song-row__open:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--text-faint);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
 .song-row__delete {
   visibility: hidden;
 }
