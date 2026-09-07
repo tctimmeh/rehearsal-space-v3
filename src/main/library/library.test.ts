@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import type { Song } from '@core/song/song'
 import { createLibrary, insideSong, writeAtomically, type SongLibrary } from './library'
 
 let root: string
@@ -210,5 +211,111 @@ describe('staying inside a song folder', () => {
 
   it('refuses an absolute path', () => {
     expect(() => insideSong(song, '/etc/passwd')).toThrow(/outside/)
+  })
+})
+
+/**
+ * A channel's audio file is the thing that gets dragged into a DAW, so it
+ * carries the channel's name rather than whatever the file was called when it
+ * arrived — every recording arrives as "Take 1".
+ */
+describe('naming a channel names its file', () => {
+  const audioIn = async (id: string): Promise<string[]> =>
+    (await readdir(join(root, id, 'audio')).catch(() => [])).sort()
+
+  const withTake = async (name: string, file = 'audio/Take 1.ogg') => {
+    const song = await library.create()
+    await mkdir(join(root, song.id, 'audio'), { recursive: true })
+    await writeFile(join(root, song.id, file), 'the take itself')
+    return {
+      ...song,
+      channels: [
+        {
+          kind: 'audio',
+          id: 'Take 1',
+          name,
+          subject: 'other',
+          file,
+          startTime: 0,
+          duration: 10,
+          gain: 1,
+          muted: false,
+          soloed: false,
+          origin: { type: 'record' }
+        }
+      ]
+    } as Song
+  }
+
+  it('renames the file when the channel is renamed', async () => {
+    const saved = await library.write(await withTake('Rhythm'))
+
+    expect(await audioIn(saved.id)).toEqual(['Rhythm.ogg'])
+    expect(saved.channels[0]?.kind === 'audio' && saved.channels[0].file).toBe('audio/Rhythm.ogg')
+    /* The take itself, moved rather than made again. */
+    expect(await readFile(join(root, saved.id, 'audio', 'Rhythm.ogg'), 'utf8')).toBe(
+      'the take itself'
+    )
+  })
+
+  /* Everything else in the song points at the id, and the waveform beside a
+     channel is filed under it. */
+  it('leaves the channel id alone', async () => {
+    const saved = await library.write(await withTake('Rhythm'))
+
+    expect(saved.channels[0]?.id).toBe('Take 1')
+  })
+
+  it('does nothing when the name already matches', async () => {
+    const song = await withTake('Take 1')
+    const saved = await library.write(song)
+
+    expect(await audioIn(saved.id)).toEqual(['Take 1.ogg'])
+  })
+
+  it('keeps the extension the file arrived with', async () => {
+    const saved = await library.write(await withTake('Rhythm', 'audio/Take 1.wav'))
+
+    expect(await audioIn(saved.id)).toEqual(['Rhythm.wav'])
+  })
+
+  /* Two channels may be called the same thing; two files may not. */
+  it('does not take a name another file already has', async () => {
+    const song = await withTake('Rhythm')
+    await writeFile(join(root, song.id, 'audio', 'Rhythm.ogg'), 'something else')
+
+    const saved = await library.write(song)
+
+    expect(await audioIn(saved.id)).toEqual(['Rhythm-2.ogg', 'Rhythm.ogg'])
+    expect(saved.channels[0]?.kind === 'audio' && saved.channels[0].file).toBe(
+      'audio/Rhythm-2.ogg'
+    )
+  })
+
+  it('drops what a filesystem will not hold, and keeps the rest of the name', async () => {
+    const saved = await library.write(await withTake('AC/DC riff: take 2'))
+
+    expect(await audioIn(saved.id)).toEqual(['AC DC riff take 2.ogg'])
+  })
+
+  /* A name is not worth losing a take for. */
+  it('leaves the channel pointing at the file it has when the rename fails', async () => {
+    const song = await withTake('Rhythm', 'audio/gone.ogg')
+    await rm(join(root, song.id, 'audio', 'gone.ogg'))
+
+    const saved = await library.write(song)
+
+    expect(saved.channels[0]?.kind === 'audio' && saved.channels[0].file).toBe('audio/gone.ogg')
+  })
+
+  /* Anything running holds absolute paths into the song, exactly as with the
+     directory rename. */
+  it('leaves files where they are while work is under way in the song', async () => {
+    const holding = createLibrary(root, { heldStill: () => true })
+    const song = await withTake('Rhythm')
+
+    const saved = await holding.write(song)
+
+    expect(await audioIn(saved.id)).toEqual(['Take 1.ogg'])
   })
 })

@@ -485,13 +485,27 @@ async function writeUntilQuiet(
     if (wrote !== generation) return
 
     /*
-     * Take only what the main process decides — the directory name it settled
-     * on, and the timestamp. Everything else belongs to the user, who may have
-     * typed another character while this was in flight.
+     * Take only what the main process decides — the directory it settled on,
+     * the timestamp, and where each channel's audio now lies, since renaming a
+     * channel renames its file. Everything else belongs to the user, who may
+     * have typed another character or moved a fader while this was in flight.
+     *
+     * The file has to come back: left behind, the next save would ask for a
+     * rename from a name that is no longer there and then write that name
+     * into the song, which is a channel pointing at nothing.
      */
     const current = get().song
     if (current === null) return
-    const adopted = { ...current, id: saved.id, updatedAt: saved.updatedAt }
+    const adopted = {
+      ...current,
+      id: saved.id,
+      updatedAt: saved.updatedAt,
+      channels: current.channels.map((channel) => {
+        const written = saved.channels.find((one) => one.id === channel.id)
+        if (channel.kind !== 'audio' || written?.kind !== 'audio') return channel
+        return written.file === channel.file ? channel : { ...channel, file: written.file }
+      })
+    }
     set({ song: adopted, error: null })
 
     if (saved.id !== song.id) {

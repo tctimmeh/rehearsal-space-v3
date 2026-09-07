@@ -67,9 +67,13 @@ async function harness(): Promise<Harness> {
     completeSave: () => {
       const next = pendingSaves.shift()
       if (next === undefined) throw new Error('No save in flight')
-      /* Main renames the directory to match the title, as the real one does. */
+      /* Main renames the directory to match the title, and each channel's
+         audio file to match its name, as the real one does. */
       const id = next.song.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      next.resolve({ ...next.song, id, updatedAt: '2026-08-23T00:00:00.000Z' })
+      const channels = next.song.channels.map((channel) =>
+        channel.kind === 'audio' ? { ...channel, file: `audio/${channel.name}.ogg` } : channel
+      )
+      next.resolve({ ...next.song, id, channels, updatedAt: '2026-08-23T00:00:00.000Z' })
     }
   }
 }
@@ -405,5 +409,69 @@ describe('when the song stops reaching as far as the playhead', () => {
     useTransport.getState().setBounds(-5, 120)
 
     expect(useTransport.getState().position).toBe(30)
+  })
+})
+
+/**
+ * Renaming a channel renames its file, which main does while it saves. The
+ * loaded song has to take that back, or the next save asks for a rename from
+ * a name that is no longer there and then writes it down.
+ */
+describe('where a channel\'s audio lies', () => {
+  const withTake = (song: Song): Song => ({
+    ...song,
+    channels: [
+      {
+        kind: 'audio',
+        id: 'Take 1',
+        name: 'Take 1',
+        subject: 'other',
+        file: 'audio/Take 1.ogg',
+        startTime: 0,
+        duration: 10,
+        gain: 1,
+        muted: false,
+        soloed: false,
+        origin: { type: 'record' }
+      } as Channel
+    ]
+  })
+
+  it('takes back the file the save settled on', async () => {
+    const { useSong, completeSave } = await harness()
+    await useSong.getState().load('new-song')
+    useSong.getState().update(withTake(useSong.getState().song as Song))
+    await vi.advanceTimersByTimeAsync(500)
+
+    useSong.getState().updateChannel('Take 1', { name: 'Rhythm' })
+    await vi.advanceTimersByTimeAsync(500)
+    completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+    completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    const channel = useSong.getState().song?.channels[0]
+    expect(channel?.kind === 'audio' && channel.file).toBe('audio/Rhythm.ogg')
+  })
+
+  /* Everything but the file is still the user's: a fader moved while the save
+     was in flight must not be wound back by what main wrote. */
+  it('keeps a change made while the save was away', async () => {
+    const { useSong, completeSave } = await harness()
+    await useSong.getState().load('new-song')
+    useSong.getState().update(withTake(useSong.getState().song as Song))
+    await vi.advanceTimersByTimeAsync(500)
+    completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    useSong.getState().updateChannel('Take 1', { name: 'Rhythm' })
+    await vi.advanceTimersByTimeAsync(500)
+    useSong.getState().updateChannel('Take 1', { gain: 0.25 })
+    completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    const channel = useSong.getState().song?.channels[0]
+    expect(channel?.kind === 'audio' && channel.file).toBe('audio/Rhythm.ogg')
+    expect(channel?.gain).toBe(0.25)
   })
 })

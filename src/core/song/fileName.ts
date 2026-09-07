@@ -13,9 +13,18 @@ const UNSAFE = /[\u0000-\u001f<>:"/\\|?*]/g
  * the user's own separators — is theirs and is kept.
  */
 export function audioFileStem(sourcePath: string): string {
-  const stem = sourcePath
-    .replace(/^.*[/\\]/, '')
-    .replace(/\.[a-z0-9]{1,5}$/i, '')
+  return fileStemFor(sourcePath.replace(/^.*[/\\]/, '').replace(/\.[a-z0-9]{1,5}$/i, ''))
+}
+
+/**
+ * The same rules for something that is a name rather than a path.
+ *
+ * Nothing is stripped from it: a channel called "Mix v1.2" is not a file
+ * called "Mix v1" with an extension, and taking the end off it would be
+ * taking off part of the name.
+ */
+export function fileStemFor(name: string): string {
+  const stem = name
     .replace(UNSAFE, ' ')
     .replace(/\s+/g, ' ')
     /* A leading dot would hide the file; a trailing one upsets Windows. */

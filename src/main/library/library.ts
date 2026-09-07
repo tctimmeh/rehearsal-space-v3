@@ -1,6 +1,7 @@
 import { access, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, join, normalize, relative } from 'node:path'
+import { dirname, extname, isAbsolute, join, normalize, parse, relative } from 'node:path'
 
+import { fileStemFor } from '@core/song/fileName'
 import { migrateSong } from '@core/song/migrate'
 import { isSafeSongId, slugify, uniqueSlug } from '@core/song/slug'
 import {
@@ -143,11 +144,60 @@ export function createLibrary(
     return target
   }
 
+  /**
+   * Keeps each channel's audio file named after the channel.
+   *
+   * The file is the thing that gets dragged into a DAW, and going looking for
+   * the "Rhythm" track to find it called "Take 1.ogg" is the sort of thing
+   * that costs ten minutes and a swear. The name is the user's; the id is not,
+   * and stays as it was — everything else in the song points at it, and the
+   * waveform beside a channel is filed under it.
+   *
+   * A rename that fails leaves the channel pointing at the file it still has.
+   * A name is worth having and is not worth losing a take for.
+   */
+  const renameFilesToMatchNames = async (song: Song, directory: string): Promise<Song> => {
+    if (heldStill(song.id)) return song
+
+    const audio = join(directory, 'audio')
+    const onDisk = await readdir(audio).catch(() => [])
+    const taken = new Set(onDisk.map((entry) => parse(entry).name))
+
+    const channels = []
+    for (const channel of song.channels) {
+      if (channel.kind !== 'audio') {
+        channels.push(channel)
+        continue
+      }
+
+      const held = parse(channel.file).name
+      taken.delete(held)
+      const wanted = uniqueSlug(fileStemFor(channel.name), [...taken])
+      if (wanted === held) {
+        taken.add(held)
+        channels.push(channel)
+        continue
+      }
+
+      const file = join('audio', `${wanted}${extname(channel.file)}`)
+      try {
+        await rename(insideSong(directory, channel.file), insideSong(directory, file))
+        taken.add(wanted)
+        channels.push({ ...channel, file })
+      } catch {
+        taken.add(held)
+        channels.push(channel)
+      }
+    }
+    return { ...song, channels }
+  }
+
   const write = async (song: Song): Promise<Song> => {
     const id = await renameToMatchTitle(song)
-    const saved: Song = { ...song, id, updatedAt: new Date().toISOString() }
     const directory = await directoryOf(id)
     await mkdir(directory, { recursive: true })
+    const named = await renameFilesToMatchNames({ ...song, id }, directory)
+    const saved: Song = { ...named, id, updatedAt: new Date().toISOString() }
     await writeAtomically(join(directory, SONG_FILE), `${JSON.stringify(saved, null, 2)}\n`)
     return saved
   }
