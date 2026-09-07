@@ -53,25 +53,29 @@ export function MetronomeGadget() {
         </RepeatButton>
       </div>
 
-      <button
-        type="button"
-        className="raised gadget__btn metro__tap"
-        onClick={tap}
-        title="Tap in time to set the tempo"
-      >
-        {tapping > 0 ? `Tap ${tapping}` : 'Tap'}
-      </button>
+      {/* Starting it and setting its tempo, the two things done by hand, in
+          one column. */}
+      <div className="gadget__stack metro__run">
+        <button
+          type="button"
+          className="raised gadget__btn gadget__btn--go"
+          data-engaged={running}
+          onClick={toggle}
+          title="Tilde key, anywhere in the app"
+        >
+          {running ? 'Stop' : 'Start'}
+        </button>
+        <button
+          type="button"
+          className="raised gadget__btn metro__tap"
+          onClick={tap}
+          title="Tap in time to set the tempo"
+        >
+          {tapping > 0 ? `Tap ${tapping}` : 'Tap'}
+        </button>
+      </div>
 
       <MetronomeSetup />
-
-      <button
-        type="button"
-        className={`raised gadget__btn ${running ? '' : 'gadget__btn--go'}`}
-        onClick={toggle}
-        title="Tilde key, anywhere in the app"
-      >
-        {running ? 'Stop' : 'Start'}
-      </button>
 
       {/* Last in the row: this is the one thing that changes width, and
           anything after it would move out from under the pointer that just

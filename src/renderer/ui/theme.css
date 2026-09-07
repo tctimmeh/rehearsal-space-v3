@@ -48,6 +48,14 @@
    * Teal because it is the one part of the palette that means nothing else —
    * green is the transport and solo, red is mute, amber is the playhead.
    */
+  /*
+   * Something that is running, as against something merely switched on. It
+   * keeps its own green and lights up in it: the transport is not a latched
+   * toggle, and taking the engaged colour would have the play button change
+   * hue at the moment it starts, which reads as a different button.
+   */
+  --go-glow: 0 0 9px rgba(111, 217, 154, 0.55);
+
   --engaged: #5ee0d5;
   --engaged-rim: #214342;
   --engaged-glow:

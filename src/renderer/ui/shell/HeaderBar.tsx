@@ -87,6 +87,7 @@ export function HeaderBar() {
         <IconButton
           label={playing ? 'Pause' : 'Play'}
           variant="go"
+          engaged={playing}
           onClick={toggle}
           disabled={song === null || loading !== null}
         >

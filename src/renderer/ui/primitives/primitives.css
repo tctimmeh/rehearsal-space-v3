@@ -49,6 +49,16 @@
 .icon-btn--go:hover:not(:disabled) {
   color: var(--go-text);
 }
+/* Playing. The green stays and glows rather than giving way to the light a
+   latched control takes. */
+.icon-btn--go[data-engaged='true'] {
+  color: var(--go-text);
+  background: linear-gradient(180deg, var(--go), var(--go-lo));
+  border-color: var(--go-edge);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    var(--go-glow);
+}
 
 /* ---------- Readout (something you read) ---------- */
 .readout {

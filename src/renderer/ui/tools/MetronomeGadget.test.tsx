@@ -154,6 +154,40 @@ describe('the controls', () => {
     expect(useMetronome.getState().running).toBe(true)
     expect(screen.getByRole('button', { name: 'Stop' })).toBeDefined()
   })
+
+  /* It is the same button doing the same job, and a control that changes
+     colour as it starts reads as a different control appearing. */
+  it('keeps its green while it is running', async () => {
+    const user = userEvent.setup()
+    render(<MetronomeGadget />)
+    expect(screen.getByRole('button', { name: 'Start' }).className).toContain('gadget__btn--go')
+
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+
+    expect(screen.getByRole('button', { name: 'Stop' }).className).toContain('gadget__btn--go')
+  })
+
+  it('says it is running, for the light to go on', async () => {
+    const user = userEvent.setup()
+    render(<MetronomeGadget />)
+    expect(screen.getByRole('button', { name: 'Start' }).dataset.engaged).toBe('false')
+
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+
+    expect(screen.getByRole('button', { name: 'Stop' }).dataset.engaged).toBe('true')
+  })
+
+  /* The two things done by hand, in one column, at one width: either of them
+     changing size would shuffle the beat lamps along the strip. */
+  it('stacks starting it above tapping it in', () => {
+    render(<MetronomeGadget />)
+
+    const column = screen.getByRole('button', { name: 'Start' }).parentElement as HTMLElement
+    const inIt = [...column.children].map((one) => one.textContent)
+
+    expect(column.className).toContain('gadget__stack')
+    expect(inIt).toEqual(['Start', 'Tap'])
+  })
 })
 
 /**

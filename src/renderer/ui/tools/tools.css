@@ -22,6 +22,15 @@
 .gadget__btn--go:hover {
   color: var(--go-text);
 }
+/* Running: green throughout, and lit while it is going. */
+.gadget__btn--go[data-engaged='true'] {
+  color: var(--go-text);
+  background: linear-gradient(180deg, var(--go), var(--go-lo));
+  border-color: var(--go-edge);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    var(--go-glow);
+}
 
 /* ---------- tuner ---------- */
 .tuner__note {
@@ -629,8 +638,10 @@
   box-sizing: content-box;
   min-width: 3ch;
 }
-.metro__tap {
-  /* Likewise: "Tap 4" must not be wider than "Tap". */
+/* One width for both, held still: "Stop" is narrower than "Start" and "Tap 4"
+   wider than "Tap", and either changing size would shuffle the beat lamps
+   along under whatever pointer had just pressed it. */
+.metro__run {
   min-width: 58px;
 }
 .metro__unit {
