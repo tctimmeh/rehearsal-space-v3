@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { newSong, type SongSummary } from '@core/song/song'
 import { useSong } from '@renderer/state/song'
@@ -435,5 +435,89 @@ describe('filtering by artist', () => {
     await user.click(screen.getByRole('button', { name: 'Marla Vance' }))
 
     expect(within(filterBar()).getByRole('button', { name: 'Show all' })).toBeDefined()
+  })
+})
+
+/**
+ * A library of any size opens at the top, which is nowhere near whatever is
+ * being worked on.
+ */
+describe('arriving with a song loaded', () => {
+  const ROW = 60
+  const LIST = 300
+
+  /* jsdom has no layout, so the list is given one: forty rows of 60px in a
+     window 300px tall, and a scrollTop that behaves like a real one. */
+  const laidOut = (loaded: string) => {
+    /* Numbered so that sorting them by title puts them in the order they are
+       written here, which is what the row positions below assume. */
+    const songs = Array.from({ length: 40 }, (_, index) => {
+      const at = String(index).padStart(2, '0')
+      return summary(`song-${at}`, `Song ${at}`, 'Someone')
+    })
+    useSong.setState({ songs, song: { ...newSong(loaded), id: loaded } })
+
+    let top = 0
+    Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set(next: number) {
+        top = Math.min(Math.max(next, 0), songs.length * ROW - LIST)
+      }
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      if (this.className.includes('library__rows')) {
+        return { top: 0, height: LIST, bottom: LIST } as DOMRect
+      }
+      const index = [...(this.parentElement?.children ?? [])].indexOf(this)
+      return { top: index * ROW - top, height: ROW, bottom: index * ROW - top + ROW } as DOMRect
+    })
+    return () => top
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLElement.prototype, 'scrollTop')
+  })
+
+  it('puts the loaded song in the middle of the list', () => {
+    const scrollTop = laidOut('song-20')
+    render(<LibraryView />)
+
+    /* Row 20 spans 1200-1260; centred in a 300px window means 1080. */
+    expect(scrollTop()).toBe(20 * ROW - (LIST - ROW) / 2)
+  })
+
+  /* Nothing above it to scroll into view, so it simply sits where it is. */
+  it('leaves a song near the top at the top', () => {
+    const scrollTop = laidOut('song-00')
+    render(<LibraryView />)
+
+    expect(scrollTop()).toBe(0)
+  })
+
+  it('leaves a song near the bottom at the bottom', () => {
+    const scrollTop = laidOut('song-39')
+    render(<LibraryView />)
+
+    expect(scrollTop()).toBe(40 * ROW - LIST)
+  })
+
+  it('does nothing at all when no song is loaded', () => {
+    const scrollTop = laidOut('song-20')
+    useSong.setState({ song: null })
+    render(<LibraryView />)
+
+    expect(scrollTop()).toBe(0)
+  })
+
+  /* The loaded song can be filtered out of the list, and then there is no row
+     to put anywhere. */
+  it('does nothing when the loaded song is not in the list', () => {
+    const scrollTop = laidOut('somewhere-else')
+    render(<LibraryView />)
+
+    expect(scrollTop()).toBe(0)
   })
 })

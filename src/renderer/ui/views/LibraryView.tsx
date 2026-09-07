@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { SongSummary } from '@core/song/song'
 import {
@@ -43,6 +43,29 @@ export function LibraryView() {
 
   const askForTag = (tag: string) => setFilter((chosen) => toggleTag(chosen, tag))
   const askForArtist = (artist: string) => setFilter((chosen) => toggleArtist(chosen, artist))
+
+  const rows = useRef<HTMLDivElement>(null)
+  const loadedRow = useRef<HTMLDivElement>(null)
+
+  /*
+   * Arriving with a song loaded puts that song where the eye already is.
+   *
+   * A library of any size opens at the top, which is nowhere near whatever is
+   * being worked on, and the row is marked in a way that only helps once it
+   * has been found. Before the paint rather than after, or the list shows the
+   * top of itself for a frame and then jumps.
+   */
+  useLayoutEffect(() => {
+    const list = rows.current
+    const row = loadedRow.current
+    if (list === null || row === null) return
+    const listBox = list.getBoundingClientRect()
+    const rowBox = row.getBoundingClientRect()
+    /* Measured rather than taken from offsetTop, which is relative to whatever
+       happens to be positioned above it. Over-scrolling is clamped for us, so
+       a song near either end simply sits near that end. */
+    list.scrollTop += rowBox.top - listBox.top - (listBox.height - rowBox.height) / 2
+  }, [])
 
   const deleting = songs.find((entry) => entry.id === deletingId) ?? null
 
@@ -117,7 +140,7 @@ export function LibraryView() {
         <span className="col-actions" />
       </div>
 
-      <div className="library__rows">
+      <div className="library__rows" ref={rows}>
         {shown.length === 0 ? (
           <p className="library__empty">
             {songs.length === 0
@@ -126,7 +149,12 @@ export function LibraryView() {
           </p>
         ) : (
           shown.map((summary) => (
-            <div key={summary.id} className="song-row" data-loaded={summary.id === song?.id}>
+            <div
+              key={summary.id}
+              className="song-row"
+              data-loaded={summary.id === song?.id}
+              ref={summary.id === song?.id ? loadedRow : undefined}
+            >
               {/* The name opens the song and the artist narrows the list to
                   them; the rest of the row is somewhere to rest a pointer. */}
               <span className="col-name">
