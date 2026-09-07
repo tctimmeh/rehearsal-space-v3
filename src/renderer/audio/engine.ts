@@ -50,6 +50,16 @@ export class AudioEngine {
   private musicBus: GainNode | null = null
   private clickBus: GainNode | null = null
   private channels = new Map<string, LoadedChannel>()
+  /**
+   * Which song the decoded channels belong to.
+   *
+   * A channel id is unique inside its song and nowhere else — every song's
+   * first recording is called "Take 1" and every one of them is `Take 1` —
+   * so a buffer already decoded is only ever the right buffer for the same
+   * song. Without this, opening a second song that happened to share an id
+   * kept the first song's audio and played it under the second song's name.
+   */
+  private loadedSongId: string | null = null
   private clicks = new Map<MetronomeSample, ClickPair>()
   private clicksLoading: Promise<unknown> | null = null
   /** One entry per metronome channel, with its beats already worked out. */
@@ -385,6 +395,15 @@ export class AudioEngine {
         .map((channel) => [channel.id, channel])
     )
 
+    /* Nothing decoded for another song may be kept, whatever it is called.
+       Within one song the ids are the same channels, so what is already
+       decoded is reused and adding one does not re-read the rest. */
+    if (song.id !== this.loadedSongId) {
+      for (const loaded of this.channels.values()) this.dropChannel(loaded)
+      this.channels.clear()
+      this.loadedSongId = song.id
+    }
+
     for (const [id, loaded] of this.channels) {
       if (wanted.has(id)) continue
       this.dropChannel(loaded)
@@ -546,6 +565,7 @@ export class AudioEngine {
     this.playing = false
     for (const loaded of this.channels.values()) this.dropChannel(loaded)
     this.channels.clear()
+    this.loadedSongId = null
     void this.context?.close()
     this.context = null
   }
