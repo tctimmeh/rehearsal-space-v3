@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 
-import { placeTake, trimHead } from '@core/audio/take'
-import { takeSemitones } from '@core/mix/pitch'
+import { placeTake, takeCorrection, trimHead } from '@core/audio/take'
 import { songBounds } from '@core/song/bounds'
 import { newMetronomeChannel, summarise } from '@core/song/song'
 import type { Channel, ChannelBase, PitchOffset, Song, SongSummary } from '@core/song/song'
@@ -12,7 +11,7 @@ import { encodeWav } from '@core/audio/wav'
 import { audioEngine } from '@renderer/audio/engine'
 import { useConfig } from './config'
 import { Recorder } from '@renderer/audio/recorder'
-import { shiftPitch } from '@renderer/audio/shiftPitch'
+import { renderTake } from '@renderer/audio/renderTake'
 import { useTools } from './tools'
 import { useTransport } from './transport'
 
@@ -295,10 +294,13 @@ export const useSong = create<SongState>((set, get) => ({
       return
     }
 
-    const played = await intoTheSongsOwnKey(
+    const played = await asTheSongWillPlayIt(
       captured,
       take.sampleRate,
-      { semitones: transport.semitones, cents: transport.cents },
+      {
+        pitch: { semitones: transport.semitones, cents: transport.cents },
+        speed: transport.speed
+      },
       set
     )
 
@@ -361,32 +363,34 @@ export const useSong = create<SongState>((set, get) => ({
 }))
 
 /**
- * Takes the song's pitch back off a take, so what was played against a shifted
- * song lands in the song's own key.
+ * Takes the song's pitch and tempo back off a take, so what was played against
+ * a shifted, hurried song lands in the song's own key and its own time.
  *
- * The take is the one thing in a song that was performed against the shifter
- * rather than written before it, so it is the one thing that arrives already
- * carrying its offset. Left alone it would be shifted twice — once when it was
- * heard, once when it is played — and a channel that only sounds right while
- * the knob stays where it was is not a channel anybody can mix.
+ * The take is the one thing in a song that was performed against those knobs
+ * rather than written before them, so it is the one thing that arrives already
+ * carrying their offset. Left alone it meets them a second time on the way out
+ * — shifted twice, and sped up twice. The pitch shows as a channel that only
+ * sounds right while the knob stays where it was; the tempo is worse, because
+ * a take played against a song at 150% does not merely start in the wrong
+ * place, it runs away from the music, further with every bar.
  *
  * A shifter that will not run is not worth a lost performance, so the take is
  * kept as it was played and the user is told what they have.
  */
-async function intoTheSongsOwnKey(
+async function asTheSongWillPlayIt(
   captured: Float32Array[],
   sampleRate: number,
-  heardAt: PitchOffset,
+  heardAt: { pitch: PitchOffset; speed: number },
   set: (partial: Partial<SongState>) => void
 ): Promise<Float32Array[]> {
-  const semitones = takeSemitones(heardAt)
-  if (semitones === 0) return captured
+  const correction = takeCorrection(heardAt)
+  if (correction.semitones === 0 && correction.rate === 1) return captured
 
   set({ importing: true })
   try {
-    return await shiftPitch(captured, sampleRate, semitones)
+    return await renderTake(captured, sampleRate, correction)
   } catch (error) {
-    set({ error: `The take was kept at the pitch it was played at: ${message(error)}` })
+    set({ error: `The take was kept as it was played: ${message(error)}` })
     return captured
   } finally {
     set({ importing: false })

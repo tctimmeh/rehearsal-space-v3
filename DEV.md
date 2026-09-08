@@ -79,6 +79,13 @@ Four ways in, all through the job queue so none of them blocks the UI:
   make speech intelligible by altering it. A take recorded while the song plays
   is placed where the player *was*, which is the output's own latency behind the
   playhead — an estimate from the graph and the driver, not a measured round trip.
+
+  A take is also the one thing in a song performed *against* the pitch and tempo
+  knobs rather than written before them, so both are taken back off it on the way
+  in (`takeCorrection`), or it meets them a second time on the way out. The pitch
+  half shows as a channel that only sounds right while the knob stays put; the
+  tempo half is worse, being a drift rather than an offset — a take recorded at
+  150% ran a second early within three seconds.
 - **Separate** into stems with `demucs`. One job, not seven: demucs writes to a
   predictable place, so every conversion is planned before anything runs. The
   original is kept and, by default, muted.

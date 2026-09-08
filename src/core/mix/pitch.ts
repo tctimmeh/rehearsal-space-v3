@@ -29,8 +29,9 @@ export const shifterSemitones = (speed: number, pitch: PitchOffset): number =>
  * cancel — leaving a channel that sits in the song's own key and follows the
  * pitch knob afterwards like every other channel does.
  *
- * Tempo does not come into it. Playing a buffer faster raises its pitch and
- * the shifter takes that back off again, so what a take is out by is only ever
- * what the user actually asked for.
+ * Tempo does not come into it *here*. Playing a buffer faster raises its pitch
+ * and the shifter takes that back off again, so what a take is out by in pitch
+ * is only ever what the user actually asked for. What tempo does to a take is
+ * done to its length instead, and `takeRate` is the other half of this.
  */
 export const takeSemitones = (pitch: PitchOffset): number => -requestedSemitones(pitch)

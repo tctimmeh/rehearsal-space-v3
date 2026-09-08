@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { placeTake, trimHead } from './take'
+import { placeTake, takeCorrection, takeRate, trimHead } from './take'
 
 const placement = {
   songTimeAtFirstSample: 30,
@@ -77,5 +77,79 @@ describe('trimHead', () => {
 
   it('comes back empty rather than negative when the take is shorter than the trim', () => {
     expect(trimHead([channel()], 5, 10)[0]).toHaveLength(0)
+  })
+})
+
+/**
+ * The time half of the same job `takeSemitones` does for pitch: a take is
+ * performed against the song as it was running, and meets the tempo knob again
+ * on the way out.
+ */
+describe('taking the tempo back off a take', () => {
+  it('leaves a take alone when the song was not sped up', () => {
+    expect(takeRate(1)).toBe(1)
+  })
+
+  /* Recorded against a song going half again as fast, so the performance holds
+     half again as much song as its own length suggests. */
+  it('reads a take recorded fast more slowly, so it comes out longer', () => {
+    expect(takeRate(1.5)).toBeCloseTo(2 / 3, 10)
+  })
+
+  it('reads a take recorded slowly faster, so it comes out shorter', () => {
+    expect(takeRate(0.5)).toBe(2)
+  })
+
+  /* The stretch and the playback resampling are inverses, which is the whole
+     point: what goes in at the tempo it was played at comes out at the song's. */
+  it('cancels the resampling the take will meet on the way out', () => {
+    for (const speed of [0.5, 0.8, 1, 1.25, 1.5, 2]) {
+      expect(takeRate(speed) * speed).toBeCloseTo(1, 10)
+    }
+  })
+
+  it('does not divide by a tempo that is nonsense', () => {
+    expect(takeRate(0)).toBe(1)
+    expect(takeRate(Number.NaN)).toBe(1)
+    expect(takeRate(-1)).toBe(1)
+  })
+})
+
+/**
+ * Both halves come back together on purpose: the tempo half was missing for a
+ * while, and nothing about correcting the pitch alone looks incomplete.
+ */
+describe('what the song was doing to the player', () => {
+  const heardAt = (semitones: number, speed: number) => ({
+    pitch: { semitones, cents: 0 },
+    speed
+  })
+
+  /* Negative zero, since undoing nothing is negating nothing. */
+  it('has nothing to undo when neither knob was touched', () => {
+    const correction = takeCorrection(heardAt(0, 1))
+
+    expect(correction.semitones).toBeCloseTo(0, 10)
+    expect(correction.rate).toBe(1)
+  })
+
+  it('undoes a key change on its own', () => {
+    expect(takeCorrection(heardAt(2, 1))).toEqual({ semitones: -2, rate: 1 })
+  })
+
+  /* The case that was silently wrong: a tempo change with no key change looked
+     like nothing to do, and the take was kept at the speed it was played. */
+  it('undoes a tempo change on its own', () => {
+    const correction = takeCorrection(heardAt(0, 1.5))
+
+    expect(correction.semitones).toBeCloseTo(0, 10)
+    expect(correction.rate).toBeCloseTo(2 / 3, 10)
+  })
+
+  it('undoes both at once, each without disturbing the other', () => {
+    const correction = takeCorrection(heardAt(-3, 0.8))
+
+    expect(correction.semitones).toBe(3)
+    expect(correction.rate).toBeCloseTo(1.25, 10)
   })
 })
