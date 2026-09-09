@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { songBounds } from '@core/song/bounds'
-import { newSong, type Song } from '@core/song/song'
-import { useAlign } from '@renderer/state/align'
+import { newSong, type Channel, type Song } from '@core/song/song'
+import { useWaveformEdit } from '@renderer/state/waveformEdit'
 import { useWaveformView } from '@renderer/state/waveformView'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
@@ -54,7 +54,7 @@ const withClicks = (...clicks: Song['channels']): Song => ({
 
 beforeEach(() => {
   installBridge()
-  useAlign.setState({ clickId: null })
+  useWaveformEdit.setState({ editing: null })
   /* The tool remembers where each song was left, which would otherwise carry
      from one test to the next. */
   useWaveformView.setState({ windows: {} })
@@ -66,44 +66,39 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const chosenClick = () =>
-  (screen.getByLabelText('Click track') as HTMLSelectElement).value
+/* The tool is opened on the loop region and stays there. Lining up a click is
+   begun from the click track itself, and holds until it is agreed to. */
+const lineUp = (id: string) => {
+  const channel = useSong.getState().song?.channels.find((one) => one.id === id)
+  act(() => useWaveformEdit.getState().begin('click', channel as Channel))
+}
 
-/* The tool opens on the loop region, which is what it is most often wanted
-   for; lining up a click track is the other tab. */
-const pickClickJob = () => fireEvent.click(screen.getByRole('tab', { name: 'Click align' }))
+/** Which click track the tool says it is working on. */
+const beingLinedUp = () =>
+  (document.querySelector('.align__editing')?.textContent ?? '').replace('Lining up ', '')
 
-describe('which click track the tool shows', () => {
-  it('shows the only one there is', () => {
-    render(<WaveformTool />)
-    pickClickJob()
-
-    expect(chosenClick()).toBe('click')
-  })
-
-  /* Opening the tool for a click track that was just added is the whole
-     reason it opens, so it cannot show the first one instead. */
-  it('shows the one it was pointed at, not the first', () => {
-    useSong.setState({
-      song: withClicks(click('click', 'Count-in', 0), click('click-2', 'Bridge', 40))
-    })
-    useAlign.setState({ clickId: 'click-2' })
-    render(<WaveformTool />)
-
-    expect(chosenClick()).toBe('click-2')
-  })
-
-  it('follows a later one being pointed at', async () => {
+describe('which click track is being lined up', () => {
+  /* The one it was opened from. It used to be whichever a picker was left on,
+     which is a way of quietly starting work on a different channel. */
+  it('is the one it was opened from, not the first in the song', () => {
     useSong.setState({
       song: withClicks(click('click', 'Count-in', 0), click('click-2', 'Bridge', 40))
     })
     render(<WaveformTool />)
-    pickClickJob()
-    expect(chosenClick()).toBe('click')
 
-    useAlign.setState({ clickId: 'click-2' })
+    lineUp('click-2')
 
-    await waitFor(() => expect(chosenClick()).toBe('click-2'))
+    expect(beingLinedUp()).toBe('Bridge')
+  })
+
+  it('offers no way to switch to another one', () => {
+    useSong.setState({
+      song: withClicks(click('click', 'Count-in', 0), click('click-2', 'Bridge', 40))
+    })
+    render(<WaveformTool />)
+    lineUp('click')
+
+    expect(screen.queryByLabelText('Click track')).toBeNull()
   })
 
   /* Click tracks are added from the mixer; the tool only lines them up. */
@@ -113,12 +108,13 @@ describe('which click track the tool shows', () => {
     expect(screen.queryByRole('button', { name: 'New' })).toBeNull()
   })
 
-  it('says where a click track comes from when the song has none', () => {
-    useSong.setState({ song: withClicks() })
+  /* Nothing is being lined up until something is opened, and the loop region
+     is what the tool does the rest of the time. */
+  it('shows the loop region until a click track is opened on it', () => {
     render(<WaveformTool />)
-    pickClickJob()
 
-    expect(screen.getByText(/Add a click track from the mixer/)).toBeTruthy()
+    expect(document.querySelector('.align__editing')).toBeNull()
+    expect(screen.getByLabelText('Channel')).toBeTruthy()
   })
 })
 
@@ -182,7 +178,7 @@ describe('moving the playhead', () => {
     const seeks: number[] = []
     useTransport.setState({ seek: (position: number) => seeks.push(position) })
     render(<WaveformTool />)
-    pickClickJob()
+    lineUp('click')
     const handle = document.querySelector('.align__handle') as HTMLElement
 
     fireEvent.pointerDown(handle, { button: 0, clientX: 400, pointerId: 1 })
@@ -197,9 +193,11 @@ describe('moving the playhead', () => {
  * is done in the same place.
  */
 describe('the loop region', () => {
+  /* Nothing to pick any more: the loop region is what the tool does when no
+     channel is being worked on. */
   const pickLoopJob = async () => {
-    fireEvent.click(screen.getByRole('tab', { name: 'Loop region' }))
-    await waitFor(() => screen.getByRole('tab', { name: 'Loop region', selected: true }))
+    act(() => useWaveformEdit.setState({ editing: null }))
+    await waitFor(() => screen.getByLabelText('Channel'))
   }
 
   /* The strip is mocked at 1000px wide and opens 4 seconds across, from -2. */
@@ -364,19 +362,6 @@ describe('where the tool was left', () => {
 
   /* The tab and the channel are kept on the song, so they come back with it
      rather than only lasting as long as the app does. */
-  it('keeps the tab on the song', () => {
-    useSong.setState({
-      song: withClicks(click('click', 'Count-in', 0)),
-      update: (patch) =>
-        useSong.setState((state) => ({ song: { ...(state.song as Song), ...patch } }))
-    })
-    render(<WaveformTool />)
-
-    pickClickJob()
-
-    expect(useSong.getState().song?.waveform.tab).toBe('click')
-  })
-
   it('keeps the channel on the song', () => {
     useSong.setState({
       song: { ...withClicks(click('click', 'Count-in', 0)) },
@@ -390,14 +375,17 @@ describe('where the tool was left', () => {
     expect(useSong.getState().song?.waveform.channel).toBe('music')
   })
 
-  it('opens on the tab the song was left on', () => {
+  /* Trimming and lining up are begun from a channel and end when they are
+     agreed to, so a song can no longer be left in the middle of one. */
+  it('opens on the loop region however it was left', () => {
     useSong.setState({
-      song: { ...withClicks(click('click', 'Count-in', 0)), waveform: { tab: 'click', channel: null } }
+      song: { ...withClicks(click('click', 'Count-in', 0)), waveform: { channel: null } }
     })
 
     render(<WaveformTool />)
 
-    expect(screen.getByRole('tab', { name: 'Click align', selected: true })).toBeTruthy()
+    expect(screen.getByLabelText('Channel')).toBeTruthy()
+    expect(document.querySelector('.align__editing')).toBeNull()
   })
 
   it('comes back to the zoom it was left at', () => {
@@ -427,44 +415,54 @@ describe('where the tool was left', () => {
  * one they are actually working on.
  */
 describe('the channel a take is lined up against', () => {
-  const twoTakes = (tab: Song['waveform']['tab']): Song => ({
+  const twoTakes = (): Song => ({
     ...newSong('a-song'),
     id: 'a-song',
     channels: [music, { ...(music as Song['channels'][number]), id: 'band', name: 'Band' }],
-    waveform: { tab, channel: 'music', against: 'band' }
+    waveform: { channel: 'music', against: 'band' }
   })
 
   const traces = (container: HTMLElement) => container.querySelectorAll('.align__traces canvas')
 
+  const trim = (id: string) => {
+    const channel = useSong.getState().song?.channels.find((one) => one.id === id)
+    act(() => useWaveformEdit.getState().begin('trim', channel as Channel))
+  }
+
   it('is drawn under the take while trimming', () => {
-    useSong.setState({ song: twoTakes('trim') })
+    useSong.setState({ song: twoTakes() })
     const { container } = render(<WaveformTool />)
+
+    trim('music')
 
     expect(traces(container)).toHaveLength(2)
   })
 
   it('is not drawn while marking out a loop', () => {
-    useSong.setState({ song: twoTakes('loop') })
+    useSong.setState({ song: twoTakes() })
     const { container } = render(<WaveformTool />)
 
     expect(traces(container)).toHaveLength(1)
   })
 
   it('is not drawn while lining up a click track', () => {
-    useSong.setState({ song: twoTakes('click') })
+    useSong.setState({
+      song: { ...twoTakes(), channels: [...twoTakes().channels, click('click', 'Count-in', 0)] }
+    })
     const { container } = render(<WaveformTool />)
+
+    lineUp('click')
 
     expect(traces(container)).toHaveLength(1)
   })
 
   /* Not forgotten, only put away: coming back to trimming brings it back. */
   it('is remembered for when trimming comes round again', () => {
-    useSong.setState({ song: twoTakes('loop') })
-    const { container, rerender } = render(<WaveformTool />)
+    useSong.setState({ song: twoTakes() })
+    const { container } = render(<WaveformTool />)
     expect(traces(container)).toHaveLength(1)
 
-    useSong.setState({ song: twoTakes('trim') })
-    rerender(<WaveformTool />)
+    trim('music')
 
     expect(traces(container)).toHaveLength(2)
   })
@@ -515,13 +513,19 @@ describe('lining up a click that starts before the song', () => {
     })
     const [start, end] = songBounds(useSong.getState().song as Song)
     useTransport.setState({ start, end, position: 0 })
-    /* Parked at the far left, looking at the count-in. */
-    useWaveformView.setState({ windows: { 'a-song': { span: SPAN, centre: -1.4 } } })
   })
+
+  /* Opening a click track takes the view to it, so the window these want is
+     set after that rather than before it: parked at the far left, looking at
+     the count-in. */
+  const lineUpParkedLeft = () => {
+    lineUp('click')
+    act(() => useWaveformView.setState({ windows: { 'a-song': { span: SPAN, centre: -1.4 } } }))
+  }
 
   it('can be looked at from half a window before the song begins', async () => {
     render(<WaveformTool />)
-    pickClickJob()
+    lineUpParkedLeft()
 
     fireEvent.wheel(document.querySelector('.align__strip') as HTMLElement, {
       deltaY: -10000,
@@ -537,7 +541,7 @@ describe('lining up a click that starts before the song', () => {
      marker slid out from under the pointer that was placing it. */
   it('leaves the start under the pointer that is dragging it', async () => {
     render(<WaveformTool />)
-    pickClickJob()
+    lineUpParkedLeft()
 
     dragStartTo(725)
 
@@ -546,7 +550,7 @@ describe('lining up a click that starts before the song', () => {
 
   it('stays put however far right the start is dragged', async () => {
     render(<WaveformTool />)
-    pickClickJob()
+    lineUpParkedLeft()
     const before = centreNow()
 
     dragStartTo(400)
@@ -560,7 +564,7 @@ describe('lining up a click that starts before the song', () => {
      must leave the view alone: only leaving the window moves it. */
   it('does not move for a start dragged up against the left edge', async () => {
     render(<WaveformTool />)
-    pickClickJob()
+    lineUpParkedLeft()
     const before = centreNow()
 
     dragStartTo(5)
@@ -573,7 +577,7 @@ describe('lining up a click that starts before the song', () => {
      is where the pointer really goes — capture keeps the events coming. */
   it('follows the start out past the left edge', async () => {
     render(<WaveformTool />)
-    pickClickJob()
+    lineUpParkedLeft()
     const before = centreNow() as number
 
     dragStartTo(-200)
@@ -583,7 +587,7 @@ describe('lining up a click that starts before the song', () => {
 
   it('brings the start back just inside the edge rather than centring on it', async () => {
     render(<WaveformTool />)
-    pickClickJob()
+    lineUpParkedLeft()
 
     dragStartTo(-200)
 

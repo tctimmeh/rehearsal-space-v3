@@ -243,40 +243,40 @@ describe('a tool that has been renamed', () => {
 })
 
 /**
- * Which tab the waveform tool was on and which channel it was looking at come
- * back with the song. The zoom does not: it is not worth a file.
+ * Which channel the waveform tool was looking at comes back with the song. The
+ * zoom does not: it is not worth a file.
  */
 describe('what the waveform tool was doing', () => {
   const read = (waveform: unknown) => migrateSong({ schemaVersion: 1, waveform }, 'x').waveform
 
   it('is kept', () => {
-    expect(read({ tab: 'click', channel: 'bass' })).toEqual({
-      tab: 'click',
-      channel: 'bass',
-      against: null
-    })
+    expect(read({ channel: 'bass' })).toEqual({ channel: 'bass', against: null })
   })
 
   /* A song from before there was one has nothing to line up against. */
   it('keeps the channel a take is lined up against, where there is one', () => {
-    expect(read({ tab: 'trim', channel: 'vocal', against: 'drums' }).against).toBe('drums')
+    expect(read({ channel: 'vocal', against: 'drums' }).against).toBe('drums')
     expect(read({ tab: 'trim', channel: 'vocal' }).against).toBeNull()
   })
 
-  it('starts on the loop region in a song that never had it open', () => {
+  it('remembers nothing in particular for a song that never had it open', () => {
     expect(migrateSong({ schemaVersion: 1 }, 'x').waveform).toEqual({
-      tab: 'loop',
       channel: null,
       against: null
     })
   })
 
-  it('falls back to the loop region when the tab is not one', () => {
-    expect(read({ tab: 'nonsense', channel: 'bass' }).tab).toBe('loop')
+  /* Trimming and lining up a click were modes of this tool and are now reached
+     from the channel they act on, so a `tab` names nothing any more. */
+  it('drops the mode an older file was left on', () => {
+    expect(read({ tab: 'trim', channel: 'bass' })).toEqual({
+      channel: 'bass',
+      against: null
+    })
   })
 
   it('forgets a channel that is not a name', () => {
-    expect(read({ tab: 'loop', channel: 7 }).channel).toBeNull()
+    expect(read({ channel: 7 }).channel).toBeNull()
   })
 })
 

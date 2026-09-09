@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { AudioChannel, ChannelOrigin, Song } from '@core/song/song'
 import { newSong } from '@core/song/song'
-import { useAlign } from '@renderer/state/align'
+import { useWaveformEdit } from '@renderer/state/waveformEdit'
 import { useSong } from '@renderer/state/song'
 import { useTools } from '@renderer/state/tools'
 import { installBridge } from '@renderer/testing/bridge'
@@ -58,7 +58,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   useTools.setState((state) => ({ open: { ...state.open, waveform: false } }))
-  useAlign.setState({ clickId: null })
+  useWaveformEdit.setState({ editing: null })
   useSong.setState({ song: null })
 })
 
@@ -162,10 +162,12 @@ describe('the channel menu', () => {
 
     expect(screen.getByRole('menuitem', { name: /Edit/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /Split into stems/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /Trim and place/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /Delete channel/ })).toBeTruthy()
   })
 
-  it('will not offer to split a click track, which has nothing to split', async () => {
+  /* A menu of things that can never apply is a menu you stop reading. */
+  it('offers a click track only what a click track can do', async () => {
     const user = userEvent.setup()
     useSong.setState({
       song: { ...(useSong.getState().song as Song), channels: [clickChannel()] }
@@ -174,8 +176,53 @@ describe('the channel menu', () => {
 
     await openMenu(user, 'Count-in')
 
-    const split = screen.getByRole('menuitem', { name: /Split into stems/ })
-    expect((split as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole('menuitem', { name: /Line up to the music/ })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: /Split into stems/ })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /Trim and place/ })).toBeNull()
+  })
+
+  /*
+   * Trimming and lining up were modes of the waveform tool, so a tool left on
+   * trim turned a drag meant to look at the music into a channel moved out of
+   * time with everything else. They are opened from the channel they act on,
+   * and only one at a time — a second would have nothing to cancel back to.
+   */
+  it('begins trimming the channel it was opened from', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await openMenu(user, 'Bass take2')
+    await user.click(screen.getByRole('menuitem', { name: /Trim and place/ }))
+
+    const editing = useWaveformEdit.getState().editing
+    expect(editing?.kind).toBe('trim')
+    expect(editing?.channelId).toBe('c1')
+    expect(useTools.getState().open.waveform).toBe(true)
+  })
+
+  it('begins lining up the click track it was opened from', async () => {
+    const user = userEvent.setup()
+    useSong.setState({
+      song: { ...(useSong.getState().song as Song), channels: [clickChannel()] }
+    })
+    dock()
+
+    await openMenu(user, 'Count-in')
+    await user.click(screen.getByRole('menuitem', { name: /Line up to the music/ }))
+
+    expect(useWaveformEdit.getState().editing?.kind).toBe('click')
+  })
+
+  it('will not begin a second one while one is open', async () => {
+    const user = userEvent.setup()
+    dock()
+    await openMenu(user, 'Bass take2')
+    await user.click(screen.getByRole('menuitem', { name: /Trim and place/ }))
+
+    await openMenu(user, 'Bass take2')
+
+    const trim = screen.getByRole('menuitem', { name: /Trim and place/ })
+    expect((trim as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('asks before deleting, and says what goes with it', async () => {
@@ -260,7 +307,8 @@ describe('adding a channel', () => {
 
     expect(useTools.getState().open.waveform).toBe(true)
     const added = (useSong.getState().song as Song).channels.at(-1)
-    expect(useAlign.getState().clickId).toBe(added?.id)
+    expect(useWaveformEdit.getState().editing?.channelId).toBe(added?.id)
+    expect(useWaveformEdit.getState().editing?.kind).toBe('click')
   })
 
   it('points at the second click track when a second one is added', async () => {
@@ -269,12 +317,14 @@ describe('adding a channel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add a channel' }))
     await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
-    const first = useAlign.getState().clickId
+    const first = useWaveformEdit.getState().editing?.channelId
+    /* One at a time: the first has to be finished with before the next. */
+    await act(() => useWaveformEdit.getState().save())
 
     await user.click(screen.getByRole('button', { name: 'Add a channel' }))
     await user.click(screen.getByRole('menuitem', { name: /Add a click track/ }))
 
-    expect(useAlign.getState().clickId).not.toBe(first)
+    expect(useWaveformEdit.getState().editing?.channelId).not.toBe(first)
   })
 
   it('leaves the tool open rather than closing it on a second click track', async () => {

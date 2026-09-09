@@ -5,13 +5,13 @@ import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import { centreToShow, clampViewCentre } from '@core/song/viewWindow'
 import type { AudioChannel, LoopRegion, MetronomeChannel, Song } from '@core/song/song'
 import { formatClock, formatClockPrecise } from '@core/time'
-import { useAlign } from '@renderer/state/align'
+import { useWaveformEdit } from '@renderer/state/waveformEdit'
 import { useWaveformView, windowOf } from '@renderer/state/waveformView'
 import { useConfig } from '@renderer/state/config'
 import { useSong } from '@renderer/state/song'
 import { useTransport } from '@renderer/state/transport'
 import { Waveform } from './Waveform'
-import { Tabs } from '../primitives'
+import { Button } from '../primitives'
 import { usePeaks } from './usePeaks'
 import { ClickTrackControls, ClickTrackMarks } from './ClickTrackMode'
 import { LoopControls, LoopMarks, MIN_LENGTH, regionBetween } from './LoopMode'
@@ -23,12 +23,15 @@ import { Picker, type View } from './waveformParts'
  * than by typing a number. One area, one set of eyes on the song, and a job
  * chosen at the top.
  */
-const JOBS = [
-  { id: 'loop', label: 'Loop region' },
-  { id: 'trim', label: 'Trim' },
-  { id: 'click', label: 'Click align' }
-] as const
-type Job = (typeof JOBS)[number]['id']
+/**
+ * What the tool is for at this moment.
+ *
+ * The loop region is what it does when nothing else is being worked on: it
+ * changes nothing about a channel, so leaving it open costs nothing. Trimming
+ * a take and lining up a click do change one, so they are opened deliberately
+ * from that channel and closed by agreeing to them or throwing them away.
+ */
+type Job = 'loop' | 'trim' | 'click'
 
 /* Tall enough to read quiet passages by; centred in whatever room the strip
    has, so the trace sits on the middle rather than hanging from the top. */
@@ -49,7 +52,7 @@ const note = (job: Job, timing: MetronomeTiming | null, loop: LoopRegion | null)
   }
   if (job === 'trim') return `Drag the ends to trim, the middle to move it · ${moving}`
   return timing === null
-    ? 'Add a click track from the mixer to line one up.'
+    ? 'This click track has nothing to line up.'
     : `${timing.beatCount} beats · ${timing.bpm.toFixed(1)} bpm · ${moving}`
 }
 
@@ -66,9 +69,11 @@ export function WaveformTool() {
   const audio = (song?.channels.filter((c) => c.kind === 'audio') ?? []) as AudioChannel[]
   const clicks = (song?.channels.filter((c) => c.kind === 'metronome') ?? []) as MetronomeChannel[]
 
-  /* The tab and the channel belong to the song and come back with it. */
-  const job: Job = song?.waveform.tab ?? 'loop'
-  const setJob = (tab: Job) => update({ waveform: { ...(song as Song).waveform, tab } })
+  /* The channel being looked at belongs to the song and comes back with it. */
+  const editing = useWaveformEdit((state) => state.editing)
+  const saveEdit = useWaveformEdit((state) => state.save)
+  const cancelEdit = useWaveformEdit((state) => state.cancel)
+  const job: Job = editing?.kind ?? 'loop'
   const againstId = song?.waveform.channel ?? null
   const setAgainstId = (channel: string | null) =>
     update({ waveform: { ...(song as Song).waveform, channel } })
@@ -82,22 +87,6 @@ export function WaveformTool() {
   const keep = (patch: Partial<typeof kept>) => {
     if (song !== null) remember(song.id, patch)
   }
-  const [clickId, setClickId] = useState<string | null>(null)
-  const pointedAt = useAlign((state) => state.clickId)
-
-  /* Whatever the tool was opened for wins, until another one is chosen here —
-     and it is opened to be worked on, so the view goes to it rather than
-     leaving it a speck in a view of the whole song. */
-  useEffect(() => {
-    if (pointedAt === null || song === null) return
-    setClickId(pointedAt)
-    const timing = song.channels.find((c) => c.id === pointedAt)
-    update({ waveform: { ...song.waveform, tab: 'click' } })
-    remember(song.id, {
-      span: DEFAULT_SPAN,
-      ...(timing !== undefined && timing.kind === 'metronome' ? { centre: timing.endTime } : {})
-    })
-  }, [pointedAt])
   const span = kept.span
   const setSpan = (next: number) => keep({ span: next })
   const centre = kept.centre
@@ -117,8 +106,14 @@ export function WaveformTool() {
   const drawingFrom = useRef<number | null>(null)
   const [drawn, setDrawn] = useState<LoopRegion | null>(null)
 
-  const against = audio.find((c) => c.id === againstId) ?? audio[0] ?? null
-  const click = clicks.find((c) => c.id === clickId) ?? clicks[0] ?? null
+  /* Whatever the session was opened on. A channel deleted from under it leaves
+     nothing to edit, and the tool falls back to the loop region. */
+  const edited = editing === null ? null : (song?.channels.find((c) => c.id === editing.channelId) ?? null)
+  const trimming = edited?.kind === 'audio' ? edited : null
+  const click = edited?.kind === 'metronome' ? edited : null
+
+  /* Trimming draws the channel being trimmed; there is nothing to choose. */
+  const against = trimming ?? audio.find((c) => c.id === againstId) ?? audio[0] ?? null
   const peaks = usePeaks(song?.id, against?.id)
   /* A second channel drawn underneath, to line the first one up against.
      Trimming and placing a take is done against something else. */
@@ -214,7 +209,7 @@ export function WaveformTool() {
 
   if (song === null) return <p className="tool-placeholder">No song loaded.</p>
   if (audio.length === 0) {
-    return <p className="tool-placeholder">Import some audio to line a click track up against.</p>
+    return <p className="tool-placeholder">Import some audio to see it here.</p>
   }
 
   const changeChannel = (next: AudioChannel) => {
@@ -231,24 +226,12 @@ export function WaveformTool() {
 
   return (
     <div className="align">
-      <Tabs tabs={JOBS} active={job} onSelect={setJob} />
-
       <div className="align__controls">
-        <Picker
-          label="Channel"
-          value={against?.id ?? ''}
-          options={audio.map((c) => ({ id: c.id, label: c.name }))}
-          onChange={setAgainstId}
-        />
-        {job === 'click' ? (
-          <ClickTrackControls
-            clicks={clicks}
-            click={click}
-            onPick={setClickId}
-            change={change}
-          />
-        ) : job === 'trim' ? (
+        {/* What is being worked on comes first, then what it is being worked
+            on against, then the settings that belong to it. */}
+        {job === 'trim' ? (
           <>
+            <span className="align__editing">Trimming {trimming?.name}</span>
             <Picker
               label="Against"
               value={beneath?.id ?? ''}
@@ -258,10 +241,40 @@ export function WaveformTool() {
               onChange={setBeneathId}
               allowNone="Nothing"
             />
-            <TrimControls channel={against} view={view} onChange={changeChannel} />
+            <TrimControls channel={trimming} view={view} onChange={changeChannel} />
+          </>
+        ) : job === 'click' ? (
+          <>
+            <span className="align__editing">Lining up {click?.name}</span>
+            <Picker
+              label="Against"
+              value={against?.id ?? ''}
+              options={audio.map((c) => ({ id: c.id, label: c.name }))}
+              onChange={setAgainstId}
+            />
+            <ClickTrackControls click={click} change={change} />
           </>
         ) : (
-          <LoopControls loop={loop} view={view} onChange={setRegion} />
+          <>
+            <Picker
+              label="Channel"
+              value={against?.id ?? ''}
+              options={audio.map((c) => ({ id: c.id, label: c.name }))}
+              onChange={setAgainstId}
+            />
+            <LoopControls loop={loop} view={view} onChange={setRegion} />
+          </>
+        )}
+
+        {/* Nothing here is written down until it is agreed to, so the way out
+            is the same either way: keep it, or put the channel back. */}
+        {editing === null ? null : (
+          <span className="align__decide">
+            <Button onClick={() => void cancelEdit()}>Cancel</Button>
+            <Button variant="primary" onClick={() => void saveEdit()}>
+              Save
+            </Button>
+          </span>
         )}
       </div>
 

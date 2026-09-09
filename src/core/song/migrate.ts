@@ -12,8 +12,7 @@ import {
   type Song,
   type SongKey,
   type TabFile,
-  type WaveformSettings,
-  WAVEFORM_TABS
+  type WaveformSettings
 } from './song'
 
 export class UnreadableSongError extends Error {}
@@ -222,15 +221,16 @@ function parseTabs(raw: unknown): TabFile[] {
   })
 }
 
+/**
+ * Trimming and lining up a click track were modes of this tool and are now
+ * reached from the channel they act on, so a `tab` in an older file names
+ * something that no longer exists and is left where it lies.
+ */
 function parseWaveform(raw: unknown, defaults: WaveformSettings): WaveformSettings {
   if (!isRecord(raw)) return defaults
-  const tab = raw['tab']
   const channel = raw['channel']
   const against = raw['against']
   return {
-    tab: WAVEFORM_TABS.includes(tab as WaveformSettings['tab'])
-      ? (tab as WaveformSettings['tab'])
-      : defaults.tab,
     channel: typeof channel === 'string' ? channel : null,
     against: typeof against === 'string' ? against : null
   }

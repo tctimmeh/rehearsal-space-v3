@@ -129,8 +129,6 @@ export interface TabFile {
 }
 
 export interface WaveformSettings {
-  /** Which job the tool was left on. */
-  tab: 'loop' | 'trim' | 'click'
   /** The channel being looked at, or null for whichever comes first. */
   channel: string | null
   /**
@@ -143,7 +141,6 @@ export interface WaveformSettings {
   against?: string | null
 }
 
-export const WAVEFORM_TABS = ['loop', 'trim', 'click'] as const
 
 /** Both ends in song time, so a region may begin before 00:00 in a count-in. */
 export interface LoopRegion {
@@ -252,7 +249,7 @@ export function newSong(id: string, now = new Date()): Song {
     tags: [],
     openTools: [],
     tabs: [],
-    waveform: { tab: 'loop', channel: null, against: null }
+    waveform: { channel: null, against: null }
   }
 }
 

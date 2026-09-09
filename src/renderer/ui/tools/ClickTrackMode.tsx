@@ -14,27 +14,20 @@ import { Field, Handle, Offscreen, Picker, inView, type View } from './waveformP
  * The numbers this sets are the ones nobody can type: where a count-in ends is
  * wherever the band actually comes in, which you find by looking at the
  * transient and dragging to it.
+ *
+ * Which click track is not asked here. This is opened from the one it is for,
+ * so a picker offering the others would only be a way of quietly starting on a
+ * different channel from the one being edited.
  */
 export function ClickTrackControls({
-  clicks,
   click,
-  onPick,
   change
 }: {
-  clicks: MetronomeChannel[]
   click: MetronomeChannel | null
-  onPick: (id: string) => void
   change: (patch: Partial<MetronomeChannel>) => void
 }) {
   return (
     <>
-      <Picker
-        label="Click track"
-        value={click?.id ?? ''}
-        options={clicks.map((c) => ({ id: c.id, label: c.name }))}
-        onChange={onPick}
-        empty="None yet"
-      />
       {click === null ? null : (
         <>
           <span className="align__divider" />

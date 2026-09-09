@@ -110,11 +110,14 @@ export function StripMenu({
 export function StripMenuItem({
   label,
   onClick,
-  disabled = false
+  disabled = false,
+  title
 }: {
   label: string
   onClick: () => void
   disabled?: boolean
+  /** Why it cannot be pressed, since a greyed item explains nothing itself. */
+  title?: string
 }) {
   return (
     <button
@@ -122,6 +125,7 @@ export function StripMenuItem({
       className="menu__item"
       role="menuitem"
       disabled={disabled}
+      {...(title === undefined ? {} : { title })}
       onClick={onClick}
     >
       <span>{label}</span>

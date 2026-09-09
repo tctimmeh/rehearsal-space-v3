@@ -4,7 +4,7 @@ import { faderToGain, gainToDb, gainToFader } from '@core/mix/fader'
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import type { AudioChannel, Channel } from '@core/song/song'
 import type { DemucsModel } from '@shared/stems'
-import { useAlign } from '@renderer/state/align'
+import { useWaveformEdit } from '@renderer/state/waveformEdit'
 import { useSong, type MixerPatch } from '@renderer/state/song'
 import { openTool } from '@renderer/state/toolActions'
 import { useToolNamed, useToolStatus } from '@renderer/state/toolStatus'
@@ -62,6 +62,10 @@ export function MixerDock() {
   const watchTools = useToolStatus((state) => state.watch)
   useEffect(() => watchTools(), [watchTools])
   const [downloading, setDownloading] = useState(false)
+  /* Trimming a take or lining up a click, which are opened from here and are
+     one at a time: a second one would have nothing to cancel back to. */
+  const onTheStrip = useWaveformEdit((state) => state.editing)
+  const beginEdit = useWaveformEdit((state) => state.begin)
 
   const byId = (id: string | null) =>
     id === null || song === null
@@ -85,9 +89,12 @@ export function MixerDock() {
             key={channel.id}
             channel={channel}
             busy={importing}
+            editingSomething={onTheStrip !== null}
             onChange={(patch) => updateChannel(channel.id, patch)}
             onEdit={() => setEditingId(channel.id)}
             onSplit={() => setStemsId(channel.id)}
+            onTrim={() => beginEdit('trim', channel)}
+            onAlign={() => beginEdit('click', channel)}
             onDelete={() => setDeletingId(channel.id)}
           />
         ))}
@@ -121,8 +128,8 @@ export function MixerDock() {
                        tool for lining it up comes with it. */
                     const added = addMetronome()
                     if (added === null) return
-                    useAlign.getState().align(added)
-                    openTool('waveform')
+                    const click = useSong.getState().song?.channels.find((c) => c.id === added)
+                    if (click !== undefined) useWaveformEdit.getState().begin('click', click)
                   }}
                 />
               </>
@@ -231,16 +238,23 @@ export function MixerDock() {
 function ChannelStrip({
   channel,
   busy,
+  editingSomething,
   onChange,
   onEdit,
   onSplit,
+  onTrim,
+  onAlign,
   onDelete
 }: {
   channel: Channel
   busy: boolean
+  /** One channel is being trimmed or lined up, so no other may be started. */
+  editingSomething: boolean
   onChange: (patch: MixerPatch) => void
   onEdit: () => void
   onSplit: () => void
+  onTrim: () => void
+  onAlign: () => void
   onDelete: () => void
 }) {
   const color = CHANNEL_SUBJECT_COLOR[channel.subject]
@@ -296,14 +310,37 @@ function ChannelStrip({
                   onEdit()
                 }}
               />
-              <StripMenuItem
-                label="Split into stems…"
-                disabled={busy || channel.kind !== 'audio'}
-                onClick={() => {
-                  close()
-                  onSplit()
-                }}
-              />
+              {channel.kind === 'audio' ? (
+                <>
+                  <StripMenuItem
+                    label="Split into stems…"
+                    disabled={busy}
+                    onClick={() => {
+                      close()
+                      onSplit()
+                    }}
+                  />
+                  <StripMenuItem
+                    label="Trim and place…"
+                    disabled={busy || editingSomething}
+                    {...(editingSomething ? { title: ALREADY_EDITING } : {})}
+                    onClick={() => {
+                      close()
+                      onTrim()
+                    }}
+                  />
+                </>
+              ) : (
+                <StripMenuItem
+                  label="Line up to the music…"
+                  disabled={busy || editingSomething}
+                  {...(editingSomething ? { title: ALREADY_EDITING } : {})}
+                  onClick={() => {
+                    close()
+                    onAlign()
+                  }}
+                />
+              )}
               <StripMenuItem
                 label="Delete channel…"
                 onClick={() => {
@@ -318,6 +355,10 @@ function ChannelStrip({
     </div>
   )
 }
+
+/* Both hold their changes until they are agreed to, so a second one would have
+   nothing to put back if it were cancelled. */
+const ALREADY_EDITING = 'Save or cancel what is open in the waveform first'
 
 /** A wheel notch reported as lines rather than pixels, in pixels. */
 const A_LINE = 16
