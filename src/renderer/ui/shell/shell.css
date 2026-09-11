@@ -672,6 +672,20 @@
   height: 100%;
   border-radius: 2px;
 }
+/* Work with no progress to report: it says something is happening and does not
+   pretend to know how far along it is. */
+.toast__bar--waiting i {
+  width: 40%;
+  background: var(--text-faint);
+  animation: loading-sweep 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast__bar--waiting i {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
+}
 
 .stage-empty__actions {
   display: flex;

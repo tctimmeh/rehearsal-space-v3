@@ -1,6 +1,6 @@
 import { CHANNEL_SUBJECT_COLOR } from '@core/song/channelSubject'
 import type { Job } from '@shared/jobs'
-import { useJobs } from '@renderer/state/jobs'
+import { useJobs, type Working } from '@renderer/state/jobs'
 import { Button, Modal } from '../primitives'
 
 /**
@@ -8,12 +8,15 @@ import { Button, Modal } from '../primitives'
  * already running keeps reporting while you set up the next one.
  */
 export function ToastStack() {
-  const { jobs, inspect } = useJobs()
+  const { jobs, working, inspect } = useJobs()
 
   return (
     <>
-      {jobs.length === 0 ? null : (
+      {jobs.length === 0 && working.length === 0 ? null : (
         <div className="toasts">
+          {working.map((work) => (
+            <WorkingToast key={work.id} work={work} />
+          ))}
           {jobs.map((job) => (
             <Toast key={job.id} job={job} onInspect={() => void inspect(job)} />
           ))}
@@ -21,6 +24,26 @@ export function ToastStack() {
       )}
       <JobLog />
     </>
+  )
+}
+
+/**
+ * The same card, for work with no process behind it: nothing to cancel, since
+ * stopping halfway would leave the take neither kept nor thrown away, and no
+ * log, since there is no program to have said anything.
+ */
+function WorkingToast({ work }: { work: Working }) {
+  return (
+    <div className="toast" data-state="running">
+      <div className="toast__top">
+        <span className="toast__lamp" style={{ background: 'var(--text-dim)' }} />
+        <span className="toast__name">{work.title}</span>
+      </div>
+      <div className="toast__sub">{work.detail}</div>
+      <div className="toast__bar toast__bar--waiting">
+        <i />
+      </div>
+    </div>
   )
 }
 

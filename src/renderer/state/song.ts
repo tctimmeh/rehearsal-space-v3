@@ -13,6 +13,7 @@ import { useConfig } from './config'
 import { Recorder } from '@renderer/audio/recorder'
 import { renderTake } from '@renderer/audio/renderTake'
 import { useTools } from './tools'
+import { useJobs } from './jobs'
 import { useTransport } from './transport'
 
 interface SongState {
@@ -89,6 +90,19 @@ const message = (error: unknown): string =>
 const SAVE_DELAY_MS = 400
 
 const recorder = new Recorder()
+
+/** One at a time, and only ever the one, so it needs no more of a name. */
+const KEEPING_THE_TAKE = 'keeping-the-take'
+
+/**
+ * Waits for the browser to have drawn what was just asked for.
+ *
+ * A frame, not a microtask: work started in the same turn as a state change
+ * runs before anything is painted, so the message it was meant to put up
+ * appears only once the work it was announcing has finished.
+ */
+const painted = (): Promise<void> =>
+  new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
 
 const takeName = (song: Song): string => {
   const takes = song.channels.filter((channel) => channel.name.startsWith('Take ')).length
@@ -281,63 +295,85 @@ export const useSong = create<SongState>((set, get) => ({
   },
 
   finishTake: async () => {
-    const take = recorder.endTake()
-    if (take === null) {
-      set({ error: 'The recording captured nothing.' })
-      return
-    }
-
-    const transport = useTransport.getState()
-    const { startTime, trimSeconds } = placeTake({
-      songTimeAtFirstSample: take.songTimeAtFirstSample,
-      audibleDelay: audioEngine.audibleDelay,
-      inputLatency: take.inputLatency,
-      speed: transport.speed,
-      earliest: transport.start
-    })
-
-    const captured = trimHead(
-      pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS),
-      trimSeconds,
-      take.sampleRate
-    )
-    if ((captured[0]?.length ?? 0) === 0) {
-      set({ error: 'The recording captured nothing.' })
-      return
-    }
-
-    const played = await asTheSongWillPlayIt(
-      captured,
-      take.sampleRate,
-      {
-        pitch: { semitones: transport.semitones, cents: transport.cents },
-        speed: transport.speed
-      },
-      set
-    )
-
     /*
-     * A socket each, and each one mono.
+     * Said before any of the work is done, and painted before any of it runs.
      *
-     * Two inputs are two things being played, not the two sides of one: a
-     * guitar in the first socket and a voice in the second are not a stereo
-     * image of anything, and writing them as one would put the guitar hard
-     * left and the voice hard right. So they arrive as separate channels, each
-     * centred, to be mixed by the person who played them. Sockets that had
-     * nothing in them do not arrive at all.
+     * Turning a take into a file is a second or two of this window's own time
+     * — gathering the blocks, taking back the tempo and pitch it was played
+     * against, writing a wav — and then main has to write that out and probe
+     * it before its own importing job appears. Nothing was on screen for any
+     * of that, which after a long recording reads as the take having been
+     * lost. A state change that is never painted is not feedback, so this
+     * waits for a frame before the work begins.
      */
-    const worth = inputsWorthKeeping(captured)
-    const name = takeName(get().song as Song)
-    const named = (index: number): string =>
-      worth.length === 1 ? name : `${name} (input ${index + 1})`
+    useJobs.getState().startWork({
+      id: KEEPING_THE_TAKE,
+      title: 'Keeping the take',
+      detail: 'Writing down what you just played'
+    })
+    await painted()
 
-    for (const index of worth) {
-      const one = played[index]
-      if (one === undefined) continue
-      const wav = encodeWav([one], take.sampleRate)
-      await runAdding(set, get, (song) =>
-        window.rehearsal.library.addRecording(song.id, wav, startTime, named(index))
+    try {
+      const take = recorder.endTake()
+      if (take === null) {
+        set({ error: 'The recording captured nothing.' })
+        return
+      }
+
+      const transport = useTransport.getState()
+      const { startTime, trimSeconds } = placeTake({
+        songTimeAtFirstSample: take.songTimeAtFirstSample,
+        audibleDelay: audioEngine.audibleDelay,
+        inputLatency: take.inputLatency,
+        speed: transport.speed,
+        earliest: transport.start
+      })
+
+      const captured = trimHead(
+        pickInput(take.channels, useConfig.getState().config?.inputChannel ?? ALL_INPUTS),
+        trimSeconds,
+        take.sampleRate
       )
+      if ((captured[0]?.length ?? 0) === 0) {
+        set({ error: 'The recording captured nothing.' })
+        return
+      }
+
+      const played = await asTheSongWillPlayIt(
+        captured,
+        take.sampleRate,
+        {
+          pitch: { semitones: transport.semitones, cents: transport.cents },
+          speed: transport.speed
+        },
+        set
+      )
+
+      /*
+       * A socket each, and each one mono.
+       *
+       * Two inputs are two things being played, not the two sides of one: a
+       * guitar in the first socket and a voice in the second are not a stereo
+       * image of anything, and writing them as one would put the guitar hard
+       * left and the voice hard right. So they arrive as separate channels, each
+       * centred, to be mixed by the person who played them. Sockets that had
+       * nothing in them do not arrive at all.
+       */
+      const worth = inputsWorthKeeping(captured)
+      const name = takeName(get().song as Song)
+      const named = (index: number): string =>
+        worth.length === 1 ? name : `${name} (input ${index + 1})`
+
+      for (const index of worth) {
+        const one = played[index]
+        if (one === undefined) continue
+        const wav = encodeWav([one], take.sampleRate)
+        await runAdding(set, get, (song) =>
+          window.rehearsal.library.addRecording(song.id, wav, startTime, named(index))
+        )
+      }
+    } finally {
+      useJobs.getState().endWork(KEEPING_THE_TAKE)
     }
   },
 
