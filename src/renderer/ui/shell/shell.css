@@ -1000,12 +1000,21 @@
 .meters-strip__fill[data-clipping='true'] {
   background: var(--mute);
 }
-/* A socket whose sound is not going to be kept still shows what it hears — it
-   is how you find out you have plugged into the wrong one — but says plainly
-   that it is not the one being recorded. */
+/*
+ * A socket whose sound is not going to be kept still shows what it hears — it
+ * is how you find out you have plugged into the wrong one — but says plainly
+ * that it is not the one being recorded.
+ *
+ * Filled rather than hollowed out. A black groove is what a live meter reading
+ * silence looks like, so an unused socket drawn that way says the input is dead
+ * rather than that it is not being listened to.
+ */
+.meters-strip__track[data-recorded='false'] {
+  background: var(--raise-hi);
+  box-shadow: none;
+}
 .meters-strip__track[data-recorded='false'] .meters-strip__fill {
   background: var(--text-faint);
-  opacity: 0.5;
 }
 /* Nothing is arriving until something is armed, and a meter that is dark for a
    reason should look different from one that is merely quiet. */
