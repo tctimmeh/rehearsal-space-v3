@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { newSong, type AudioChannel, type Channel, type Song } from '@core/song/song'
 import { useSong } from './song'
 import { useTools } from './tools'
-import { useWaveformEdit } from './waveformEdit'
+import { describeEdit, useWaveformEdit } from './waveformEdit'
 import { useWaveformView } from './waveformView'
 
 const take = (patch: Partial<AudioChannel> = {}): Channel =>
@@ -35,7 +35,7 @@ const flushed = vi.fn(async () => undefined)
 
 beforeEach(() => {
   flushed.mockClear()
-  useWaveformEdit.setState({ editing: null })
+  useWaveformEdit.setState({ editing: null, asking: null })
   useWaveformView.setState({ windows: {} })
   useTools.setState({ open: { ...useTools.getState().open, waveform: false } })
   useSong.setState({
@@ -84,11 +84,117 @@ describe('a session of trimming or lining up', () => {
     expect(useWaveformView.getState().windows['a-song']?.centre).toBe(12)
   })
 
-  it('will not begin a second one over the top of the first', () => {
+  it('does nothing when the same one is opened again', () => {
     useWaveformEdit.getState().begin('trim', take())
-    useWaveformEdit.getState().begin('click', take({ id: 'other' }))
+    const open = useWaveformEdit.getState().editing
 
+    useWaveformEdit.getState().begin('trim', take())
+
+    expect(useWaveformEdit.getState().editing).toBe(open)
+    expect(useWaveformEdit.getState().asking).toBeNull()
+  })
+})
+
+/**
+ * Anything that would leave a session behind asks first. Neither answer can be
+ * guessed from the asking: saving silently is how the old modes lost takes, and
+ * throwing the work away silently is worse.
+ */
+describe('being asked what to do with the open one', () => {
+  const openThenAskFor = (id: string) => {
+    useWaveformEdit.getState().begin('trim', take())
+    move(9)
+    useWaveformEdit.getState().begin('trim', take({ id, startTime: 0 }))
+  }
+
+  it('asks rather than beginning another over the top', () => {
+    openThenAskFor('other')
+
+    expect(useWaveformEdit.getState().asking).not.toBeNull()
     expect(useWaveformEdit.getState().editing?.channelId).toBe('Take 1')
+  })
+
+  it('keeps the changes and goes on, when that is the answer', async () => {
+    openThenAskFor('other')
+
+    await useWaveformEdit.getState().saveAndGo()
+
+    expect(channelNow().startTime).toBe(9)
+    expect(useWaveformEdit.getState().editing?.channelId).toBe('other')
+    expect(useWaveformEdit.getState().asking).toBeNull()
+  })
+
+  it('puts the channel back and goes on, when that is the answer', async () => {
+    openThenAskFor('other')
+
+    await useWaveformEdit.getState().discardAndGo()
+
+    expect(channelNow().startTime).toBe(4)
+    expect(useWaveformEdit.getState().editing?.channelId).toBe('other')
+  })
+
+  /* Pressing the wrong thing has to be survivable: nothing is decided and the
+     session carries on where it was. */
+  it('stays where it was, when that is the answer', () => {
+    openThenAskFor('other')
+
+    useWaveformEdit.getState().stay()
+
+    expect(useWaveformEdit.getState().asking).toBeNull()
+    expect(useWaveformEdit.getState().editing?.channelId).toBe('Take 1')
+    expect(channelNow().startTime).toBe(9)
+  })
+
+  it('asks before anything else takes the stage from it', () => {
+    const went = vi.fn()
+    useWaveformEdit.getState().begin('trim', take())
+
+    useWaveformEdit.getState().leaving(went)
+
+    expect(went).not.toHaveBeenCalled()
+    expect(useWaveformEdit.getState().asking).not.toBeNull()
+  })
+
+  it('lets it go straight through when there is no session to lose', () => {
+    const went = vi.fn()
+
+    useWaveformEdit.getState().leaving(went)
+
+    expect(went).toHaveBeenCalledOnce()
+    expect(useWaveformEdit.getState().asking).toBeNull()
+  })
+
+  it('goes where it was going once the question is answered', async () => {
+    const went = vi.fn()
+    useWaveformEdit.getState().begin('trim', take())
+    useWaveformEdit.getState().leaving(went)
+
+    await useWaveformEdit.getState().saveAndGo()
+
+    expect(went).toHaveBeenCalledOnce()
+    expect(useWaveformEdit.getState().editing).toBeNull()
+  })
+})
+
+/* The stage says what is being done rather than what the tool is called. */
+describe('what the stage calls it', () => {
+  it('names the channel being trimmed', () => {
+    const editing = { kind: 'trim' as const, channelId: 'Take 1', before: take() }
+
+    expect(describeEdit(editing, [take({ name: 'Rhythm' })])).toBe('Trimming Rhythm')
+  })
+
+  it('names the click track being lined up', () => {
+    const editing = { kind: 'click' as const, channelId: 'Take 1', before: take() }
+
+    expect(describeEdit(editing, [take({ name: 'Count-in' })])).toBe('Lining up Count-in')
+  })
+
+  /* A channel deleted from under a session still has to be called something. */
+  it('falls back to what it was called when the session opened', () => {
+    const editing = { kind: 'trim' as const, channelId: 'Take 1', before: take({ name: 'Gone' }) }
+
+    expect(describeEdit(editing, [])).toBe('Trimming Gone')
   })
 })
 

@@ -227,13 +227,12 @@ export function WaveformTool() {
   return (
     <div className="align">
       <div className="align__controls">
-        {/* What is being worked on comes first, then what it is being worked
-            on against, then the settings that belong to it. */}
+        {/* Which channel is being worked on is on the stage's own cap, where
+            the tool's name would otherwise be. */}
         {job === 'trim' ? (
           <>
-            <span className="align__editing">Trimming {trimming?.name}</span>
             <Picker
-              label="Against"
+              label="Reference"
               value={beneath?.id ?? ''}
               options={audio
                 .filter((c) => c.id !== against?.id)
@@ -245,9 +244,8 @@ export function WaveformTool() {
           </>
         ) : job === 'click' ? (
           <>
-            <span className="align__editing">Lining up {click?.name}</span>
             <Picker
-              label="Against"
+              label="Reference"
               value={against?.id ?? ''}
               options={audio.map((c) => ({ id: c.id, label: c.name }))}
               onChange={setAgainstId}

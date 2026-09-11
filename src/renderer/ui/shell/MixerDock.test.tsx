@@ -213,16 +213,19 @@ describe('the channel menu', () => {
     expect(useWaveformEdit.getState().editing?.kind).toBe('click')
   })
 
-  it('will not begin a second one while one is open', async () => {
+  /* Neither answer can be guessed, so it is asked: the first session is still
+     open, and what becomes of it is the user's to say. */
+  it('asks about the open one before beginning another', async () => {
     const user = userEvent.setup()
     dock()
     await openMenu(user, 'Bass take2')
     await user.click(screen.getByRole('menuitem', { name: /Trim and place/ }))
 
-    await openMenu(user, 'Bass take2')
+    await openMenu(user, 'Drums')
+    await user.click(screen.getByRole('menuitem', { name: /Trim and place/ }))
 
-    const trim = screen.getByRole('menuitem', { name: /Trim and place/ })
-    expect((trim as HTMLButtonElement).disabled).toBe(true)
+    expect(useWaveformEdit.getState().asking).not.toBeNull()
+    expect(useWaveformEdit.getState().editing?.channelId).toBe('c1')
   })
 
   it('asks before deleting, and says what goes with it', async () => {

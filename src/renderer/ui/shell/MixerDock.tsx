@@ -62,9 +62,8 @@ export function MixerDock() {
   const watchTools = useToolStatus((state) => state.watch)
   useEffect(() => watchTools(), [watchTools])
   const [downloading, setDownloading] = useState(false)
-  /* Trimming a take or lining up a click, which are opened from here and are
-     one at a time: a second one would have nothing to cancel back to. */
-  const onTheStrip = useWaveformEdit((state) => state.editing)
+  /* Trimming a take or lining up a click, both opened from the channel they
+     act on. Beginning one while another is open asks about that one first. */
   const beginEdit = useWaveformEdit((state) => state.begin)
 
   const byId = (id: string | null) =>
@@ -89,7 +88,6 @@ export function MixerDock() {
             key={channel.id}
             channel={channel}
             busy={importing}
-            editingSomething={onTheStrip !== null}
             onChange={(patch) => updateChannel(channel.id, patch)}
             onEdit={() => setEditingId(channel.id)}
             onSplit={() => setStemsId(channel.id)}
@@ -238,7 +236,6 @@ export function MixerDock() {
 function ChannelStrip({
   channel,
   busy,
-  editingSomething,
   onChange,
   onEdit,
   onSplit,
@@ -248,8 +245,6 @@ function ChannelStrip({
 }: {
   channel: Channel
   busy: boolean
-  /** One channel is being trimmed or lined up, so no other may be started. */
-  editingSomething: boolean
   onChange: (patch: MixerPatch) => void
   onEdit: () => void
   onSplit: () => void
@@ -322,8 +317,7 @@ function ChannelStrip({
                   />
                   <StripMenuItem
                     label="Trim and place…"
-                    disabled={busy || editingSomething}
-                    {...(editingSomething ? { title: ALREADY_EDITING } : {})}
+                    disabled={busy}
                     onClick={() => {
                       close()
                       onTrim()
@@ -333,8 +327,7 @@ function ChannelStrip({
               ) : (
                 <StripMenuItem
                   label="Line up to the music…"
-                  disabled={busy || editingSomething}
-                  {...(editingSomething ? { title: ALREADY_EDITING } : {})}
+                  disabled={busy}
                   onClick={() => {
                     close()
                     onAlign()
@@ -355,10 +348,6 @@ function ChannelStrip({
     </div>
   )
 }
-
-/* Both hold their changes until they are agreed to, so a second one would have
-   nothing to put back if it were cancelled. */
-const ALREADY_EDITING = 'Save or cancel what is open in the waveform first'
 
 /** A wheel notch reported as lines rather than pixels, in pixels. */
 const A_LINE = 16

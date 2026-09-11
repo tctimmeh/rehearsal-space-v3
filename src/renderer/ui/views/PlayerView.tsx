@@ -1,5 +1,6 @@
 import { TOOL_META, type ToolId } from '@core/tools'
 import { useSong } from '@renderer/state/song'
+import { describeEdit, useWaveformEdit } from '@renderer/state/waveformEdit'
 import { closeTool } from '@renderer/state/toolActions'
 import { openToolOfSize, stageOnShow, useTools } from '@renderer/state/tools'
 import { useView } from '@renderer/state/view'
@@ -11,6 +12,7 @@ import { TabEditor } from '../tools/TabEditor'
 import { WaveformTool } from '../tools/WaveformTool'
 import { LyricsEditor } from '../tools/LyricsEditor'
 import { ChordChart } from '../tools/ChordChart'
+import { WaveformEditPrompt } from '../tools/WaveformEditPrompt'
 import { RhymesDrawer } from '../tools/RhymesDrawer'
 
 const renderGadget = (id: ToolId) => {
@@ -44,6 +46,14 @@ export function PlayerView() {
   const stageTool = stageOnShow(open)
   const drawerTool = openToolOfSize(open, 'drawer')
 
+  /* A session says what it is rather than the tool saying what it is called:
+     "Trimming Guitar" is the whole of what is going on. */
+  const editing = useWaveformEdit((state) => state.editing)
+  const stageTitle =
+    stageTool === 'waveform' && editing !== null && song !== null
+      ? describeEdit(editing, song.channels)
+      : TOOL_META[stageTool].label
+
   return (
     <>
       <div className="body">
@@ -54,7 +64,7 @@ export function PlayerView() {
             {song === null ? (
               <NoSongLoaded />
             ) : (
-              <Stage title={TOOL_META[stageTool].label}>{renderStage(stageTool)}</Stage>
+              <Stage title={stageTitle}>{renderStage(stageTool)}</Stage>
             )}
             {drawerTool === null ? null : (
               <Drawer title={TOOL_META[drawerTool].label} onClose={() => closeTool(drawerTool)}>
@@ -66,6 +76,7 @@ export function PlayerView() {
       </div>
 
       {song === null ? null : <MixerDock />}
+      <WaveformEditPrompt />
     </>
   )
 }

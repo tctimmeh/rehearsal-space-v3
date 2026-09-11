@@ -73,22 +73,27 @@ const lineUp = (id: string) => {
   act(() => useWaveformEdit.getState().begin('click', channel as Channel))
 }
 
-/** Which click track the tool says it is working on. */
-const beingLinedUp = () =>
-  (document.querySelector('.align__editing')?.textContent ?? '').replace('Lining up ', '')
+/** Whether the tool is holding changes rather than showing the loop region. */
+const holdingChanges = () => document.querySelector('.align__decide') !== null
 
 describe('which click track is being lined up', () => {
   /* The one it was opened from. It used to be whichever a picker was left on,
-     which is a way of quietly starting work on a different channel. */
-  it('is the one it was opened from, not the first in the song', () => {
+     which is a way of quietly working on a different channel from the one you
+     think you are working on. */
+  it('acts on the one it was opened from, not the first in the song', () => {
     useSong.setState({
-      song: withClicks(click('click', 'Count-in', 0), click('click-2', 'Bridge', 40))
+      song: withClicks(click('click', 'Count-in', 0), click('click-2', 'Bridge', 40)),
+      update: (patch) =>
+        useSong.setState((state) => ({ song: { ...(state.song as Song), ...patch } }))
     })
     render(<WaveformTool />)
-
     lineUp('click-2')
 
-    expect(beingLinedUp()).toBe('Bridge')
+    fireEvent.change(screen.getByLabelText('BPM'), { target: { value: '120' } })
+
+    const channels = (useSong.getState().song as Song).channels
+    expect(channels.find((one) => one.id === 'click-2')).toMatchObject({ bpm: 120 })
+    expect(channels.find((one) => one.id === 'click')).toMatchObject({ bpm: 100 })
   })
 
   it('offers no way to switch to another one', () => {
@@ -113,7 +118,7 @@ describe('which click track is being lined up', () => {
   it('shows the loop region until a click track is opened on it', () => {
     render(<WaveformTool />)
 
-    expect(document.querySelector('.align__editing')).toBeNull()
+    expect(holdingChanges()).toBe(false)
     expect(screen.getByLabelText('Channel')).toBeTruthy()
   })
 })
@@ -385,7 +390,7 @@ describe('where the tool was left', () => {
     render(<WaveformTool />)
 
     expect(screen.getByLabelText('Channel')).toBeTruthy()
-    expect(document.querySelector('.align__editing')).toBeNull()
+    expect(holdingChanges()).toBe(false)
   })
 
   it('comes back to the zoom it was left at', () => {
