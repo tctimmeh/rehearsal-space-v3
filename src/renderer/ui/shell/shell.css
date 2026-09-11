@@ -966,6 +966,53 @@
   flex-direction: column;
   gap: 14px;
 }
+/* Beside the record button, at the height of the buttons it stands among. Two
+   grooves, because two sockets is what the interfaces this is for have. */
+.meters-strip {
+  height: 28px;
+  padding: 3px 4px;
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.meters-strip__track {
+  width: 5px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 2px;
+  background: var(--well);
+  border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+.meters-strip__fill {
+  width: 100%;
+  height: 100%;
+  transform: scaleY(0);
+  transform-origin: bottom center;
+  border-radius: 1px;
+  /* The last few decibels marked out: a take that reaches the red is already
+     damaged. */
+  background: linear-gradient(0deg, var(--go-lo) 0%, var(--go) 62%, #e8c260 84%, var(--mute) 97%);
+}
+.meters-strip__fill[data-clipping='true'] {
+  background: var(--mute);
+}
+/* A socket whose sound is not going to be kept still shows what it hears — it
+   is how you find out you have plugged into the wrong one — but says plainly
+   that it is not the one being recorded. */
+.meters-strip__track[data-recorded='false'] .meters-strip__fill {
+  background: var(--text-faint);
+  opacity: 0.5;
+}
+/* Nothing is arriving until something is armed, and a meter that is dark for a
+   reason should look different from one that is merely quiet. */
+.meters-strip[data-armed='false'] {
+  opacity: 0.45;
+}
+
 .meters {
   flex: 1;
   min-width: 0;

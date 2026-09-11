@@ -28,6 +28,7 @@ import { AboutModal } from './AboutModal'
 import { AdvancedModal } from './AdvancedModal'
 import { ShortcutsModal } from './ShortcutsModal'
 import { SettingsModal } from './SettingsModal'
+import { InputMeters } from './InputMeters'
 import { RecordingModal } from './RecordingModal'
 import { useRecording } from '@renderer/state/recording'
 import type { RecordPhase } from '@core/record/arming'
@@ -52,6 +53,7 @@ const RECORD_LABELS: Record<RecordPhase, string> = {
 }
 
 export function HeaderBar() {
+  const showDialog = useDialog((state) => state.show)
   const { view, setView } = useView()
   const song = useSong((state) => state.song)
   const loading = useSong((state) => state.loading)
@@ -103,6 +105,7 @@ export function HeaderBar() {
         >
           <RecordIcon />
         </IconButton>
+        <InputMeters onOpen={() => showDialog('recording')} />
       </div>
 
       <span className="bar__sep" />

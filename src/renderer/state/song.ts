@@ -41,6 +41,13 @@ interface SongState {
   armRecording: () => Promise<void>
   disarmRecording: () => void
   beginTake: () => void
+  /**
+   * What the armed input is hearing, for a meter to draw.
+   *
+   * Nothing arrives while nothing is armed, which is the whole of what makes
+   * the meters go dark when they should.
+   */
+  listenToInput: (listener: (levels: readonly number[]) => void) => () => void
   finishTake: () => Promise<void>
   /** Ends a take without keeping any of it. */
   discardTake: () => void
@@ -296,6 +303,8 @@ export const useSong = create<SongState>((set, get) => ({
   beginTake: () => {
     recorder.beginTake((contextTime) => audioEngine.songTimeAt(contextTime))
   },
+
+  listenToInput: (listener) => recorder.listen(listener),
 
   discardTake: () => {
     recorder.dropTake()

@@ -5,6 +5,7 @@
  * which presents as the worklet simply failing to load.
  */
 import processorSource from './recorderProcessor.js?raw'
+import { ChannelLevels, type LevelListener } from './channelLevels'
 
 export interface Take {
   channels: Float32Array[]
@@ -45,6 +46,8 @@ export class Recorder {
   private node: AudioWorkletNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
   private blocks: Block[] = []
+  private levels: ChannelLevels | null = null
+  private readonly watching = new Set<LevelListener>()
   private capturing = false
   private placeInSong: ((contextTime: number) => number) | null = null
   private songTimeAtFirstSample = 0
@@ -99,6 +102,13 @@ export class Recorder {
     }
     this.source.connect(this.node)
     /* Not connected onward: a take must not be heard back through the mix. */
+
+    /* Metered from the stream that is about to be captured, rather than from a
+       second open of the same device: the meters are then showing the input
+       that is armed, and there is one fewer claim on a device that may not
+       allow two. */
+    this.levels = new ChannelLevels(context, this.source, Math.max(1, this.source.channelCount))
+    for (const listener of this.watching) this.levels.listen(listener)
 
     /* Armed and started in the same breath: the player did not wait for the
        device, so the take begins the moment the device is ready. */
@@ -160,9 +170,26 @@ export class Recorder {
     this.blocks = []
   }
 
+  /**
+   * What is arriving on each channel, while the device is open.
+   *
+   * Kept across opens, so something watching the meters does not have to
+   * re-subscribe every time the input is armed and let go of again.
+   */
+  listen(listener: LevelListener): () => void {
+    this.watching.add(listener)
+    const stopListening = this.levels?.listen(listener)
+    return () => {
+      this.watching.delete(listener)
+      stopListening?.()
+    }
+  }
+
   /** Lets the device go. Disarming does this; a take must be ended first. */
   close(): void {
     this.capturing = false
+    this.levels?.stop()
+    this.levels = null
     this.node?.port.close()
     this.node?.disconnect()
     this.source?.disconnect()
