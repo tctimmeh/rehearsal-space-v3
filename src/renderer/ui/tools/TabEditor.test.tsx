@@ -1328,7 +1328,7 @@ describe('palm mutes and vibrato', () => {
    line, so which half the cursor is in says which one is meant. */
 describe('repeats', () => {
   const staff = () => strings().split('\n')
-  const times = () => screen.queryByLabelText('Times round') as HTMLInputElement | null
+  const times = () => screen.queryByLabelText('Repeat count') as HTMLInputElement | null
 
   it('begins one from the first half of the bar', () => {
     render(<TabEditor />)
@@ -1350,7 +1350,7 @@ describe('repeats', () => {
     expect(useTabs.getState().doc.bars[0]?.repeatStart).toBeUndefined()
   })
 
-  it('ends one from the last half, and asks how many times round', () => {
+  it('ends one from the last half, and asks how many times it repeats', () => {
     render(<TabEditor />)
     sheet().focus()
     /* Onto beat three, which is the second half of a four-beat bar. */
@@ -1374,7 +1374,7 @@ describe('repeats', () => {
     expect(drawn()).not.toContain('x1')
   })
 
-  it('writes how many times round when it is more than once', () => {
+  it('writes how many times it repeats when it is more than once', () => {
     render(<TabEditor />)
     sheet().focus()
     for (let step = 0; step < 4; step += 1) press('ArrowRight')

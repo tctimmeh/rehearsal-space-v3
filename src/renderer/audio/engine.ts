@@ -320,7 +320,7 @@ export class AudioEngine {
   }
 
   /**
-   * Whatever happens next — going round the loop, or running out — is
+   * Whatever happens next — the loop coming round, or the song running out — is
    * scheduled rather than watched for, so it does not depend on the UI getting
    * a frame. A window nobody is looking at still finishes its song, and still
    * comes round.

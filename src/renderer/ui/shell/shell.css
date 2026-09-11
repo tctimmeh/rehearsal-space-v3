@@ -1121,7 +1121,7 @@
  * book, and the region between them is tinted rather than outlined.
  *
  * Green is what this app already means by engaged — the play button, a string
- * in tune — so the region wears it while the player is going round and stays
+ * in tune — so the region wears it while the player is looping and stays
  * grey while it is only set.
  */
 .scrub__loop {

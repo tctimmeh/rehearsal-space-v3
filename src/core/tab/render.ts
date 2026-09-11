@@ -201,7 +201,7 @@ function markerLine(system: System): string {
       }
       slot += beat.slots.length
     })
-    /* How many times it goes round, right up against the line that closes the
+    /* How many times it repeats, right up against the line that closes the
        bar. Once is what a repeat means on its own, and says nothing. */
     const times = bar.repeatTimes ?? 0
     if (times > 1) {

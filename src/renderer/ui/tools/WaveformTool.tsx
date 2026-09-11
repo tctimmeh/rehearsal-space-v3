@@ -47,7 +47,7 @@ const note = (job: Job, timing: MetronomeTiming | null, loop: LoopRegion | null)
   const moving = 'scroll to zoom, middle-drag or shift-scroll to pan'
   if (job === 'loop') {
     return loop === null
-      ? `Shift-drag to mark a stretch to go round and round · ${moving}`
+      ? `Shift-drag to mark a region to loop · ${moving}`
       : `Looping ${(loop.end - loop.start).toFixed(1)}s · ${moving}`
   }
   if (job === 'trim') return `Drag the ends to trim, the middle to move it · ${moving}`

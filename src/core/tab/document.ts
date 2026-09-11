@@ -175,7 +175,7 @@ export interface Bar {
   /**
    * This bar is where a repeat ends, and how many times it is repeated.
    *
-   * One is the plain case — go round again, once — and says nothing above the
+   * One is the plain case — played again once — and says nothing above the
    * bar. More says how many. None at all is not a repeat.
    */
   repeatTimes?: number

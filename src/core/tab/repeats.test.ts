@@ -33,7 +33,7 @@ describe('drawing a repeat', () => {
     expect(drawn[2]).toContain(':||')
   })
 
-  it('says nothing above a plain repeat, which goes round once', () => {
+  it('says nothing above a plain repeat, which is played once more', () => {
     expect(render(rounds(1))).not.toContain('x')
   })
 
@@ -107,7 +107,7 @@ describe('reading a repeat back', () => {
     expect(back.bars[2]?.repeatStart).toBeUndefined()
   })
 
-  it('finds how many times round', () => {
+  it('finds how many times it repeats', () => {
     expect(parse(render(rounds(12))).bars[1]?.repeatTimes).toBe(12)
   })
 

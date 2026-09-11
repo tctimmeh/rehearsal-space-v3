@@ -32,7 +32,7 @@ it comfortably and it stays at speed. Both at once works exactly as you'd hope.
 
 ![Tempo at 80% and the song pitched down two semitones, with the pitch popover open](docs/images/pitch-and-tempo.png)
 
-Mark a stretch and it goes round and round until you have it.
+Mark a region and it loops until you have it.
 
 ## Count yourself in
 

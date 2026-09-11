@@ -158,7 +158,7 @@ const BINDINGS: Binding[] = [
     action: 'loop',
     matches: (s) => letter(s, 'l') && bare(s),
     keys: 'L',
-    does: 'Go round the loop region, or stop going round',
+    does: 'Start or stop looping the region',
     group: 'Playing'
   },
   {

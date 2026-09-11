@@ -78,7 +78,7 @@ const KEYS: TabKey[] = [
     does: 'Begin a repeat here, or end one — whichever half of the bar you are in',
     group: 'Beats and bars'
   },
-  { keys: '0', does: 'Typed as the times round, takes the repeat off', group: 'Beats and bars' },
+  { keys: '0', does: 'Typed as the repeat count, takes the repeat off', group: 'Beats and bars' },
 
   {
     keys: 'Ctrl + T',

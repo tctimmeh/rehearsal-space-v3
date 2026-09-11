@@ -91,7 +91,7 @@ const perform: Record<HotkeyAction, (stroke: Keystroke) => void> = {
   },
 
   /*
-   * One key for the whole of going round: mark it, go to the top of it, play.
+   * One key for the whole of looping: mark it, go to the top of it, play.
    * Pressed again while it is running, it lets go — which is the only thing
    * left to want by then.
    */

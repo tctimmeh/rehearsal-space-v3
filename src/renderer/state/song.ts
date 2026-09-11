@@ -586,7 +586,7 @@ function applySongState(song: Song): void {
   transport.setCents(song.playback.pitch.cents)
   transport.setSpeed(song.playback.speed)
   applyBounds(song)
-  /* A region comes with the song; going round it is something you start. */
+  /* A region comes with the song; looping it is something you start. */
   transport.setLooping(false)
   transport.setLoop(song.loop)
 

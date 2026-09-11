@@ -55,7 +55,7 @@ describe('section markers', () => {
     expect(isSectionLine('[]')).toBe(false)
   })
 
-  /* How many times round is exactly the sort of thing written beside the name
+  /* How many times it repeats is exactly the sort of thing written beside the name
      of a section. */
   it('lets a remark follow the marker', () => {
     expect(isSectionLine('[ Chorus ]   ( x2 )')).toBe(true)

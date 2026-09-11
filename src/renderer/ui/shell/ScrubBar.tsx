@@ -61,7 +61,7 @@ export function ScrubBar() {
         onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
       >
         <span className="scrub__fill" style={{ width: `${asFraction(position) * 100}%` }} />
-        {/* Marked whether or not the player is going round it: the region is
+        {/* Marked whether or not the player is looping it: the region is
             set aside work, and knowing it is there is the point of showing it. */}
         {loop === null ? null : (
           <span

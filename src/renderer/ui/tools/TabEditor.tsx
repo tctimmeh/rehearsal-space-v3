@@ -551,7 +551,7 @@ export function TabEditor() {
     }
 
     /* A repeat begins or ends at this bar, whichever half of it the cursor is
-       in. Ending one asks how many times it goes round. */
+       in. Ending one asks how many times it repeats. */
     if (held && event.key.toLowerCase() === 'r') {
       const marked = markRepeat(state)
       apply(marked, false)
@@ -1140,7 +1140,7 @@ const standingAt = (one: Cursor, other: Cursor): boolean =>
 const hasChordRow = (block: Block): boolean => block.rows?.[0] === 'chord'
 
 /**
- * How many times a repeat goes round.
+ * How many times a repeat is played again.
  *
  * Typed where it will be read, hard against the line that closes the bar, on
  * the row the beat numbers are on. Nought is how a repeat is taken off, which
@@ -1182,7 +1182,7 @@ function RepeatCount({
       className="tablature__times"
       style={{ left: `${at}ch`, top: `calc(var(--tab-row) * ${row})` }}
       value={asked}
-      aria-label="Times round"
+      aria-label="Repeat count"
       inputMode="numeric"
       onChange={(event) => {
         const digits = event.target.value.replace(/\D/g, '')

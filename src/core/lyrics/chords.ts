@@ -92,7 +92,7 @@ const SECTION_MARK = /^\s*\[[^\]]+\]\s*/
  * `[Verse 2]`, `[Chorus]`, `[x2]` — a marker, written the way people write it.
  *
  * A remark may follow it, because that is where one belongs: `[ Chorus ] (x2)`
- * is still a chorus, and how many times round is exactly the sort of thing
+ * is still a chorus, and how many times it repeats is exactly the sort of thing
  * somebody writes beside the name. Only remarks may follow, though — a marker
  * with words after it is a line of the song that happens to open with a
  * bracket, and colouring the whole thing as a heading would be wrong.

@@ -141,9 +141,9 @@ export function HeaderBar() {
 }
 
 /**
- * Looping: going round the region set on the song, over and over.
+ * Looping the region set on the song.
  *
- * Nothing to go round means nothing to press, so without a region it is
+ * Nothing to loop means nothing to press, so without a region it is
  * disabled rather than absent — the loop is a thing this song can have, and a
  * button that comes and goes is harder to find than one that waits.
  */

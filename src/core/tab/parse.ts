@@ -89,7 +89,7 @@ const isHandRow = (line: string): boolean =>
   line.trim() !== '' && [...line].every((character) => character === ' ' || 'x~'.includes(character))
 
 /* The `x` of a repeat count is written on this line too, so it belongs to the
-   alphabet: without it a bar that says how many times round is not recognised
+   alphabet: without it a bar that says how many times it repeats is not recognised
    as the beats at all, and the rhythm falls back to a guess. */
 const isMarkerRow = (line: string): boolean =>
   !line.includes('|') && /\d/.test(line) && /^[\s\d&eax]*$/.test(line)
@@ -200,7 +200,7 @@ function barsOf(row: string): { content: string; at: number }[] {
 /**
  * The beat numbers with the repeat counts taken out.
  *
- * "x12" over the end of a bar is how many times round, not a beat, and its
+ * "x12" over the end of a bar is a repeat count, not a beat, and its
  * digits would otherwise be read as one — putting a beat where the bar ends
  * and throwing off every slot after it.
  */
@@ -211,7 +211,7 @@ const withoutCounts = (markers: string): string =>
 const beatColumns = (markers: string | null): number[] =>
   markers === null ? [] : [...withoutCounts(markers).matchAll(/\d+/g)].map((match) => match.index)
 
-/** How many times round, written over the column the bar ends on. */
+/** How many times it repeats, written over the column the bar ends on. */
 function timesRound(markers: string | null, from: number, to: number): number | null {
   if (markers === null) return null
   for (const match of markers.matchAll(/x(\d+)/g)) {

@@ -49,7 +49,7 @@ interface TransportState {
   playedFrom: number | null
   /** The stretch being worked on, as the song has it. */
   loop: LoopRegion | null
-  /** Whether the player is currently going round it. */
+  /** Whether the player is currently looping it. */
   looping: boolean
   end: number
   /** Playback rate as a fraction: 0.96 is the 96% shown on the tempo knob. */
@@ -180,7 +180,7 @@ export const useTransport = create<TransportState>((set, get) => ({
   },
 
   /* The region belongs to the song, so it arrives from there. Losing it stops
-     any going round it; keeping a loop with nothing to loop is nonsense. */
+     any looping; keeping a loop with nothing to loop is nonsense. */
   setLoop: (loop) => {
     set({ loop })
     if (loop === null) {

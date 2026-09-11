@@ -331,7 +331,7 @@ describe('the tempo keys', () => {
 })
 
 describe('L', () => {
-  it('goes round the region from the top of it, playing', () => {
+  it('loops the region from the top of it, playing', () => {
     press({ key: 'l' })
 
     const transport = useTransport.getState()
@@ -348,7 +348,7 @@ describe('L', () => {
     expect(useTransport.getState().position).toBe(20)
   })
 
-  it('lets go when it is already going round', () => {
+  it('lets go when it is already looping', () => {
     press({ key: 'l' })
 
     press({ key: 'l' })
@@ -357,7 +357,7 @@ describe('L', () => {
     expect(useTransport.getState().playing).toBe(true)
   })
 
-  it('does nothing when there is no region to go round', () => {
+  it('does nothing when there is no region to loop', () => {
     useTransport.setState({ loop: null })
 
     press({ key: 'l' })

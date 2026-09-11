@@ -92,7 +92,7 @@ export interface Song {
   /**
    * The stretch being worked on, kept with the song because that is what it is
    * about — the awkward eight bars are still awkward tomorrow. Whether the
-   * player is currently going round it is not kept: that is a thing you are
+   * player is currently looping it is not kept: that is a thing you are
    * doing, not a thing the song is.
    */
   loop: LoopRegion | null

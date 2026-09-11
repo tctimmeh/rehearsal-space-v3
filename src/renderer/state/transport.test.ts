@@ -169,7 +169,7 @@ describe('auto return', () => {
 
 /**
  * A loop is for the eight bars that will not go right. The region belongs to
- * the song; going round it is something you start and stop.
+ * the song; looping it is something you start and stop.
  */
 describe('looping', () => {
   const region = { start: 20, end: 30 }
@@ -178,7 +178,7 @@ describe('looping', () => {
     useTransport.setState({ loop: region, looping: false })
   })
 
-  it('cannot be started without a region to go round', () => {
+  it('cannot be started without a region to loop', () => {
     useTransport.setState({ loop: null })
 
     useTransport.getState().setLooping(true)
@@ -238,7 +238,7 @@ describe('looping', () => {
   })
 
   /* Auto return puts the playhead back inside the region, so there is no
-     reason to have stopped going round it. */
+     reason to have stopped looping it. */
   it('carries on through a pause that returns into the region', () => {
     autoReturn(true)
     useTransport.setState({ position: 22, playing: false })

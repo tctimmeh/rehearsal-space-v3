@@ -427,7 +427,7 @@
 .align__handle--end::before {
   background: var(--mute);
 }
-/* The stretch to go round, laid over the waveform rather than beside it: the
+/* The region to loop, laid over the waveform rather than beside it: the
    region is a piece of the music, not an annotation on it. */
 .align__loop {
   position: absolute;
@@ -462,7 +462,7 @@
   white-space: nowrap;
   pointer-events: none;
 }
-.align__handle--end /* The stretch to go round, laid over the waveform rather than beside it: the
+.align__handle--end /* The region to loop, laid over the waveform rather than beside it: the
    region is a piece of the music, not an annotation on it. */
 .align__loop {
   position: absolute;

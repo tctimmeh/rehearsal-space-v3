@@ -484,14 +484,14 @@ const opensRepeat = (bar: Bar): Bar => {
   return rest
 }
 
-/* Marking the end of a repeat leaves it going round once, which is what a
-   repeat means before anybody says otherwise. Pressing again does not take it
-   off — the count is asked for instead, and nought is how it is cleared. */
+/* Marking the end of a repeat leaves it playing twice, which is what a repeat
+   means before anybody says otherwise. Pressing again does not take it off —
+   the count is asked for instead, and nought is how it is cleared. */
 const closesRepeat = (bar: Bar): Bar =>
   bar.repeatTimes === undefined ? { ...bar, repeatTimes: 1 } : bar
 
 /**
- * How many times the repeat goes round, on the bar it ends at.
+ * How many times the repeat is played again, on the bar it ends at.
  *
  * Nought times is not a repeat at all, so it is how the mark is taken off.
  */

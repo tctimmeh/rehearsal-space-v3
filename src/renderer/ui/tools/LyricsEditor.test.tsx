@@ -171,7 +171,7 @@ describe('the kinds of line in a real song', () => {
   })
 
   /* A section with a remark beside it is still a section: the heading in the
-     section colour, and how many times round quietly beside it. */
+     section colour, and how many times it repeats quietly beside it. */
   it('shows a remark on a section line without losing the section', () => {
     useLyrics.setState({ text: '[ Chorus ]   ( x2 )' })
     render(<LyricsEditor />)

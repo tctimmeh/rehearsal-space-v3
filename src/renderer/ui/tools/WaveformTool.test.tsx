@@ -194,7 +194,7 @@ describe('moving the playhead', () => {
 
 /**
  * The waveform area does whatever needs looking at the music. Marking out the
- * stretch to go round is the same kind of job as lining up a click track, and
+ * region to loop is the same kind of job as lining up a click track, and
  * is done in the same place.
  */
 describe('the loop region', () => {

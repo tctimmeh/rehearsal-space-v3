@@ -3,7 +3,7 @@ import { Button } from '../primitives'
 import { Handle, Offscreen, inView, type View } from './waveformParts'
 
 /**
- * Marking out the stretch to go round.
+ * Marking out the region to loop.
  *
  * The same job as lining up a click track, done the same way: the ends are
  * where the music says they are, which you find by looking at it.
