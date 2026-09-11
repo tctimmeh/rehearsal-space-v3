@@ -62,6 +62,17 @@ interface SongState {
   refreshBounds: () => void
   /** Writes any pending change now. */
   flush: () => Promise<void>
+  /**
+   * A channel being changed on trial, and what the file is to keep meanwhile.
+   *
+   * Trimming a take and lining up a click are tried out before they are
+   * agreed to: the song holds the change so it can be heard and seen, and the
+   * file keeps what was there until somebody says otherwise. Quitting, or
+   * crashing, therefore leaves the channel as it was rather than as it was
+   * being experimented with.
+   */
+  unwritten: { channelId: string; before: Channel } | null
+  keepUnwritten: (trial: { channelId: string; before: Channel } | null) => void
   dismissError: () => void
 }
 
@@ -102,6 +113,7 @@ export const useSong = create<SongState>((set, get) => ({
   error: null,
   importing: false,
   loading: null,
+  unwritten: null,
 
   dismissError: () => set({ error: null }),
 
@@ -349,6 +361,12 @@ export const useSong = create<SongState>((set, get) => ({
     await get().refresh()
   },
 
+  keepUnwritten: (trial) => {
+    set({ unwritten: trial })
+    /* What the file should hold has changed, whichever way this went. */
+    unsaved = true
+  },
+
   flush: async () => {
     if (saveTimer !== null) clearTimeout(saveTimer)
     saveTimer = null
@@ -435,7 +453,14 @@ function adoptChannels(
 ): void {
   const current = get().song
   if (current === null || current.id !== updated.id) return
-  const song = { ...current, channels: updated.channels }
+  /* A channel on trial keeps what is being tried: main was handed the file's
+     own copy of it, and taking that back would undo the work in progress. */
+  const trial = get().unwritten
+  const onTrial = current.channels.find((one) => one.id === trial?.channelId) ?? null
+  const channels = updated.channels.map((one) =>
+    onTrial !== null && one.id === onTrial.id ? onTrial : one
+  )
+  const song = { ...current, channels }
   set({ song })
   applyBounds(song)
   void loadIntoEngine(song)
@@ -454,6 +479,21 @@ async function loadIntoEngine(
     )
   } catch (error) {
     useSong.setState({ error: message(error) })
+  }
+}
+
+/**
+ * The song as the file is to hold it.
+ *
+ * Everything goes to disk through here, so a channel on trial is put back to
+ * what it was in the one place that matters, whatever asked for the write — the
+ * timer, an import settling first, or the app being closed.
+ */
+function asFiled(song: Song, trial: SongState['unwritten']): Song {
+  if (trial === null) return song
+  return {
+    ...song,
+    channels: song.channels.map((one) => (one.id === trial.channelId ? trial.before : one))
   }
 }
 
@@ -479,7 +519,7 @@ async function writeUntilQuiet(
 
     let saved: Song
     try {
-      saved = await window.rehearsal.library.save(song)
+      saved = await window.rehearsal.library.save(asFiled(song, get().unwritten))
     } catch (error) {
       /* Say so rather than dropping the edit silently. Retrying immediately
          would spin against whatever is wrong on disk. */

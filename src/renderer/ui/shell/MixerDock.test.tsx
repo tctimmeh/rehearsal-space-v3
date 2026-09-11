@@ -176,7 +176,7 @@ describe('the channel menu', () => {
 
     await openMenu(user, 'Count-in')
 
-    expect(screen.getByRole('menuitem', { name: /Line up to the music/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /Align Click/ })).toBeTruthy()
     expect(screen.queryByRole('menuitem', { name: /Split into stems/ })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: /Trim and place/ })).toBeNull()
   })
@@ -208,7 +208,7 @@ describe('the channel menu', () => {
     dock()
 
     await openMenu(user, 'Count-in')
-    await user.click(screen.getByRole('menuitem', { name: /Line up to the music/ }))
+    await user.click(screen.getByRole('menuitem', { name: /Align Click/ }))
 
     expect(useWaveformEdit.getState().editing?.kind).toBe('click')
   })

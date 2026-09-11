@@ -66,7 +66,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-/* The tool is opened on the loop region and stays there. Lining up a click is
+/* The tool is opened on the loop region and stays there. Aligning a click is
    begun from the click track itself, and holds until it is agreed to. */
 const lineUp = (id: string) => {
   const channel = useSong.getState().song?.channels.find((one) => one.id === id)

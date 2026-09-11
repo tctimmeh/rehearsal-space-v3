@@ -26,12 +26,12 @@ export function WaveformEditPrompt() {
 
   return (
     <Modal
-      title={`Save the changes to ${name}?`}
+      title="Unsaved changes"
       onDismiss={stay}
       footer={
         <>
           <Button onClick={stay}>Cancel</Button>
-          <Button onClick={() => void discardAndGo()}>Don&apos;t save</Button>
+          <Button onClick={() => void discardAndGo()}>Discard</Button>
           <Button variant="primary" onClick={() => void saveAndGo()}>
             Save
           </Button>
@@ -39,10 +39,8 @@ export function WaveformEditPrompt() {
       }
     >
       <p>
-        {editing.kind === 'trim'
-          ? 'Trimming and placing holds its changes until they are saved.'
-          : 'Lining up holds its changes until they are saved.'}{' '}
-        Not saving puts the channel back as it was.
+        You have unsaved changes to {name}. Save these changes, discard them, or cancel and
+        keep editing?
       </p>
     </Modal>
   )

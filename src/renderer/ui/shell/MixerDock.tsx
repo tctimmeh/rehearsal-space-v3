@@ -326,7 +326,7 @@ function ChannelStrip({
                 </>
               ) : (
                 <StripMenuItem
-                  label="Line up to the music…"
+                  label="Align Click…"
                   disabled={busy}
                   onClick={() => {
                     close()

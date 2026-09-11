@@ -184,10 +184,10 @@ describe('what the stage calls it', () => {
     expect(describeEdit(editing, [take({ name: 'Rhythm' })])).toBe('Trimming Rhythm')
   })
 
-  it('names the click track being lined up', () => {
+  it('names the click track being aligned', () => {
     const editing = { kind: 'click' as const, channelId: 'Take 1', before: take() }
 
-    expect(describeEdit(editing, [take({ name: 'Count-in' })])).toBe('Lining up Count-in')
+    expect(describeEdit(editing, [take({ name: 'Count-in' })])).toBe('Aligning Count-in')
   })
 
   /* A channel deleted from under a session still has to be called something. */

@@ -39,7 +39,7 @@ interface WaveformEditState {
 /** What the stage calls itself while a session is open. */
 export const describeEdit = (editing: WaveformEdit, channels: readonly Channel[]): string => {
   const name = channels.find((one) => one.id === editing.channelId)?.name ?? editing.before.name
-  return editing.kind === 'trim' ? `Trimming ${name}` : `Lining up ${name}`
+  return editing.kind === 'trim' ? `Trimming ${name}` : `Aligning ${name}`
 }
 
 /**
@@ -52,10 +52,11 @@ export const describeEdit = (editing: WaveformEdit, channels: readonly Channel[]
  * of time with everything else, and there was nothing to undo it with.
  *
  * So they are reached from the channel they act on, one at a time, and the
- * changes stand only while the session does. They are applied as they are made
- * — a click track is lined up by ear as much as by eye, and a change nobody can
- * hear is a change nobody can judge — and cancelling puts back the channel as
- * it was.
+ * changes stand only while the session does. They are applied to the song as
+ * they are made — a click track is lined up by ear as much as by eye, and a
+ * change nobody can hear is a change nobody can judge — but the file keeps the
+ * channel as it was until they are saved, so quitting or crashing in the middle
+ * of one leaves the channel alone rather than keeping an experiment.
  *
  * Anything that would leave a session behind asks first. Neither answer can be
  * guessed: saving silently is how the old modes lost people's takes, and
@@ -64,6 +65,9 @@ export const describeEdit = (editing: WaveformEdit, channels: readonly Channel[]
 export const useWaveformEdit = create<WaveformEditState>((set, get) => {
   const start = (kind: EditKind, channel: Channel): void => {
     set({ editing: { kind, channelId: channel.id, before: channel } })
+    /* From here the file keeps the channel as it is now, however the song is
+       written in the meantime, and whatever happens to the app. */
+    useSong.getState().keepUnwritten({ channelId: channel.id, before: channel })
     openTool('waveform')
 
     /* Opened to be worked on, so the view goes to it rather than leaving it a
@@ -120,6 +124,9 @@ export const useWaveformEdit = create<WaveformEditState>((set, get) => {
     save: async () => {
       if (get().editing === null) return
       set({ editing: null })
+      /* Letting go of the hold is itself a change to what the file should
+         say, so the write that follows has something to do. */
+      useSong.getState().keepUnwritten(null)
       await useSong.getState().flush()
     },
 
@@ -127,6 +134,7 @@ export const useWaveformEdit = create<WaveformEditState>((set, get) => {
       const editing = get().editing
       if (editing === null) return
       set({ editing: null })
+      useSong.getState().keepUnwritten(null)
 
       const song = useSong.getState().song
       if (song !== null) {

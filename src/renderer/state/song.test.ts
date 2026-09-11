@@ -475,3 +475,106 @@ describe('where a channel\'s audio lies', () => {
     expect(channel?.gain).toBe(0.25)
   })
 })
+
+/**
+ * Trimming a take and lining up a click are tried out before they are agreed
+ * to. The song holds the change so it can be heard; the file keeps what was
+ * there. Everything reaches disk through one write, so putting the channel back
+ * there covers every way a write can be asked for — the timer, an import
+ * settling first, and the app being closed.
+ */
+describe('a channel being changed on trial', () => {
+  const take = (startTime: number): Channel =>
+    ({
+      kind: 'audio',
+      id: 'Take 1',
+      name: 'Take 1',
+      subject: 'other',
+      file: 'audio/Take 1.ogg',
+      startTime,
+      duration: 10,
+      gain: 1,
+      muted: false,
+      soloed: false,
+      origin: { type: 'record' }
+    }) as Channel
+
+  const withTake = async (harnessed: Harness) => {
+    await harnessed.useSong.getState().load('new-song')
+    harnessed.useSong.getState().update({ channels: [take(4)] })
+    await vi.advanceTimersByTimeAsync(500)
+    harnessed.completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+    harnessed.useSong.getState().keepUnwritten({ channelId: 'Take 1', before: take(4) })
+  }
+
+  const filedStart = (song: Song | undefined) => {
+    const channel = song?.channels[0]
+    return channel !== undefined && channel.kind === 'audio' ? channel.startTime : null
+  }
+
+  it('is written as it was, not as it is being tried', async () => {
+    const harnessed = await harness()
+    await withTake(harnessed)
+
+    harnessed.useSong.getState().update({ channels: [take(9)] })
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(filedStart(harnessed.savesStarted().at(-1))).toBe(4)
+  })
+
+  /* The change is in the song all the same, or there would be nothing to hear
+     while deciding whether to keep it. */
+  it('is in the song while it is being tried', async () => {
+    const harnessed = await harness()
+    await withTake(harnessed)
+
+    harnessed.useSong.getState().update({ channels: [take(9)] })
+
+    expect(filedStart(harnessed.useSong.getState().song as Song)).toBe(9)
+  })
+
+  /* Closing the app asks for one last write, which is the moment an experiment
+     would otherwise be kept for good. */
+  it('is still written as it was when everything is flushed', async () => {
+    const harnessed = await harness()
+    await withTake(harnessed)
+    harnessed.useSong.getState().update({ channels: [take(9)] })
+
+    const flushing = harnessed.useSong.getState().flush()
+    await vi.advanceTimersByTimeAsync(0)
+    harnessed.completeSave()
+    await flushing
+
+    expect(filedStart(harnessed.savesStarted().at(-1))).toBe(4)
+  })
+
+  it('is written as it stands once the trial is let go of', async () => {
+    const harnessed = await harness()
+    await withTake(harnessed)
+    harnessed.useSong.getState().update({ channels: [take(9)] })
+    await vi.advanceTimersByTimeAsync(500)
+    harnessed.completeSave()
+    await vi.advanceTimersByTimeAsync(0)
+
+    harnessed.useSong.getState().keepUnwritten(null)
+    const flushing = harnessed.useSong.getState().flush()
+    await vi.advanceTimersByTimeAsync(0)
+    harnessed.completeSave()
+    await flushing
+
+    expect(filedStart(harnessed.savesStarted().at(-1))).toBe(9)
+  })
+
+  /* Everything else about the song is the user's and goes to the file as
+     usual; only the one channel is held back. */
+  it('does not hold back anything else', async () => {
+    const harnessed = await harness()
+    await withTake(harnessed)
+
+    harnessed.useSong.getState().update({ title: 'Coast Road' })
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(harnessed.savesStarted().at(-1)?.title).toBe('Coast Road')
+  })
+})
