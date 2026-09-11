@@ -1,13 +1,12 @@
 # Rehearsal Space
 
-**Learn the song. Then write your own.**
+**Learn the song. Write your own.**
 
-A desktop practice room: pull a recording apart, slow it down without it going
-flat, count yourself in, record what you played over the top, and write the
-words and the tab beside it. One window, one song, everything to hand.
+Import your favourite tracks, separate instruments, add a count-in, and change tempo or tuning on-the-fly. Got a great song idea? Add lyrics and tablature and record yourself so you don't lose that magic moment. Tuner, metronome, and quick references at your fingertips.
 
-It is not a DAW. There is no mixdown, no plugin chain, no automation lane — the
-things you reach for with a guitar already on.
+Easy to use, not heavy like a DAW. Just the things you reach for when you want to perfect that solo, capture that idea, or jam along with your favourite artists.
+
+Everything local and simple. No cloud, no account, no data collection, no proprietary formats, no encryption. One tool, everything at hand for practice and writing.
 
 ![The player: a waveform with a loop region drawn over the chorus, and the mixer beneath it](docs/images/player.png)
 
@@ -15,122 +14,82 @@ things you reach for with a guitar already on.
 
 ## Take a song apart
 
-Drop in an MP3, or paste a YouTube link and let it fetch the audio. Then split
-it into its instruments — vocals, drums, bass, guitar, piano — each arriving as
-its own channel with its own fader, mute and solo.
+Drop in an audio file or paste a link to fetch from the web. Split the song into individual instruments, each arriving as its own channel with its own fader, mute and solo.
 
-Learning the bass line? Solo the bass. Singing it? Mute the vocal and keep the
-band. The separation runs on your own machine; nothing is uploaded anywhere.
+Learning the bass line? Solo the bass. Singing it? Mute the vocal and keep the band. The separation runs on your own machine; nothing is uploaded anywhere.
 
 <img src="docs/images/stems.png" alt="The stems dialog: choose which instruments to pull out, and whether to mute the original" width="700">
 
-## Slow it down. Move it into your key.
+## Slow it down. Move it into your key. Loop till perfect.
 
-Tempo and pitch are separate knobs and neither touches the other. Take it to
-80% to learn the fast part and it stays in tune. Drop it two semitones to sing
-it comfortably and it stays at speed. Both at once works exactly as you'd hope.
+Tempo and pitch are separate knobs and neither touches the other.
+
+Take it to 80% to learn the fast part and it stays in tune. Drop it two semitones to sing it comfortably and it stays at speed. Both at once works exactly as you'd hope. Add an A-B loop region to focus on a tough section.
 
 ![Tempo at 80% and the song pitched down two semitones, with the pitch popover open](docs/images/pitch-and-tempo.png)
 
-Mark a region and it loops until you have it.
-
 ## Count yourself in
 
-Add a click track and line it up against the music by eye. Drag its end to
-where the band comes in and the clicks fall *before* it — into negative time if
-the count-in needs it. The tempo is nudged to whatever divides the span evenly,
-so the last beat finishes exactly where the music starts, rather than drifting
-off it a bar later.
+Add a click track and line it up against the music waveform anywhere you want, including as a count-in before the music starts.
+
+Just estimate the tempo and set the start and end markers. Actual tempo is nudged so that your clicks land right at the start and the band comes in right at the end. Metronome sounds include standard beeps, hi-hat, kick, snare, cross-sticks, and woodblock.
 
 ![The click align tool: beat lines over the waveform, the end marker on the first transient](docs/images/click-align.png)
 
-Pick the sound — woodblock, claves, hi-hat, cross-stick, kick — and how many
-beats to a bar.
-
-## Record yourself over it
+## Record yourself
 
 ![The transport: stopped, playing, and armed to record](docs/images/transport.png)
 
-Arm the record button and it captures for exactly as long as the player runs,
-so the take lands in time with the song rather than wherever you managed to hit
-two buttons. Recorded a harmony over the second chorus? It sits at the second
-chorus.
+Arm the record button and capture your great idea or play along with existing music.
 
-An interface with two sockets arrives as one stereo device, so you choose the
-socket and the take comes in mono — a guitar in the first and a mic in the
-second are two performances, not the left and right of one. Everything the
-browser offers to help a phone call is refused: echo cancellation and noise
-suppression exist to make speech intelligible by altering it.
+Everything stays in sync, on time, and in tune. Record those chords you've been working on then ride the tempo and pitch knobs to dial in the perfect groove.
 
 ## Write the tab
 
-A tablature editor you drive entirely from the keyboard. Type frets, and it
+An easy tablature editor you can drive entirely from the keyboard.
+
+Every bar has timing marks so you're not guessing about rhythm. Type frets, and it
 lays out the bars, moves the beat markers and widens the columns as you go.
 Slides, hammer-ons, bends, palm mutes, vibrato, triplets, repeats, sixteenths
-and thirty-seconds — as much as text tab can carry and no more.
+and thirty-seconds. Saved as plain text so you can work with it anywhere.
 
 ![The tablature editor with a riff, showing a slide, a bend and a slide back down](docs/images/tablature.png)
 
-It is plain text, in the format everyone already pastes into forum posts, so it
-copies in and out of anywhere. A song can hold several — lead, rhythm, bass,
-the vocal melody.
-
 ## Write the words
 
-Chords over the lines, sections in brackets, notes to yourself in parentheses,
-and a dash for a line you haven't settled yet. Transpose the whole song a
-semitone at a time and every chord moves with it, spelled the way people write
-it — E♭ rather than D♯.
+Chords over the lines, sections in brackets, notes, comments, and temporary lyrics. Transpose the song and every chord moves with it. Plain text, like the tablature. Take it wherever you like.
 
 ![The lyrics editor with chords over the words and sections marked](docs/images/lyrics.png)
 
-Plain text again. It is your file; take it wherever you like.
-
 ## And the small things
 
-A metronome you can tap a tempo into, and a tuner listening to the same input
-you record from. Both a keypress away, both out of the way when you're done.
-There's a rhyme finder and a chord chart for the key you're in, too.
+A metronome and a tuner listening to the same input you record from. Both a keypress away, both out of the way when you're done.  A rhyme finder and a chord chart for when your inpiration needs a little nudge.
 
 ![The metronome and tuner](docs/images/gadgets.png)
 
-## Your songs are files
-
-One folder per song, named after the song. The audio inside it is named after
-the channel, so the take called "Rhythm" is `Rhythm.ogg` — drag it into your DAW
-later and it is still called what you called it. Lyrics and tab are text.
-
-```
-Coast Road/
-  song.json
-  audio/Rhythm.ogg
-  lyrics.txt
-  tabs/Lead.txt
-```
-
-Nothing is in a cloud. Nothing needs an account. Back it up by copying a folder.
-
-![The library](docs/images/library.png)
-
 ---
 
-## Getting it
+## Download
 
 Grab the file for your machine from
-[Releases](../../releases) — an AppImage or `.deb` for Linux, a `.dmg` for
+[Releases](../../releases): an AppImage or `.deb` for Linux, a `.dmg` for
 macOS, an installer or a zip for Windows.
 
-Nothing is signed with a paid certificate yet, so macOS asks you to open it from
-the context menu the first time and Windows shows a SmartScreen warning until
-the download earns a reputation. Each release explains how to get past both.
+### External Requirements
 
-Linux is where it is built and used daily; macOS and Windows are built by the
-same pipeline and are newer ground.
+`ffmpeg`, `ffprobe` and `yt-dlp` are required. The app will fetch private copies of these on first run.
 
-`ffmpeg`, `ffprobe` and `yt-dlp` fetch themselves on first run. Stem separation
-needs `demucs`, which is about a gigabyte — so it is never installed behind your
-back. Ask for stems and the app offers, tells you what it costs, and will remove
-it again later.
+Stem separation uses local `demucs`, which is a large download. You will be asked the first time you separate stems.
+
+### MacOS
+
+The app is signed, but not notarised, so the system says it cannot check it
+for malicious software.
+
+- Open it once and let the warning appear, then dismiss it.
+- Go to System Settings → Privacy & Security, scroll to the bottom, and press Open Anyway beside the app's name.
+- Confirm once more when asked. It opens normally from then on.
+
 
 ## Building it
 
