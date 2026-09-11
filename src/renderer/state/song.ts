@@ -399,11 +399,15 @@ export const useSong = create<SongState>((set, get) => ({
   },
 
   removeChannel: async (channelId) => {
+    if (get().song === null) return
+    await get().flush()
+    /* Settling what was pending may have renamed the song, so where it is now
+       is what main is asked about. */
     const song = get().song
     if (song === null) return
-    await get().flush()
     try {
-      adoptChannels(set, get, await window.rehearsal.library.removeChannel(song.id, channelId))
+      const updated = await window.rehearsal.library.removeChannel(song.id, channelId)
+      adoptChannels(set, get, song.id, updated)
     } catch (error) {
       set({ error: message(error) })
     }
@@ -478,10 +482,15 @@ async function runAdding(
   if (song === null) return
   await get().flush()
 
+  /* Re-read: settling what was pending may itself have renamed the song, and
+     what main is about to be asked about is where the song is now. */
+  const asked = get().song
+  if (asked === null) return
+
   set({ importing: true, error: null })
   try {
-    const updated = await work(song)
-    if (updated !== null) adoptChannels(set, get, updated)
+    const updated = await work(asked)
+    if (updated !== null) adoptChannels(set, get, asked.id, updated)
   } catch (error) {
     set({ error: message(error) })
   } finally {
@@ -494,14 +503,28 @@ async function runAdding(
  * Main owns the channel list while an import is running — it writes the file
  * itself — but the user may have been editing the title all the while, so only
  * the channels are taken from what comes back.
+ *
+ * The reply may come back under a different id than was asked about, and that
+ * is the ordinary case rather than a strange one. A song's directory is named
+ * after its title, and renaming is held off while a job is working inside the
+ * folder; main does the waiting write the moment the job ends, so a title typed
+ * during a download is answered by the same call that hands the channel back.
+ * Rejecting the reply for not matching threw the new channel away and left the
+ * window holding a song id that no longer existed — no new channel in the
+ * mixer, and a library that did not know which song was loaded.
+ *
+ * What must still be rejected is a reply about some *other* song, which is
+ * what switching songs mid-import gives.
  */
 function adoptChannels(
   set: (partial: Partial<SongState>) => void,
   get: () => SongState,
+  asked: string,
   updated: Song
 ): void {
   const current = get().song
-  if (current === null || current.id !== updated.id) return
+  if (current === null) return
+  if (current.id !== asked && current.id !== updated.id) return
   /* A channel on trial keeps what is being tried: main was handed the file's
      own copy of it, and taking that back would undo the work in progress. */
   const trial = get().unwritten
@@ -509,7 +532,7 @@ function adoptChannels(
   const channels = updated.channels.map((one) =>
     onTrial !== null && one.id === onTrial.id ? onTrial : one
   )
-  const song = { ...current, channels }
+  const song = { ...current, id: updated.id, channels }
   set({ song })
   applyBounds(song)
   void loadIntoEngine(song)

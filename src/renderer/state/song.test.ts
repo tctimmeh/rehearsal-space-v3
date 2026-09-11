@@ -21,6 +21,9 @@ interface Harness {
   failSave: (reason: string) => void
 }
 
+/** Resolves whatever download is in flight, as main would when it is done. */
+let finishDownload: (song: Song) => void = () => undefined
+
 let pendingSaves: {
   song: Song
   resolve: (saved: Song) => void
@@ -45,7 +48,14 @@ async function harness(): Promise<Harness> {
         })
       }),
       remove: vi.fn(async () => undefined),
-      rememberLastSong: vi.fn(async () => undefined)
+      rememberLastSong: vi.fn(async () => undefined),
+      /* Held open so the song can be renamed while the download is running. */
+      downloadAudio: vi.fn(
+        (_songId: string, _url: string) =>
+          new Promise<Song>((resolve) => {
+            finishDownload = resolve
+          })
+      )
     }
   }
   vi.stubGlobal('window', { rehearsal: bridge })
@@ -576,5 +586,93 @@ describe('a channel being changed on trial', () => {
     await vi.advanceTimersByTimeAsync(500)
 
     expect(harnessed.savesStarted().at(-1)?.title).toBe('Coast Road')
+  })
+})
+
+/**
+ * A song's directory is named after its title, and renaming is held off while a
+ * job is working inside the folder. Main does the waiting rename in the same
+ * write that hands the new channel back, so a title typed during a download
+ * comes back under an id the window has never seen.
+ */
+describe('renaming a song while a channel is on its way in', () => {
+  const channel = (id: string): Channel =>
+    ({
+      kind: 'audio',
+      id,
+      name: id,
+      subject: 'other',
+      file: `audio/${id}.ogg`,
+      startTime: 0,
+      duration: 10,
+      gain: 1,
+      muted: false,
+      soloed: false,
+      origin: { type: 'import', sourcePath: '/tmp/a.wav' }
+    }) as Channel
+
+  /** What main hands back: the new channel, under the name it settled on. */
+  const asMainAnswers = (id: string): Song => ({
+    ...newSong(id),
+    id,
+    title: 'Coast Road',
+    channels: [channel('downloaded')]
+  })
+
+  it('keeps the channel that arrives under the new name', async () => {
+    const { useSong } = await harness()
+    await useSong.getState().load('new-song')
+
+    const downloading = useSong.getState().downloadAudio('https://example.test/song')
+    await vi.advanceTimersByTimeAsync(0)
+    finishDownload(asMainAnswers('coast-road'))
+    await downloading
+
+    expect(useSong.getState().song?.channels.map((one) => one.id)).toEqual(['downloaded'])
+  })
+
+  /* The window was left holding an id that no longer existed, so the library
+     could not tell which of its songs was the one open. */
+  it('takes the name main settled on', async () => {
+    const { useSong } = await harness()
+    await useSong.getState().load('new-song')
+
+    const downloading = useSong.getState().downloadAudio('https://example.test/song')
+    await vi.advanceTimersByTimeAsync(0)
+    finishDownload(asMainAnswers('coast-road'))
+    await downloading
+
+    expect(useSong.getState().song?.id).toBe('coast-road')
+  })
+
+  /* Everything but the channels and the name it was filed under is still the
+     user's, who may have carried on typing. */
+  it('leaves what the user was typing alone', async () => {
+    const { useSong } = await harness()
+    await useSong.getState().load('new-song')
+
+    const downloading = useSong.getState().downloadAudio('https://example.test/song')
+    await vi.advanceTimersByTimeAsync(0)
+    useSong.getState().update({ artist: 'The Lowlifes' })
+    finishDownload(asMainAnswers('coast-road'))
+    await downloading
+
+    expect(useSong.getState().song?.artist).toBe('The Lowlifes')
+  })
+
+  /* What must still be thrown away: an answer about a song nobody is looking
+     at any more. */
+  it('ignores an answer about a song that has since been left', async () => {
+    const { useSong } = await harness()
+    await useSong.getState().load('new-song')
+
+    const downloading = useSong.getState().downloadAudio('https://example.test/song')
+    await vi.advanceTimersByTimeAsync(0)
+    await useSong.getState().load('a-different-song')
+    finishDownload(asMainAnswers('coast-road'))
+    await downloading
+
+    expect(useSong.getState().song?.id).toBe('a-different-song')
+    expect(useSong.getState().song?.channels).toEqual([])
   })
 })

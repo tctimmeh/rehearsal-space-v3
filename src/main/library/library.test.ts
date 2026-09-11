@@ -319,3 +319,59 @@ describe('naming a channel names its file', () => {
     expect(await audioIn(saved.id)).toEqual(['Take 1.ogg'])
   })
 })
+
+/*
+ * The read and the write of a read-modify-write used to sit either side of the
+ * caller's own await, which is where a save lands when somebody names a song
+ * while a download is running.
+ */
+describe('changing a song', () => {
+  const take = (name: string) => ({
+    kind: 'audio' as const,
+    id: name,
+    name,
+    subject: 'other' as const,
+    file: `audio/${name}.ogg`,
+    startTime: 0,
+    duration: 10,
+    gain: 1,
+    muted: false,
+    soloed: false,
+    origin: { type: 'record' as const }
+  })
+
+  const withVocal = (song: Song): Song => ({
+    ...song,
+    channels: [...song.channels, take('Vocal')]
+  })
+
+  it('adds to the song as it is now, not as it was when the change began', async () => {
+    const song = await library.create()
+    /* Held, as it is while the job that is adding the channel runs: the name
+       typed during it is saved, and the rename it asks for waits. */
+    const held = createLibrary(root, { heldStill: () => true })
+
+    const typed = held.write({ ...song, title: 'Coast Road' })
+    const saved = await held.change(song.id, withVocal)
+    await typed
+
+    expect(saved.title).toBe('Coast Road')
+    expect(saved.channels.map((one) => one.name)).toEqual(['Vocal'])
+    expect((await library.read(song.id)).channels).toHaveLength(1)
+  })
+
+  /*
+   * The id a job was started with stops being the song's id the moment a title
+   * is typed. Reading a directory that is no longer there invents an empty
+   * song, and writing that back recreates the folder — leaving the take in one
+   * directory and the song it belongs to in another.
+   */
+  it('refuses to change a song whose directory has been renamed away', async () => {
+    const song = await library.create()
+    const moved = await library.write({ ...song, title: 'Coast Road' })
+
+    await expect(library.change(song.id, withVocal)).rejects.toThrow(song.id)
+
+    expect(await directories()).toEqual([moved.id])
+  })
+})

@@ -9,7 +9,7 @@ import { downloadAudio } from '../import/download'
 import { importAudio } from '../import/importAudio'
 import { separateStems } from '../import/separate'
 import { holdingSong, songIsHeld } from './holding'
-import { createLibrary, insideSong, writeAtomically } from './library'
+import { createLibrary, insideSong, writeAtomically, type SongLibrary } from './library'
 
 /** The library folder is a setting, so it is resolved per call rather than held. */
 /* Nothing renames a song's folder while something is working inside it. */
@@ -21,12 +21,56 @@ export const readSong = async (id: string): Promise<Song> => (await library()).r
 export const createSong = async (): Promise<Song> => (await library()).create()
 
 export async function writeSong(song: Song): Promise<Song> {
-  const saved = await (await library()).write(song)
-  /* A title change renames the directory, which changes the song's id. */
+  return followingTheId(song.id, async () => (await library()).write(song))
+}
+
+/** A title change renames the directory, which changes the song's id. */
+async function followingTheId(id: string, write: () => Promise<Song>): Promise<Song> {
+  const saved = await write()
   const { lastSongId } = await readConfig()
-  if (lastSongId === song.id && saved.id !== song.id) await updateConfig({ lastSongId: saved.id })
+  if (lastSongId === id && saved.id !== id) await updateConfig({ lastSongId: saved.id })
   return saved
 }
+
+/**
+ * Runs a job inside a song's folder and folds what it produced into song.json.
+ *
+ * The fold happens while the song is still held, and that is the whole point:
+ * the id the job was started with is only the song's id for as long as nothing
+ * can rename the folder. Appending after the hold was let go meant a name
+ * typed during a download could land in the gap — and then the take was
+ * written into a directory that had just been renamed away, recreating it, so
+ * the channel was in one folder and the song was in another.
+ *
+ * That write is also the job's own last word, and is entitled to the rename it
+ * deferred: the work is over, no path into the folder is being held any more,
+ * and it is still inside the hold, so nothing else can be either.
+ *
+ * A job that fails renames nothing, and the next save does it instead. The
+ * renderer only learns the new id from the reply it is not going to get, and a
+ * song whose folder has moved without it knowing is worse than one whose
+ * folder is still called what it was called this morning.
+ */
+async function adding(
+  songId: string,
+  work: (song: Song, directory: string) => Promise<(song: Song) => Song>
+): Promise<Song> {
+  return holdingSong(songId, async () => {
+    const directory = await songDirectory(songId)
+    const revise = await work(await readSong(songId), directory)
+    return followingTheId(songId, async () => (await finishing(songId)).change(songId, revise))
+  })
+}
+
+/**
+ * The library as the job that is finishing sees it: every other song still
+ * held, and its own no longer, so the settling write performs the rename that
+ * was put off while the work ran.
+ */
+const finishing = async (songId: string): Promise<SongLibrary> =>
+  createLibrary((await readConfig()).libraryPath, {
+    heldStill: (id) => id !== songId && songIsHeld(id)
+  })
 
 export async function deleteSong(id: string): Promise<void> {
   await (await library()).remove(id)
@@ -44,36 +88,28 @@ const songDirectory = async (id: string): Promise<string> =>
  * comes back.
  */
 export async function importChannel(songId: string, sourcePath: string): Promise<Song> {
-  const channel = await holdingSong(songId, async () => {
-    const directory = await songDirectory(songId)
-    const existing = await readSong(songId)
-    return importAudio({
+  return adding(songId, async (existing, directory) => {
+    const channel = await importAudio({
       songDirectory: directory,
       sourcePath,
       takenIds: existing.channels.map((entry) => entry.id)
     })
+    return (song) => ({ ...song, channels: [...song.channels, channel] })
   })
-
-  /* Outside the hold, so a name typed while this was running is answered the
-     moment the work it would have broken is over. */
-  const song = await readSong(songId)
-  return writeSong({ ...song, channels: [...song.channels, channel] })
 }
 
 /** Removes a channel and the files that belong only to it. */
 export async function removeChannel(songId: string, channelId: string): Promise<Song> {
-  const song = await readSong(songId)
-  const channel = song.channels.find((entry) => entry.id === channelId)
-  const directory = await songDirectory(songId)
-
-  if (channel?.kind === 'audio') {
-    await rm(join(directory, channel.file), { force: true })
-    await rm(join(directory, 'peaks', `${channel.id}.peaks`), { force: true })
-  }
-
-  return writeSong({
-    ...song,
-    channels: song.channels.filter((entry) => entry.id !== channelId)
+  return adding(songId, async (song, directory) => {
+    const channel = song.channels.find((entry) => entry.id === channelId)
+    if (channel?.kind === 'audio') {
+      await rm(join(directory, channel.file), { force: true })
+      await rm(join(directory, 'peaks', `${channel.id}.peaks`), { force: true })
+    }
+    return (current) => ({
+      ...current,
+      channels: current.channels.filter((entry) => entry.id !== channelId)
+    })
   })
 }
 
@@ -128,14 +164,14 @@ export async function writeLyrics(songId: string, text: string): Promise<void> {
 
 /** Downloads the audio behind a URL and adds it as a channel. */
 export async function downloadChannel(songId: string, url: string): Promise<Song> {
-  const channel = await holdingSong(songId, async () => {
-    const directory = await songDirectory(songId)
-    const existing = await readSong(songId)
-    return downloadAudio(directory, url, existing.channels.map((entry) => entry.id))
+  return adding(songId, async (existing, directory) => {
+    const channel = await downloadAudio(
+      directory,
+      url,
+      existing.channels.map((entry) => entry.id)
+    )
+    return (song) => ({ ...song, channels: [...song.channels, channel] })
   })
-
-  const song = await readSong(songId)
-  return writeSong({ ...song, channels: [...song.channels, channel] })
 }
 
 /**
@@ -147,30 +183,28 @@ export async function separateChannel(
   songId: string,
   request: SeparateRequest
 ): Promise<Song> {
-  const stems = await holdingSong(songId, async () => {
-    const directory = await songDirectory(songId)
-    const before = await readSong(songId)
+  return adding(songId, async (before, directory) => {
     const source = before.channels.find((entry) => entry.id === request.channelId)
     if (source === undefined || source.kind !== 'audio') {
       throw new Error('That channel has no audio to separate.')
     }
-    return separateStems(
+    const stems = await separateStems(
       directory,
       source as AudioChannel,
       request,
       before.channels.map((entry) => entry.id)
     )
-  })
-
-  const song = await readSong(songId)
-  return writeSong({
-    ...song,
-    channels: [
-      ...song.channels.map((entry) =>
-        entry.id === request.channelId && request.muteSource ? { ...entry, muted: true } : entry
-      ),
-      ...stems
-    ]
+    return (song) => ({
+      ...song,
+      channels: [
+        ...song.channels.map((entry) =>
+          entry.id === request.channelId && request.muteSource
+            ? { ...entry, muted: true }
+            : entry
+        ),
+        ...stems
+      ]
+    })
   })
 }
 
@@ -188,15 +222,13 @@ export async function addRecording(
   startTime: number,
   name: string
 ): Promise<Song> {
-  const channel = await holdingSong(songId, async () => {
-    const directory = await songDirectory(songId)
-    const existing = await readSong(songId)
+  return adding(songId, async (existing, directory) => {
     const workspace = await mkdtemp(join(tmpdir(), 'rehearsal-take-'))
     const source = join(workspace, `${name}.wav`)
 
     try {
       await writeFile(source, wav)
-      return await importAudio({
+      const channel = await importAudio({
         songDirectory: directory,
         sourcePath: source,
         takenIds: existing.channels.map((entry) => entry.id),
@@ -207,11 +239,9 @@ export async function addRecording(
         subject: 'other',
         startTime
       })
+      return (song) => ({ ...song, channels: [...song.channels, channel] })
     } finally {
       await rm(workspace, { recursive: true, force: true })
     }
   })
-
-  const song = await readSong(songId)
-  return writeSong({ ...song, channels: [...song.channels, channel] })
 }

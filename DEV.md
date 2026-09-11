@@ -90,6 +90,14 @@ Four ways in, all through the job queue so none of them blocks the UI:
   predictable place, so every conversion is planned before anything runs. The
   original is kept and, by default, muted.
 
+All four end the same way. The channel is folded into song.json *inside* the
+hold, by a read-modify-write the library serialises per song, and that write —
+the job's own last word, with the work behind it — is the one allowed to perform
+the rename the hold deferred. The id a job was handed is only the song's id for
+as long as nothing can rename the folder: folding after the hold was let go meant
+a name typed during a download could land in the gap, and the take was then
+written into a directory that had just been renamed away, recreating it.
+
 ## Metronome channels
 
 A metronome channel is anchored at its **end** — where the music picks the beat

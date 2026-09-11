@@ -76,7 +76,37 @@ export interface SongLibrary {
   read(id: string): Promise<Song>
   create(): Promise<Song>
   write(song: Song): Promise<Song>
+  /**
+   * Reads the song, revises it and writes it back, with nothing else allowed
+   * in between. Adding a channel has to be this rather than a read and a write
+   * either side of the caller's own await: what is on disk while a job runs is
+   * whatever the user has typed since it started, and a plain write would hand
+   * back the version the job began with.
+   */
+  change(id: string, revise: (song: Song) => Song): Promise<Song>
   remove(id: string): Promise<void>
+}
+
+/**
+ * One song's writes, in the order they were asked for.
+ *
+ * Keyed by id, and outside `createLibrary` because a library is made fresh for
+ * every call — two operations on one song must meet here, and they only do if
+ * the queue outlives them both.
+ */
+const turns = new Map<string, Promise<unknown>>()
+
+function inTurn<T>(id: string, work: () => Promise<T>): Promise<T> {
+  const mine = (turns.get(id) ?? Promise.resolve()).then(work)
+  const settled = mine.then(
+    () => undefined,
+    () => undefined
+  )
+  turns.set(id, settled)
+  void settled.then(() => {
+    if (turns.get(id) === settled) turns.delete(id)
+  })
+  return mine
 }
 
 /** One directory per song, inside `root`. The directory name is the song's id. */
@@ -192,7 +222,7 @@ export function createLibrary(
     return { ...song, channels }
   }
 
-  const write = async (song: Song): Promise<Song> => {
+  const writeNow = async (song: Song): Promise<Song> => {
     const id = await renameToMatchTitle(song)
     const directory = await directoryOf(id)
     await mkdir(directory, { recursive: true })
@@ -204,7 +234,21 @@ export function createLibrary(
 
   return {
     read,
-    write,
+
+    write: (song) => inTurn(song.id, () => writeNow(song)),
+
+    change: (id, revise) =>
+      inTurn(id, async () => {
+        /* A folder that is no longer there has been renamed, which means the
+           id this was asked for is one the caller learned before the rename.
+           Reading it would invent an empty song and writing it back would
+           recreate the folder, leaving the take in a directory nobody is ever
+           going to open again. */
+        if (!(await exists(await directoryOf(id)))) {
+          throw new Error(`That song is no longer at "${id}".`)
+        }
+        return writeNow(revise(await read(id)))
+      }),
 
     list: async () =>
       Promise.all(
@@ -231,7 +275,7 @@ export function createLibrary(
     create: async () => {
       const id = uniqueSlug(slugify(DEFAULT_SONG_TITLE), await ids())
       await mkdir(await directoryOf(id), { recursive: true })
-      return write(newSong(id))
+      return writeNow(newSong(id))
     },
 
     /** Removes all song data: configuration, audio, lyrics — the whole directory. */
