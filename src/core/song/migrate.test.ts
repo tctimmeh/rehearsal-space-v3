@@ -344,3 +344,72 @@ describe('a subject that has been folded into another', () => {
     expect(readSubject('theremin')).toBe('other')
   })
 })
+
+/**
+ * An id is how everything tells one channel from another: the mixer mutes by
+ * it, the editor renames by it, deleting removes by it, and the audio engine
+ * files a decoded channel under it. Two channels holding one id are one channel
+ * to all of them.
+ */
+describe('channels that share an id', () => {
+  const channel = (id: string, name: string) => ({
+    kind: 'audio',
+    id,
+    name,
+    subject: 'guitar',
+    file: `audio/${name}.ogg`,
+    startTime: 0,
+    duration: 10
+  })
+
+  const read = (channels: unknown[]) =>
+    migrateSong({ schemaVersion: 1, channels }, 'x').channels
+
+  it('are given one each', () => {
+    const channels = read([channel('Guitar', 'Rhythm'), channel('Guitar', 'Lead')])
+
+    expect(channels.map((one) => one.id)).toEqual(['Guitar', 'Guitar-2'])
+  })
+
+  /* The first keeps what it had, so whatever already refers to it — the
+     waveform filed under it, a stem naming it as its source — still does. */
+  it('leave the first one alone', () => {
+    const channels = read([channel('Guitar', 'Rhythm'), channel('Guitar', 'Lead')])
+
+    expect(channels[0]).toMatchObject({ id: 'Guitar', name: 'Rhythm' })
+    expect(channels[1]).toMatchObject({ id: 'Guitar-2', name: 'Lead' })
+  })
+
+  it('keep everything else about themselves', () => {
+    const channels = read([channel('Guitar', 'Rhythm'), channel('Guitar', 'Lead')])
+
+    expect(channels[1]).toMatchObject({ file: 'audio/Lead.ogg', duration: 10 })
+  })
+
+  it('go on past a second clash', () => {
+    const channels = read([
+      channel('Guitar', 'One'),
+      channel('Guitar', 'Two'),
+      channel('Guitar', 'Three')
+    ])
+
+    expect(channels.map((one) => one.id)).toEqual(['Guitar', 'Guitar-2', 'Guitar-3'])
+  })
+
+  /* Two channels may perfectly well be called the same thing. It is only the
+     id that has to be its own. */
+  it('leave the names alone, since a name may be repeated', () => {
+    const channels = read([channel('a', 'Guitar'), channel('b', 'Guitar')])
+
+    expect(channels.map((one) => one.name)).toEqual(['Guitar', 'Guitar'])
+    expect(channels.map((one) => one.id)).toEqual(['a', 'b'])
+  })
+
+  /* A file with no ids at all falls back to the index, which is unique
+     already; this must not start renumbering them. */
+  it('leave channels that were already their own alone', () => {
+    const channels = read([channel('a', 'One'), channel('b', 'Two')])
+
+    expect(channels.map((one) => one.id)).toEqual(['a', 'b'])
+  })
+})

@@ -26,7 +26,18 @@ const SEPARATION_WEIGHT = 12
 export async function separateStems(
   songDirectory: string,
   source: AudioChannel,
-  { model, stems, muteSource }: SeparateRequest
+  { model, stems, muteSource }: SeparateRequest,
+  /**
+   * The ids the song's channels already have.
+   *
+   * Not the same as what is in the audio folder: a channel's file is named
+   * after the channel and its id is what the file was called when it arrived,
+   * so a renamed channel holds an id that appears nowhere on disk. Handing a
+   * stem that id gives two channels the same one, and two channels with one id
+   * are one channel as far as anything above here can tell — muting, renaming
+   * or deleting either does both.
+   */
+  takenIds: readonly string[] = []
 ): Promise<AudioChannel[]> {
   const demucs = await demucsCommand()
   const ffmpeg = await requireTool('ffmpeg')
@@ -40,7 +51,7 @@ export async function separateStems(
   const separatedIn = join(workspace, model, parse(source.file).name)
 
   try {
-    const taken = await takenStems(songDirectory, [])
+    const taken = await takenStems(songDirectory, [...takenIds])
     const plans = wanted.map((stem) => {
       const id = uniqueSlug(`${parse(source.file).name} ${stem}`, taken)
       taken.push(id)

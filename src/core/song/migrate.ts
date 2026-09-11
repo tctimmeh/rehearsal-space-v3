@@ -14,6 +14,7 @@ import {
   type TabFile,
   type WaveformSettings
 } from './song'
+import { uniqueSlug } from './slug'
 
 export class UnreadableSongError extends Error {}
 
@@ -129,6 +130,28 @@ const parseSubject = (raw: unknown): ChannelSubject =>
   typeof raw === 'string' && raw in FOLDED_INTO
     ? (FOLDED_INTO[raw] as ChannelSubject)
     : oneOf<ChannelSubject>(raw, CHANNEL_SUBJECTS, 'other')
+
+/**
+ * Gives a channel that shares an id with an earlier one an id of its own.
+ *
+ * An id is how everything above this tells one channel from another: the mixer
+ * mutes by it, the editor renames by it, deleting removes by it, and the audio
+ * engine files a decoded channel under it. Two channels holding one id are one
+ * channel to all of them — muting either mutes both, and both play the same
+ * audio — so a song is never handed back in that state, however it got there.
+ *
+ * The channel that loses its id loses the waveform drawn from `peaks/<id>`
+ * with it, which is a blank trace in the alignment tool until it is imported
+ * again. That is the smaller of the two problems by a long way.
+ */
+function eachWithItsOwnId(channels: Channel[]): Channel[] {
+  const taken = new Set<string>()
+  return channels.map((channel) => {
+    const id = uniqueSlug(channel.id, taken)
+    taken.add(id)
+    return id === channel.id ? channel : { ...channel, id }
+  })
+}
 
 function parseChannel(raw: unknown, index: number): Channel | null {
   if (!isRecord(raw)) return null
@@ -270,9 +293,11 @@ export function migrateSong(raw: unknown, id: string): Song {
     artist: str(raw['artist'], defaults.artist),
     createdAt: str(raw['createdAt'], defaults.createdAt),
     updatedAt: str(raw['updatedAt'], defaults.updatedAt),
-    channels: channels
-      .map((channel, index) => parseChannel(channel, index))
-      .filter((channel): channel is Channel => channel !== null),
+    channels: eachWithItsOwnId(
+      channels
+        .map((channel, index) => parseChannel(channel, index))
+        .filter((channel): channel is Channel => channel !== null)
+    ),
     buses: {
       music: clamped(buses['music'], defaults.buses.music, 0, 1),
       click: clamped(buses['click'], defaults.buses.click, 0, 1)

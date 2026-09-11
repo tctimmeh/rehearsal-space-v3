@@ -154,7 +154,12 @@ export async function separateChannel(
     if (source === undefined || source.kind !== 'audio') {
       throw new Error('That channel has no audio to separate.')
     }
-    return separateStems(directory, source as AudioChannel, request)
+    return separateStems(
+      directory,
+      source as AudioChannel,
+      request,
+      before.channels.map((entry) => entry.id)
+    )
   })
 
   const song = await readSong(songId)
