@@ -67,7 +67,9 @@ export async function separateStems(
         name: stemLabel(stem),
         subject: guessSubject(stem),
         origin: { type: 'stem', fromChannelId: source.id, model },
-        durationSeconds: sourceLength(source)
+        durationSeconds: sourceLength(source),
+        /* demucs writes stereo whatever it was given. */
+        channels: 2
       })
       return { ...plan, channel: placedLike(source, plan.channel) }
     })

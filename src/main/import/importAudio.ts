@@ -57,6 +57,15 @@ interface PlanRequest {
   subject: InstrumentSubject
   origin: ChannelOrigin
   durationSeconds: number
+  /**
+   * How many channels to write, which is however many arrived.
+   *
+   * Everything used to be written as stereo, which made every take twice the
+   * file it needed to be: a take is recorded from one socket and is mono, and
+   * storing it as the same signal twice adds nothing to play back. Someone
+   * dragging it into a DAW later should find the mono track they played.
+   */
+  channels: number
 }
 
 export function planConversion({
@@ -67,7 +76,8 @@ export function planConversion({
   name,
   subject,
   origin,
-  durationSeconds
+  durationSeconds,
+  channels
 }: PlanRequest): ConversionPlan {
   const audioPath = join(songDirectory, 'audio', `${id}.ogg`)
   const peaksPath = join(songDirectory, 'peaks', `${id}.peaks`)
@@ -111,7 +121,7 @@ export function planConversion({
           '-i', sourcePath,
           '-vn',
           '-ar', TARGET_SAMPLE_RATE,
-          '-ac', '2',
+          '-ac', String(Math.max(1, channels)),
           '-c:a', 'libvorbis',
           '-q:a', OGG_QUALITY,
           audioPath,
@@ -189,7 +199,8 @@ export async function importAudio({
     name: name ?? nameFromFile(sourcePath),
     subject: subject ?? guessSubject(sourcePath),
     origin: origin ?? { type: 'import', sourcePath },
-    durationSeconds: info.durationSeconds
+    durationSeconds: info.durationSeconds,
+    channels: info.channels
   })
 
   return reserving(songDirectory, [id], async () => {

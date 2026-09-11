@@ -133,7 +133,8 @@ A channel's audio file is named after the channel for the same reason.
 ```
 <library>/coast-road/
   song.json     versioned; parsed with fallbacks, so a hand-edit cannot brick it
-  audio/        one Ogg Vorbis file per audio channel, named for the channel
+  audio/        one Ogg Vorbis file per audio channel, named for the channel,
+                with the channel count it arrived with — a take is mono
   peaks/        precomputed min/max envelopes, four zoom levels, filed by channel id
   tabs/         one text file per tablature
   lyrics.txt    plain text, copy-pasteable
