@@ -273,10 +273,21 @@
   border-bottom: 1px solid var(--hairline);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
+/*
+ * One height for every gadget, whatever is in it.
+ *
+ * Left to themselves they came out a few pixels apart — the metronome is
+ * taller, its stacked buttons setting the height, and the tuner shorter — so
+ * turning one on or off moved everything below the strip. This is the room the
+ * tallest of them needs, and the rest are given it rather than each finding its
+ * own. A gadget that will not fit is a gadget to make fit, not a reason to let
+ * the strip breathe again.
+ */
 .gadget {
   display: flex;
   align-items: center;
   gap: 11px;
+  min-height: 62px;
   padding: 9px 15px;
   border-right: 1px solid var(--hairline);
   box-shadow: 1px 0 0 var(--edge-hi);
