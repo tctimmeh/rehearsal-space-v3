@@ -13,7 +13,6 @@ import { useConfig } from './config'
 import { Recorder } from '@renderer/audio/recorder'
 import { renderTake } from '@renderer/audio/renderTake'
 import { useTools } from './tools'
-import { useJobs } from './jobs'
 import { useTransport } from './transport'
 
 interface SongState {
@@ -64,6 +63,16 @@ interface SongState {
   /** Writes any pending change now. */
   flush: () => Promise<void>
   /**
+   * Takes on their way into the song, by the name they will have.
+   *
+   * A take is a minute or two of work between the player stopping and the
+   * channel existing: gathering the blocks, taking back the tempo and pitch it
+   * was played against, writing a wav, and then main writing that out and
+   * probing it. The mixer holds a place for it in the meantime, so what you
+   * just played is somewhere rather than nowhere.
+   */
+  arriving: string[]
+  /**
    * A channel being changed on trial, and what the file is to keep meanwhile.
    *
    * Trimming a take and lining up a click are tried out before they are
@@ -90,9 +99,6 @@ const message = (error: unknown): string =>
 const SAVE_DELAY_MS = 400
 
 const recorder = new Recorder()
-
-/** One at a time, and only ever the one, so it needs no more of a name. */
-const KEEPING_THE_TAKE = 'keeping-the-take'
 
 /**
  * Waits for the browser to have drawn what was just asked for.
@@ -128,6 +134,7 @@ export const useSong = create<SongState>((set, get) => ({
   importing: false,
   loading: null,
   unwritten: null,
+  arriving: [],
 
   dismissError: () => set({ error: null }),
 
@@ -296,7 +303,8 @@ export const useSong = create<SongState>((set, get) => ({
 
   finishTake: async () => {
     /*
-     * Said before any of the work is done, and painted before any of it runs.
+     * The channel takes its place before any of the work, and is drawn before
+     * any of it runs.
      *
      * Turning a take into a file is a second or two of this window's own time
      * — gathering the blocks, taking back the tempo and pitch it was played
@@ -306,11 +314,8 @@ export const useSong = create<SongState>((set, get) => ({
      * lost. A state change that is never painted is not feedback, so this
      * waits for a frame before the work begins.
      */
-    useJobs.getState().startWork({
-      id: KEEPING_THE_TAKE,
-      title: 'Keeping the take',
-      detail: 'Writing down what you just played'
-    })
+    const arriving = takeName(get().song as Song)
+    set({ arriving: [...get().arriving, arriving] })
     await painted()
 
     try {
@@ -360,9 +365,8 @@ export const useSong = create<SongState>((set, get) => ({
        * nothing in them do not arrive at all.
        */
       const worth = inputsWorthKeeping(captured)
-      const name = takeName(get().song as Song)
       const named = (index: number): string =>
-        worth.length === 1 ? name : `${name} (input ${index + 1})`
+        worth.length === 1 ? arriving : `${arriving} (input ${index + 1})`
 
       for (const index of worth) {
         const one = played[index]
@@ -373,7 +377,7 @@ export const useSong = create<SongState>((set, get) => ({
         )
       }
     } finally {
-      useJobs.getState().endWork(KEEPING_THE_TAKE)
+      set({ arriving: get().arriving.filter((one) => one !== arriving) })
     }
   },
 

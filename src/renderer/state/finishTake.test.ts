@@ -50,7 +50,7 @@ async function harness() {
       load: vi.fn(async (id: string) => newSong(id)),
       save: vi.fn(async (song: Song) => song),
       addRecording: vi.fn(
-        (songId: string) =>
+        (_songId: string, _wav: Uint8Array, _startTime: number, _name: string) =>
           new Promise<Song>((resolve) => {
             holdRecording = resolve
           })
@@ -65,9 +65,8 @@ async function harness() {
   vi.stubGlobal('requestAnimationFrame', (fn: () => void) => setTimeout(fn, 0))
 
   const { useSong } = await import('./song')
-  const { useJobs } = await import('./jobs')
   await useSong.getState().load('a-song')
-  return { useSong, useJobs, bridge }
+  return { useSong, bridge }
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -87,29 +86,29 @@ beforeEach(() => {
 
 /**
  * Turning a take into a file takes a second or two before main has anything to
- * report on, and a window that says nothing for that long after a long
+ * report on, and a mixer with nothing new in it for that long after a long
  * recording reads as having lost it.
  */
-describe('keeping a take', () => {
-  it('says so before the work, not after it', async () => {
-    const { useSong, useJobs, bridge } = await harness()
+describe('a take on its way in', () => {
+  it('takes its place in the mixer before the work, not after it', async () => {
+    const { useSong, bridge } = await harness()
 
     const keeping = useSong.getState().finishTake()
     await until(() => bridge.library.addRecording.mock.calls.length > 0)
 
-    expect(useJobs.getState().working.map((one) => one.title)).toEqual(['Keeping the take'])
+    expect(useSong.getState().arriving).toEqual(['Take 1'])
 
     holdRecording(newSong('a-song'))
     await keeping
   })
 
-  /* The message goes up before anything blocks, so it is on screen while the
+  /* It is put there before anything blocks, so it is on screen while the
      blocking happens rather than after it. */
-  it('waits for it to be drawn before starting', async () => {
-    const { useSong, useJobs, bridge } = await harness()
-    let sayingWhenAsked: string[] = []
+  it('is there before the work begins', async () => {
+    const { useSong, bridge } = await harness()
+    let thereWhenAsked: string[] = []
     recorder.endTake.mockImplementation(() => {
-      sayingWhenAsked = useJobs.getState().working.map((one) => one.title)
+      thereWhenAsked = useSong.getState().arriving
       return take
     })
 
@@ -118,28 +117,41 @@ describe('keeping a take', () => {
     holdRecording(newSong('a-song'))
     await keeping
 
-    expect(sayingWhenAsked).toEqual(['Keeping the take'])
+    expect(thereWhenAsked).toEqual(['Take 1'])
   })
 
-  it('stops saying it once the take has been handed over', async () => {
-    const { useSong, useJobs, bridge } = await harness()
+  /* Held under the name it will have, so nothing is renamed under the eye as
+     the real channel replaces it. */
+  it('is given to the channel as the name it was held under', async () => {
+    const { useSong, bridge } = await harness()
 
     const keeping = useSong.getState().finishTake()
     await until(() => bridge.library.addRecording.mock.calls.length > 0)
     holdRecording(newSong('a-song'))
     await keeping
 
-    expect(useJobs.getState().working).toEqual([])
+    expect(bridge.library.addRecording.mock.calls[0]?.[3]).toBe('Take 1')
   })
 
-  /* A take that captured nothing still has to take the message down. */
-  it('stops saying it when there was no take at all', async () => {
-    const { useSong, useJobs } = await harness()
+  it('gives up its place once the channel is there', async () => {
+    const { useSong, bridge } = await harness()
+
+    const keeping = useSong.getState().finishTake()
+    await until(() => bridge.library.addRecording.mock.calls.length > 0)
+    holdRecording(newSong('a-song'))
+    await keeping
+
+    expect(useSong.getState().arriving).toEqual([])
+  })
+
+  /* A take that captured nothing still has to give its place up. */
+  it('gives it up when there was no take at all', async () => {
+    const { useSong } = await harness()
     recorder.endTake.mockReturnValue(null as unknown as typeof take)
 
     await useSong.getState().finishTake()
 
-    expect(useJobs.getState().working).toEqual([])
+    expect(useSong.getState().arriving).toEqual([])
     expect(useSong.getState().error).toBe('The recording captured nothing.')
   })
 })

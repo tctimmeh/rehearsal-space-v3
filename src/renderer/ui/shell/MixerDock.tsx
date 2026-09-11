@@ -44,7 +44,8 @@ export function MixerDock() {
     separate,
     removeChannel,
     addMetronome,
-    importing
+    importing,
+    arriving
   } = useSong()
 
   /*
@@ -95,6 +96,10 @@ export function MixerDock() {
             onAlign={() => beginEdit('click', channel)}
             onDelete={() => setDeletingId(channel.id)}
           />
+        ))}
+
+        {arriving.map((name) => (
+          <ArrivingStrip key={name} name={name} />
         ))}
 
         <div className="strip strip--add">
@@ -345,6 +350,33 @@ function ChannelStrip({
           )}
         </StripMenu>
       </div>
+    </div>
+  )
+}
+
+/**
+ * A take that has stopped but is not a channel yet.
+ *
+ * It stands where the channel will stand, under the name it will have, so what
+ * was just played is somewhere from the moment the player stops rather than
+ * nowhere for a second or two. There is nothing to mix on it and nothing to
+ * press: the fader's place is held by something that says only that it is on
+ * its way.
+ */
+function ArrivingStrip({ name }: { name: string }) {
+  return (
+    <div className="strip strip--arriving">
+      <div className="strip__name">
+        <span className="strip__name-icon" style={{ color: CHANNEL_SUBJECT_COLOR.other }}>
+          <SubjectIcon subject="other" size={20} />
+        </span>
+        <span className="strip__name-text">{name}</span>
+      </div>
+
+      <div className="strip__arriving" role="status" aria-label={`${name} is being kept`}>
+        <i />
+      </div>
+      <span className="strip__arriving-note">Keeping…</span>
     </div>
   )
 }

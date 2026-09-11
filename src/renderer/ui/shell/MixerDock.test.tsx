@@ -422,3 +422,44 @@ describe('the wheel over the mixer', () => {
     expect(along()).toBe(0)
   })
 })
+
+/**
+ * A take is a second or two of work after the player stops, and a mixer with
+ * nothing new in it for that long reads as having lost what was just played.
+ */
+describe('a take on its way in', () => {
+  it('stands where the channel will stand, under the name it will have', () => {
+    useSong.setState({ arriving: ['Take 3'] })
+    dock()
+
+    const strip = screen.getByText('Take 3').closest('.strip') as HTMLElement
+    expect(strip).not.toBeNull()
+    expect(strip.querySelector('.strip__arriving')).not.toBeNull()
+  })
+
+  /* Nothing to mix on it and nothing to press until it is really there. */
+  it('offers none of the things a channel offers', () => {
+    useSong.setState({ arriving: ['Take 3'] })
+    dock()
+
+    const strip = screen.getByText('Take 3').closest('.strip') as HTMLElement
+    expect(strip.querySelector('.ms-btn--mute')).toBeNull()
+    expect(strip.querySelector('.strip__more')).toBeNull()
+    expect(strip.querySelector('[role="slider"]')).toBeNull()
+  })
+
+  it('comes last, after the channels that are really there', () => {
+    useSong.setState({ arriving: ['Take 3'] })
+    dock()
+
+    const named = [...document.querySelectorAll('.strip__name-text')].map((one) => one.textContent)
+    expect(named.at(-1)).toBe('Take 3')
+  })
+
+  it('is not there when nothing is on its way', () => {
+    useSong.setState({ arriving: [] })
+    dock()
+
+    expect(document.querySelector('.strip--arriving')).toBeNull()
+  })
+})
