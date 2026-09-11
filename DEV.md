@@ -90,6 +90,14 @@ Four ways in, all through the job queue so none of them blocks the UI:
   predictable place, so every conversion is planned before anything runs. The
   original is kept and, by default, muted.
 
+Jobs run alongside each other, and adding a channel waits for nothing: a
+download, an import or a click track can start while a separation runs, on that
+song or another. The only rules are the ones with a reason anybody could give —
+one separation at a time, because demucs takes every core and a couple of
+gigabytes, and no deleting the channel one is reading. An id promised to a job
+that has not written its file yet is held in `import/reserving.ts`, so a second
+add cannot mint the same one and write over the first's waveform.
+
 All four end the same way. The channel is folded into song.json *inside* the
 hold, by a read-modify-write the library serialises per song, and that write —
 the job's own last word, with the work behind it — is the one allowed to perform

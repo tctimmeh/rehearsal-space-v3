@@ -9,6 +9,7 @@ import type { AudioChannel } from '@core/song/song'
 import { stemsOf, type SeparateRequest } from '../../shared/stems'
 import { jobs } from '../jobs'
 import { demucsCommand, requireTool } from '../tools'
+import { reserving } from './reserving'
 import { placedLike, sourceLength } from '@core/song/trim'
 import { ensureSongFolders, planConversion, takenStems } from './importAudio'
 
@@ -71,26 +72,28 @@ export async function separateStems(
       return { ...plan, channel: placedLike(source, plan.channel) }
     })
 
-    await jobs.run({
-      title: 'Separating',
-      detail: `${source.name} · ${model}`,
-      subject: source.subject,
-      steps: [
-        {
-          command: demucs.path,
-          args: ['-n', model, '-o', workspace, sourcePath],
-          /* Where its models are kept, and an ffmpeg to fall back on for the
-             audio it cannot read itself — which here is all of it. */
-          env: demucs.env,
-          progress: demucsProgress(),
-          weight: SEPARATION_WEIGHT
-        },
-        ...plans.flatMap((plan) => plan.steps)
-      ]
-    })
+    return reserving(songDirectory, plans.map((plan) => plan.channel.id), async () => {
+      await jobs.run({
+        title: 'Separating',
+        detail: `${source.name} · ${model}`,
+        subject: source.subject,
+        steps: [
+          {
+            command: demucs.path,
+            args: ['-n', model, '-o', workspace, sourcePath],
+            /* Where its models are kept, and an ffmpeg to fall back on for the
+               audio it cannot read itself — which here is all of it. */
+            env: demucs.env,
+            progress: demucsProgress(),
+            weight: SEPARATION_WEIGHT
+          },
+          ...plans.flatMap((plan) => plan.steps)
+        ]
+      })
 
-    await Promise.all(plans.map((plan) => plan.finish()))
-    return plans.map((plan) => plan.channel)
+      await Promise.all(plans.map((plan) => plan.finish()))
+      return plans.map((plan) => plan.channel)
+    })
   } finally {
     await rm(workspace, { recursive: true, force: true })
   }

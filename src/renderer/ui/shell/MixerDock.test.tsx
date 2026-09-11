@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AudioChannel, ChannelOrigin, Song } from '@core/song/song'
 import { newSong } from '@core/song/song'
@@ -52,14 +52,20 @@ const loadedSong = (): Song => ({
 
 beforeEach(() => {
   installBridge()
-  useSong.setState({ song: loadedSong(), songs: [], error: null, importing: false })
+  useSong.setState({
+    song: loadedSong(),
+    songs: [],
+    error: null,
+    importing: false,
+    splitting: []
+  })
 })
 
 afterEach(() => {
   cleanup()
   useTools.setState((state) => ({ open: { ...state.open, waveform: false } }))
   useWaveformEdit.setState({ editing: null })
-  useSong.setState({ song: null })
+  useSong.setState({ song: null, splitting: [] })
 })
 
 const value = (element: HTMLElement): string => (element as HTMLInputElement).value
@@ -461,5 +467,87 @@ describe('a take on its way in', () => {
     dock()
 
     expect(document.querySelector('.strip--arriving')).toBeNull()
+  })
+})
+
+/*
+ * A separation takes minutes, and it used to disable the whole dock while it
+ * ran — on every song, not just the one being split. Waiting ten minutes to add
+ * a click track, which is not even a file, is not a rule anybody could guess.
+ *
+ * Started through the store rather than by setting a flag, so that what is
+ * being asserted is what the app is actually in the middle of.
+ */
+describe('while a channel is being split into stems', () => {
+  beforeEach(async () => {
+    installBridge({ separate: vi.fn(() => new Promise<Song>(() => undefined)) })
+    useSong.setState({
+      song: loadedSong(),
+      songs: [],
+      error: null,
+      importing: false,
+      splitting: []
+    })
+    await act(async () => {
+      void useSong
+        .getState()
+        .separate({ channelId: 'c2', model: 'htdemucs', stems: ['vocals'], muteSource: true })
+    })
+  })
+
+  const enabled = (name: RegExp) =>
+    expect(screen.getByRole('menuitem', { name })).not.toHaveProperty('disabled', true)
+  const blocked = (name: RegExp) =>
+    expect(screen.getByRole('menuitem', { name })).toHaveProperty('disabled', true)
+
+  it('still lets a channel be added', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await user.click(screen.getByRole('button', { name: 'Add a channel' }))
+
+    enabled(/Import audio/)
+    enabled(/Download from a URL/)
+    enabled(/Add a click track/)
+  })
+
+  /* Both are the song's own file, and neither touches the audio. */
+  it('still lets another channel be trimmed', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await openMenu(user, 'Bass take2')
+
+    enabled(/Trim and place/)
+  })
+
+  /* demucs takes every core and a couple of gigabytes; two of them race each
+     other to a standstill. */
+  it('will not start a second split', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await openMenu(user, 'Bass take2')
+
+    blocked(/Split into stems/)
+  })
+
+  /* Deleting takes the audio file with it, and demucs is reading that file. */
+  it('will not delete the channel it is reading', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await openMenu(user, 'Drums')
+
+    blocked(/Delete channel/)
+  })
+
+  it('still deletes a channel it is not reading', async () => {
+    const user = userEvent.setup()
+    dock()
+
+    await openMenu(user, 'Bass take2')
+
+    enabled(/Delete channel/)
   })
 })

@@ -44,7 +44,7 @@ export function MixerDock() {
     separate,
     removeChannel,
     addMetronome,
-    importing,
+    splitting,
     arriving
   } = useSong()
 
@@ -88,7 +88,8 @@ export function MixerDock() {
           <ChannelStrip
             key={channel.id}
             channel={channel}
-            busy={importing}
+            splitting={splitting.includes(channel.id)}
+            elsewhere={splitting.length > 0}
             onChange={(patch) => updateChannel(channel.id, patch)}
             onEdit={() => setEditingId(channel.id)}
             onSplit={() => setStemsId(channel.id)}
@@ -108,7 +109,6 @@ export function MixerDock() {
               <>
                 <StripMenuItem
                   label="Import audio…"
-                  disabled={importing}
                   onClick={() => {
                     close()
                     void importAudio()
@@ -116,7 +116,6 @@ export function MixerDock() {
                 />
                 <StripMenuItem
                   label="Download from a URL…"
-                  disabled={importing}
                   onClick={() => {
                     close()
                     setDownloading(true)
@@ -124,7 +123,6 @@ export function MixerDock() {
                 />
                 <StripMenuItem
                   label="Add a click track"
-                  disabled={importing}
                   onClick={() => {
                     close()
                     /* A click track is added in order to line it up, so the
@@ -189,7 +187,7 @@ export function MixerDock() {
 
       {stems === null || !demucs.found ? null : (
         <StemsDialog
-          busy={importing}
+          busy={splitting.length > 0}
           onDismiss={() => setStemsId(null)}
           onSeparate={(model: DemucsModel, chosen, muteSource) => {
             setStemsId(null)
@@ -200,7 +198,6 @@ export function MixerDock() {
 
       {!downloading ? null : (
         <DownloadDialog
-          busy={importing}
           onDismiss={() => setDownloading(false)}
           onDownload={(url) => {
             setDownloading(false)
@@ -240,7 +237,8 @@ export function MixerDock() {
 
 function ChannelStrip({
   channel,
-  busy,
+  splitting,
+  elsewhere,
   onChange,
   onEdit,
   onSplit,
@@ -249,7 +247,10 @@ function ChannelStrip({
   onDelete
 }: {
   channel: Channel
-  busy: boolean
+  /** demucs is reading this channel's file right now. */
+  splitting: boolean
+  /** It is reading some other channel's, which is enough to be going on with. */
+  elsewhere: boolean
   onChange: (patch: MixerPatch) => void
   onEdit: () => void
   onSplit: () => void
@@ -312,9 +313,13 @@ function ChannelStrip({
               />
               {channel.kind === 'audio' ? (
                 <>
+                  {/* One separation at a time: demucs takes every core and a
+                      couple of gigabytes, and two of them race each other to a
+                      standstill. Everything else here is the song's own file
+                      and is free to happen alongside. */}
                   <StripMenuItem
                     label="Split into stems…"
-                    disabled={busy}
+                    disabled={elsewhere}
                     onClick={() => {
                       close()
                       onSplit()
@@ -322,7 +327,6 @@ function ChannelStrip({
                   />
                   <StripMenuItem
                     label="Trim and place…"
-                    disabled={busy}
                     onClick={() => {
                       close()
                       onTrim()
@@ -332,15 +336,17 @@ function ChannelStrip({
               ) : (
                 <StripMenuItem
                   label="Align Click…"
-                  disabled={busy}
                   onClick={() => {
                     close()
                     onAlign()
                   }}
                 />
               )}
+              {/* Deleting takes the audio file with it, and a separation
+                  running on this channel is reading that file. */}
               <StripMenuItem
                 label="Delete channel…"
+                disabled={splitting}
                 onClick={() => {
                   close()
                   onDelete()

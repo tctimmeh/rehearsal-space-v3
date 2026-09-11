@@ -11,6 +11,7 @@ import type { AudioChannel, ChannelOrigin, InstrumentSubject } from '@core/song/
 import { jobs, type JobStep } from '../jobs'
 import { requireTool } from '../tools'
 import { probeAudio } from './probe'
+import { reservedIn, reserving } from './reserving'
 
 /** Small enough to scrub smoothly, good enough to practise against. */
 const OGG_QUALITY = '5'
@@ -150,7 +151,11 @@ export async function ensureSongFolders(songDirectory: string): Promise<void> {
 /** Names already taken, so a new file cannot land on an existing one. */
 export async function takenStems(songDirectory: string, channelIds: string[]): Promise<string[]> {
   const onDisk = await readdir(join(songDirectory, 'audio')).catch(() => [])
-  return [...channelIds, ...onDisk.map((entry) => parse(entry).name)]
+  return [
+    ...channelIds,
+    ...onDisk.map((entry) => parse(entry).name),
+    ...reservedIn(songDirectory)
+  ]
 }
 
 /**
@@ -187,12 +192,14 @@ export async function importAudio({
     durationSeconds: info.durationSeconds
   })
 
-  await jobs.run({
-    title: 'Importing',
-    detail: `${nameFromFile(sourcePath)} → ogg`,
-    subject: plan.channel.subject,
-    steps: plan.steps
+  return reserving(songDirectory, [id], async () => {
+    await jobs.run({
+      title: 'Importing',
+      detail: `${nameFromFile(sourcePath)} → ogg`,
+      subject: plan.channel.subject,
+      steps: plan.steps
+    })
+    await plan.finish()
+    return startTime === undefined ? plan.channel : { ...plan.channel, startTime }
   })
-  await plan.finish()
-  return startTime === undefined ? plan.channel : { ...plan.channel, startTime }
 }

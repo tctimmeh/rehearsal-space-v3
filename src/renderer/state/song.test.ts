@@ -49,6 +49,16 @@ async function harness(): Promise<Harness> {
       }),
       remove: vi.fn(async () => undefined),
       rememberLastSong: vi.fn(async () => undefined),
+      /* Answers with the song minus that channel, as main does once it has
+         taken the audio and the waveform away with it. */
+      removeChannel: vi.fn(async (_songId: string, channelId: string) => {
+        const { useSong } = await import('./song')
+        const song = useSong.getState().song as Song
+        return {
+          ...song,
+          channels: song.channels.filter((one) => one.id !== channelId)
+        }
+      }),
       /* Held open so the song can be renamed while the download is running. */
       downloadAudio: vi.fn(
         (_songId: string, _url: string) =>
@@ -643,6 +653,44 @@ describe('renaming a song while a channel is on its way in', () => {
     await downloading
 
     expect(useSong.getState().song?.id).toBe('coast-road')
+  })
+
+  /* The other half of the same rule: a channel the answer leaves out because
+     it has just been deleted must not be kept on those grounds. */
+  it('lets go of a channel that was deleted', async () => {
+    const { useSong, completeSave } = await harness()
+    await useSong.getState().load('new-song')
+    useSong.getState().update({ channels: [channel('one'), channel('two')] })
+    await vi.advanceTimersByTimeAsync(500)
+    completeSave()
+
+    const removing = useSong.getState().removeChannel('one')
+    await vi.advanceTimersByTimeAsync(0)
+    await removing
+
+    expect(useSong.getState().song?.channels.map((it) => it.id)).toEqual(['two'])
+  })
+
+  /*
+   * A click track is the song's own file and can be added while a download or
+   * a split runs. Main's answer was composed before it existed, and the
+   * channel list used to be taken from that answer wholesale — so the click
+   * track vanished the moment the download landed.
+   */
+  it('keeps a click track added while the channel was on its way in', async () => {
+    const { useSong } = await harness()
+    await useSong.getState().load('new-song')
+
+    const downloading = useSong.getState().downloadAudio('https://example.test/song')
+    await vi.advanceTimersByTimeAsync(0)
+    useSong.getState().addMetronome()
+    finishDownload(asMainAnswers('coast-road'))
+    await downloading
+
+    expect(useSong.getState().song?.channels.map((one) => one.id)).toEqual([
+      'downloaded',
+      'click'
+    ])
   })
 
   /* Everything but the channels and the name it was filed under is still the

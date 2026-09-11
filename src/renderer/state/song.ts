@@ -54,6 +54,15 @@ interface SongState {
   separate: (request: SeparateRequest) => Promise<void>
   /** True while any of importing, downloading or separating is under way. */
   importing: boolean
+  /**
+   * Channels being split into stems right now.
+   *
+   * Adding a channel is not held up by any of this — a download, an import or
+   * a click track can start while a split runs, on this song or another one.
+   * What a split does rule out is anything that would pull the file out from
+   * under demucs while it reads it.
+   */
+  splitting: string[]
   /** How far through decoding a song's channels we are, while that is happening. */
   loading: { decoded: number; total: number } | null
   /** Adds or removes a tag on any song in the library, loaded or not. */
@@ -139,6 +148,7 @@ export const useSong = create<SongState>((set, get) => ({
   song: null,
   error: null,
   importing: false,
+  splitting: [],
   loading: null,
   unwritten: null,
   arriving: [],
@@ -395,7 +405,12 @@ export const useSong = create<SongState>((set, get) => ({
   },
 
   separate: async (request) => {
-    await runAdding(set, get, (song) => window.rehearsal.library.separate(song.id, request))
+    set({ splitting: [...get().splitting, request.channelId] })
+    try {
+      await runAdding(set, get, (song) => window.rehearsal.library.separate(song.id, request))
+    } finally {
+      set({ splitting: get().splitting.filter((one) => one !== request.channelId) })
+    }
   },
 
   removeChannel: async (channelId) => {
@@ -407,7 +422,7 @@ export const useSong = create<SongState>((set, get) => ({
     if (song === null) return
     try {
       const updated = await window.rehearsal.library.removeChannel(song.id, channelId)
-      adoptChannels(set, get, song.id, updated)
+      adoptChannels(set, get, song.id, updated, 'is gone')
     } catch (error) {
       set({ error: message(error) })
     }
@@ -457,15 +472,26 @@ async function asTheSongWillPlayIt(
   const correction = takeCorrection(heardAt)
   if (correction.semitones === 0 && correction.rate === 1) return captured
 
-  set({ importing: true })
+  noteAdding(set, 1)
   try {
     return await renderTake(captured, sampleRate, correction)
   } catch (error) {
     set({ error: `The take was kept as it was played: ${message(error)}` })
     return captured
   } finally {
-    set({ importing: false })
+    noteAdding(set, -1)
   }
+}
+
+/**
+ * Several adds can be running at once, so what is under way is counted rather
+ * than flagged: the first one to finish must not declare the rest over.
+ */
+let adding = 0
+
+function noteAdding(set: (partial: Partial<SongState>) => void, delta: number): void {
+  adding += delta
+  set({ importing: adding > 0 })
 }
 
 /**
@@ -487,14 +513,15 @@ async function runAdding(
   const asked = get().song
   if (asked === null) return
 
-  set({ importing: true, error: null })
+  set({ error: null })
+  noteAdding(set, 1)
   try {
     const updated = await work(asked)
-    if (updated !== null) adoptChannels(set, get, asked.id, updated)
+    if (updated !== null) adoptChannels(set, get, asked.id, updated, 'is newer')
   } catch (error) {
     set({ error: message(error) })
   } finally {
-    set({ importing: false })
+    noteAdding(set, -1)
   }
   await get().refresh()
 }
@@ -520,7 +547,14 @@ function adoptChannels(
   set: (partial: Partial<SongState>) => void,
   get: () => SongState,
   asked: string,
-  updated: Song
+  updated: Song,
+  /**
+   * What a channel the answer does not mention means. After an add it is one
+   * main has not seen yet — a click track put down while the download ran,
+   * whose answer was composed before it existed. After a removal its absence
+   * is the whole point.
+   */
+  unmentioned: 'is newer' | 'is gone'
 ): void {
   const current = get().song
   if (current === null) return
@@ -529,9 +563,13 @@ function adoptChannels(
      own copy of it, and taking that back would undo the work in progress. */
   const trial = get().unwritten
   const onTrial = current.channels.find((one) => one.id === trial?.channelId) ?? null
-  const channels = updated.channels.map((one) =>
-    onTrial !== null && one.id === onTrial.id ? onTrial : one
-  )
+  const answered = new Set(updated.channels.map((one) => one.id))
+  const newer =
+    unmentioned === 'is newer' ? current.channels.filter((one) => !answered.has(one.id)) : []
+  const channels = [
+    ...updated.channels.map((one) => (onTrial !== null && one.id === onTrial.id ? onTrial : one)),
+    ...newer
+  ]
   const song = { ...current, id: updated.id, channels }
   set({ song })
   applyBounds(song)

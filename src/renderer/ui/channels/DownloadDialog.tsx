@@ -3,12 +3,11 @@ import { useState } from 'react'
 import { Button, Modal } from '../primitives'
 
 interface DownloadDialogProps {
-  busy: boolean
   onDownload: (url: string) => void
   onDismiss: () => void
 }
 
-export function DownloadDialog({ busy, onDownload, onDismiss }: DownloadDialogProps) {
+export function DownloadDialog({ onDownload, onDismiss }: DownloadDialogProps) {
   const [url, setUrl] = useState('')
   const ready = /^https?:\/\/\S+$/.test(url.trim())
 
@@ -22,10 +21,10 @@ export function DownloadDialog({ busy, onDownload, onDismiss }: DownloadDialogPr
           <Button onClick={onDismiss}>Cancel</Button>
           <Button
             variant="primary"
-            disabled={busy || !ready}
+            disabled={!ready}
             onClick={() => onDownload(url.trim())}
           >
-            {busy ? 'Downloading…' : 'Download'}
+            Download
           </Button>
         </>
       }
@@ -40,7 +39,7 @@ export function DownloadDialog({ busy, onDownload, onDismiss }: DownloadDialogPr
           autoFocus
           onChange={(event) => setUrl(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && ready && !busy) onDownload(url.trim())
+            if (event.key === 'Enter' && ready) onDownload(url.trim())
           }}
         />
       </div>
